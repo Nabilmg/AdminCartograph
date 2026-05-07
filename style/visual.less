@@ -29,13 +29,23 @@
     pointer-events: none;
   }
 
-  .adm-back-button {
-    pointer-events: auto;
+  .adm-top-bar {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  .adm-back-button,
+  .adm-export-button {
+    pointer-events: auto;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     padding: 6px 10px;
     background: rgba(255, 255, 255, 0.95);
@@ -49,6 +59,15 @@
 
     &:hover { background: #f3f3f3; }
     &:focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+    &:disabled { opacity: 0.6; cursor: progress; }
+
+    svg { display: block; }
+  }
+
+  .adm-export-button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
   }
 
   .adm-overlay {

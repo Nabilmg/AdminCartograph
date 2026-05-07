@@ -43,19 +43,51 @@ export interface LabelDatum {
   name: string;
   value: number | null;
   value2?: number | null;
+  /** PCODE used for cross-referencing with bubble anchors. */
+  pcode?: string;
 }
 
-export function renderLabels(parent: SVGGElement, projection: GeoProjection, path: GeoPath, labels: LabelDatum[], style: LabelStyle): void {
+export interface LabelAnchorOverride {
+  /** Centre of the label, in screen-space px. */
+  x: number;
+  y: number;
+  /**
+   * If non-zero, the label engine will shift the text further from this
+   * point so it doesn't overlap (e.g. above a bubble).
+   */
+  padAbove?: number;
+  padBelow?: number;
+  padLeft?: number;
+  padRight?: number;
+}
+
+export function renderLabels(
+  parent: SVGGElement,
+  projection: GeoProjection,
+  path: GeoPath,
+  labels: LabelDatum[],
+  style: LabelStyle,
+  anchorOverrides?: Map<string, LabelAnchorOverride>
+): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
   if (!style.show || !labels.length) return;
 
   for (const label of labels) {
-    const anchorGeo = pickAnchor(label.feature.geometry, { largestPartOnly: style.labelLargestPart, avoidHoles: style.avoidHoles });
-    if (!anchorGeo) continue;
-    const projected = projection(anchorGeo as [number, number]);
-    if (!projected) continue;
-    const [px, py] = projected;
+    let px: number;
+    let py: number;
+    const override = label.pcode ? anchorOverrides?.get(label.pcode) : undefined;
+    if (override) {
+      px = override.x;
+      py = override.y;
+    } else {
+      const anchorGeo = pickAnchor(label.feature.geometry, { largestPartOnly: style.labelLargestPart, avoidHoles: style.avoidHoles });
+      if (!anchorGeo) continue;
+      const projected = projection(anchorGeo as [number, number]);
+      if (!projected) continue;
+      px = projected[0];
+      py = projected[1];
+    }
 
     const lines = composeLines(label, style);
     if (!lines.length) continue;
@@ -68,7 +100,9 @@ export function renderLabels(parent: SVGGElement, projection: GeoProjection, pat
     let baseFontSize = style.fontSize;
     let renderedLines = lines.slice();
 
-    const polyBBox = pathBBox(path, label.feature);
+    // When an override is supplied (e.g. label positioned relative to a
+    // bubble) we trust the caller and skip fit-to-shape / abbreviate logic.
+    const polyBBox = override ? null : pathBBox(path, label.feature);
     if (polyBBox) {
       let attempts = style.reduceFontSize ? 4 : 1;
       while (attempts-- > 0) {

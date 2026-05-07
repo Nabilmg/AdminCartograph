@@ -11,7 +11,8 @@ import { prepareDataView } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles } from "./render/bubbles";
-import { renderLabels, LabelDatum } from "./render/labels";
+import { renderLabels, LabelDatum, LabelAnchorOverride } from "./render/labels";
+import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
 import { buildProjection } from "./render/projection";
 import type { AreaDatum, PreparedDataView, CountryGeometry } from "./types";
@@ -53,14 +54,20 @@ export class Visual implements IVisual {
   private selectionManager: powerbi.extensibility.ISelectionManager;
   private loader: GeometryLoader | null = null;
 
-  /** Pcode of the state the user has clicked into (drill view). */
+  /** Pcode of the Admin1 the user has clicked into (drill view). */
   private drilledStatePcode: string | null = null;
   private currentDataView: PreparedDataView | null = null;
   /** Cached so internal state changes (drill / drill-back) can re-render
    *  without waiting for Power BI to call update() again. */
   private lastUpdateOptions: VisualUpdateOptions | null = null;
+  /** Cached resolved render inputs from the most recent successful update,
+   *  used by drill / drill-back to recompute the view without re-walking the
+   *  DataView. */
+  private cached: { country: CountryGeometry; prepared: PreparedDataView; width: number; height: number } | null = null;
   /** Drill-back button (DOM, lives in this.overlay). */
   private backButton: HTMLButtonElement | null = null;
+  /** Clipboard / export button (DOM, lives in this.overlay). */
+  private exportButton: HTMLButtonElement | null = null;
 
   constructor(options: VisualConstructorOptions) {
     this.host = options.host;
@@ -85,12 +92,15 @@ export class Visual implements IVisual {
     this.adm2LabelLayer = svgEl("g", { class: "adm2-label-layer" });
     this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.legendLayer = svgEl("g", { class: "legend-layer" });
-    // Order matters: adm2 fills+borders below, then adm1 on top so state
-    // borders sit above locality borders. Locality labels sit between, state
-    // labels on top.
+    // Order (bottom -> top):
+    //   adm2 (locality fills + borders)
+    //   adm1 (Admin1 fills in Admin1 view, or just borders in drill view)
+    //   bubbles (always above choropleth)
+    //   adm2 labels
+    //   adm1 labels (always on top)
     this.mapGroup.appendChild(this.adm2Layer);
-    this.mapGroup.appendChild(this.bubbleLayer);
     this.mapGroup.appendChild(this.adm1Layer);
+    this.mapGroup.appendChild(this.bubbleLayer);
     this.mapGroup.appendChild(this.adm2LabelLayer);
     this.mapGroup.appendChild(this.adm1LabelLayer);
     this.svg.appendChild(this.legendLayer);
@@ -134,6 +144,7 @@ export class Visual implements IVisual {
       return;
     }
 
+    this.cached = { country, prepared, width, height };
     const view = this.resolveViewMode(prepared, country);
     this.renderMap(country, prepared, view, width, height);
   }
@@ -199,22 +210,39 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Roll up locality-level color/bubble values to their parent state. Used
-   * when only Locality PCODE is bound but the visual is showing the states
-   * view (auto mode default).
+   * Roll up Admin2-level color/bubble values to their parent Admin1. Used
+   * when only Admin2 PCODE is bound but the visual is showing the Admin1
+   * view (auto mode default). The parent map is derived from the embedded
+   * geometry's ADM1_PCODE property so we don't rely on PCODE-prefix
+   * heuristics that vary by country.
    */
-  private aggregateToStates(prepared: PreparedDataView): Map<string, AreaDatum> {
-    const out = new Map<string, AreaDatum>();
-    const sums = new Map<string, { color: number | null; bubble: number | null; labelTooltip: any[]; sample: AreaDatum }>();
-    for (const a of prepared.areas.values()) {
-      const key = a.level === 1 ? a.pcode : (a.parentPcode || a.pcode.slice(0, 4));
-      if (!sums.has(key)) {
-        sums.set(key, { color: null, bubble: null, labelTooltip: [], sample: a });
+  private aggregateToStates(prepared: PreparedDataView, country: CountryGeometry): Map<string, AreaDatum> {
+    // Build adm2 -> adm1 lookup from the country's geometry once.
+    const childToParent = new Map<string, string>();
+    if (country.adm2 && country.adm2.features) {
+      for (const f of country.adm2.features as any[]) {
+        const c = f.properties?.ADM2_PCODE;
+        const p = f.properties?.ADM1_PCODE;
+        if (c && p) childToParent.set(c, p);
       }
+    }
+
+    const sums = new Map<string, { color: number | null; bubble: number | null; sample: AreaDatum }>();
+    for (const a of prepared.areas.values()) {
+      let key: string | null;
+      if (a.level === 1) {
+        key = a.pcode;
+      } else {
+        key = a.parentPcode || childToParent.get(a.pcode) || null;
+      }
+      if (!key) continue;
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
     }
+
+    const out = new Map<string, AreaDatum>();
     for (const [pcode, acc] of sums) {
       out.set(pcode, {
         pcode,
@@ -235,7 +263,7 @@ export class Visual implements IVisual {
 
   private renderMap(country: CountryGeometry, prepared: PreparedDataView, view: "states" | "localities", width: number, height: number): void {
     this.overlay.innerHTML = "";
-    this.renderBackButton(view);
+    this.renderTopBar(view);
 
     // Filter the visible feature set based on drill state and slicers.
     const adm1Features = (country.adm1.features as any[]).slice();
@@ -266,7 +294,7 @@ export class Visual implements IVisual {
     if (view === "states") {
       const anyStateLevel = Array.from(prepared.areas.values()).some((a) => a.level === 1);
       if (!anyStateLevel) {
-        stateAreas = this.aggregateToStates(prepared);
+        stateAreas = this.aggregateToStates(prepared, country);
       }
     }
 
@@ -357,17 +385,28 @@ export class Visual implements IVisual {
     );
 
     // Labels — state labels always (when shown); locality labels depend on view.
+    // When bubbles are visible, position labels for those areas relative to
+    // the bubble (above / below / left / right / center) instead of at the
+    // polygon's interior centroid. This is what makes the choropleth not
+    // hide the bubble + label on top of an opaque fill.
+    const bubblePlacement = (this.settings.bubbles.labelPlacement.value as any).value as string;
+    const labelOverrides = bubbleResult ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, this.settings.stateLabels.fontSize.value) : undefined;
+    const localityOverrides = bubbleResult && view === "localities"
+      ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, (view === "localities" ? this.settings.drillLocalityLabels : this.settings.localityLabels).fontSize.value)
+      : undefined;
+
     if (this.settings.stateLabels.show.value) {
       const labels: LabelDatum[] = adm1Visible.map((f) => {
         const datum = stateAreas.get(f.properties.ADM1_PCODE);
         return {
           feature: f,
+          pcode: f.properties.ADM1_PCODE,
           name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
           value: datum?.colorValue ?? null,
           value2: datum?.labelValue2 ?? null
         };
       });
-      renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels));
+      renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
     } else {
       while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     }
@@ -378,12 +417,13 @@ export class Visual implements IVisual {
         const datum = prepared.areas.get(f.properties.ADM2_PCODE);
         return {
           feature: f,
+          pcode: f.properties.ADM2_PCODE,
           name: (datum?.labelText1 || datum?.name || f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
           value: datum?.colorValue ?? null,
           value2: datum?.labelValue2 ?? null
         };
       });
-      renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard));
+      renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard), localityOverrides);
     } else {
       while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     }
@@ -483,30 +523,231 @@ export class Visual implements IVisual {
     });
   }
 
-  /** Re-runs the latest update() so view-mode changes (drill / drill back)
-   *  take effect immediately without waiting for Power BI. */
-  private rerender(): void {
-    if (this.lastUpdateOptions) this.update(this.lastUpdateOptions);
+  /**
+   * For each bubble, compute a screen-space anchor for the label using the
+   * Bubbles > "Label position vs bubble" setting.
+   */
+  private buildBubbleLabelOverrides(bubbleResult: BubbleResult, placement: string, fontSize: number): Map<string, LabelAnchorOverride> {
+    const out = new Map<string, LabelAnchorOverride>();
+    const padding = 4;
+    const lineHeight = fontSize * 1.15;
+    const horizontalGap = 36; // approximate label half-width for left/right placement
+    for (const [pcode, anchor] of bubbleResult.anchors) {
+      let x = anchor.x;
+      let y = anchor.y;
+      switch (placement) {
+        case "below":
+          y = anchor.y + anchor.r + lineHeight / 2 + padding;
+          break;
+        case "left":
+          x = anchor.x - anchor.r - horizontalGap - padding;
+          break;
+        case "right":
+          x = anchor.x + anchor.r + horizontalGap + padding;
+          break;
+        case "center":
+          // Bubble center — label sits inside the bubble.
+          break;
+        case "above":
+        default:
+          y = anchor.y - anchor.r - lineHeight / 2 - padding;
+          break;
+      }
+      out.set(pcode, { x, y });
+    }
+    return out;
   }
 
-  private renderBackButton(view: "states" | "localities"): void {
-    const visible = view === "localities" && !!this.drilledStatePcode;
-    if (!visible) {
-      if (this.backButton && this.backButton.parentElement) this.backButton.parentElement.removeChild(this.backButton);
-      return;
+  /** Re-renders using the cached state from the last successful update().
+   *  This is what drill / drill-back call so view-mode changes happen
+   *  instantly instead of waiting for Power BI to push another update. */
+  private rerender(): void {
+    if (!this.cached) return;
+    const { country, prepared, width, height } = this.cached;
+    const view = this.resolveViewMode(prepared, country);
+    this.renderMap(country, prepared, view, width, height);
+  }
+
+  private renderTopBar(view: "states" | "localities"): void {
+    let bar = this.overlay.querySelector(".adm-top-bar") as HTMLDivElement;
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "adm-top-bar";
+      this.overlay.appendChild(bar);
+    } else {
+      while (bar.firstChild) bar.removeChild(bar.firstChild);
     }
-    if (!this.backButton || !this.backButton.parentElement) {
-      this.backButton = document.createElement("button");
-      this.backButton.className = "adm-back-button";
-      this.backButton.type = "button";
-      this.backButton.setAttribute("aria-label", "Back to states");
-      this.backButton.innerHTML = "&#8592; Back to states";
-      this.backButton.addEventListener("click", (e) => {
+
+    // Drill-back button (left side, only when drilled).
+    if (view === "localities" && this.drilledStatePcode) {
+      const back = document.createElement("button");
+      back.className = "adm-back-button";
+      back.type = "button";
+      back.setAttribute("aria-label", "Back to Admin1");
+      back.innerHTML = "&#8592; Back to Admin1";
+      back.addEventListener("click", (e) => {
         e.stopPropagation();
         this.drilledStatePcode = null;
         this.rerender();
       });
-      this.overlay.appendChild(this.backButton);
+      bar.appendChild(back);
+      this.backButton = back;
+    } else {
+      this.backButton = null;
+    }
+
+    // Spacer pushes the export button to the right.
+    const spacer = document.createElement("div");
+    spacer.style.flex = "1";
+    bar.appendChild(spacer);
+
+    // Copy-to-clipboard button (right side, always visible).
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "adm-export-button";
+    exportBtn.type = "button";
+    exportBtn.setAttribute("aria-label", "Copy map to clipboard (A5 landscape)");
+    exportBtn.title = "Copy map to clipboard (A5 landscape)";
+    exportBtn.innerHTML = clipboardIconSvg();
+    exportBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.exportToClipboard(exportBtn);
+    });
+    bar.appendChild(exportBtn);
+    this.exportButton = exportBtn;
+  }
+
+  /**
+   * Export the current map to the clipboard as a PNG sized to A5 landscape
+   * (1748 x 1240 px ≈ 210 x 148 mm at 300 DPI). Falls back to a download if
+   * clipboard write is blocked by Power BI's iframe sandbox.
+   */
+  private async exportToClipboard(btn: HTMLButtonElement): Promise<void> {
+    const A5_WIDTH = 1748;
+    const A5_HEIGHT = 1240;
+    const originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = "…";
+
+    try {
+      // Re-render the visual at the export resolution into a clone of the
+      // SVG so the on-screen visual is untouched.
+      const clone = this.svg.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute("width", String(A5_WIDTH));
+      clone.setAttribute("height", String(A5_HEIGHT));
+      clone.setAttribute("viewBox", `0 0 ${A5_WIDTH} ${A5_HEIGHT}`);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+      // Re-rebuild the map at the target dimensions before serializing so
+      // labels, projection, legends actually align with the larger canvas.
+      if (this.cached) {
+        this.renderMapInto(clone, this.cached.country, this.cached.prepared, this.resolveViewMode(this.cached.prepared, this.cached.country), A5_WIDTH, A5_HEIGHT);
+      }
+
+      const xml = new XMLSerializer().serializeToString(clone);
+      const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      const loaded = new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = (e) => rej(e);
+      });
+      img.src = url;
+      await loaded;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = A5_WIDTH;
+      canvas.height = A5_HEIGHT;
+      const ctx = canvas.getContext("2d")!;
+      // Fill white background (matches typical PowerPoint paste expectation).
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, A5_WIDTH, A5_HEIGHT);
+      ctx.drawImage(img, 0, 0, A5_WIDTH, A5_HEIGHT);
+      URL.revokeObjectURL(url);
+
+      const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/png"));
+
+      // Try the Async Clipboard API first.
+      let copied = false;
+      try {
+        const navAny = navigator as any;
+        if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof (window as any).ClipboardItem === "function") {
+          await navAny.clipboard.write([new (window as any).ClipboardItem({ "image/png": blob })]);
+          copied = true;
+        }
+      } catch {
+        // fall through to download
+      }
+
+      if (!copied) {
+        // Fallback: trigger a download. Some Power BI hosts disallow
+        // navigator.clipboard inside the visual iframe.
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "map-A5.png";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      }
+
+      btn.innerHTML = copied ? checkIconSvg() : downloadIconSvg();
+      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1500);
+    } catch (e) {
+      btn.innerHTML = errorIconSvg();
+      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1500);
+    }
+  }
+
+  /**
+   * Render the visual at an arbitrary size into a different SVG element.
+   * Used by the clipboard exporter; resizes the projection / legends so the
+   * exported image looks right at A5 instead of the on-screen viewport.
+   */
+  private renderMapInto(targetSvg: SVGSVGElement, country: CountryGeometry, prepared: PreparedDataView, view: "states" | "localities", width: number, height: number): void {
+    while (targetSvg.firstChild) targetSvg.removeChild(targetSvg.firstChild);
+    const mapGroup = svgEl("g", { class: "map-group" });
+    targetSvg.appendChild(mapGroup);
+    const adm2 = svgEl("g", { class: "adm2-layer" });
+    const bubble = svgEl("g", { class: "bubble-layer" });
+    const adm1 = svgEl("g", { class: "adm1-layer" });
+    const adm2L = svgEl("g", { class: "adm2-label-layer" });
+    const adm1L = svgEl("g", { class: "adm1-label-layer" });
+    const legend = svgEl("g", { class: "legend-layer" });
+    mapGroup.appendChild(adm2);
+    mapGroup.appendChild(bubble);
+    mapGroup.appendChild(adm1);
+    mapGroup.appendChild(adm2L);
+    mapGroup.appendChild(adm1L);
+    targetSvg.appendChild(legend);
+
+    // Save and swap the visual's layer references temporarily so the existing
+    // renderMap implementation paints into the offscreen layers.
+    const orig = {
+      svg: this.svg,
+      adm1: this.adm1Layer,
+      adm2: this.adm2Layer,
+      bubble: this.bubbleLayer,
+      adm1L: this.adm1LabelLayer,
+      adm2L: this.adm2LabelLayer,
+      legend: this.legendLayer
+    };
+    this.svg = targetSvg;
+    this.adm1Layer = adm1;
+    this.adm2Layer = adm2;
+    this.bubbleLayer = bubble;
+    this.adm1LabelLayer = adm1L;
+    this.adm2LabelLayer = adm2L;
+    this.legendLayer = legend;
+    try {
+      this.renderMap(country, prepared, view, width, height);
+    } finally {
+      this.svg = orig.svg;
+      this.adm1Layer = orig.adm1;
+      this.adm2Layer = orig.adm2;
+      this.bubbleLayer = orig.bubble;
+      this.adm1LabelLayer = orig.adm1L;
+      this.adm2LabelLayer = orig.adm2L;
+      this.legendLayer = orig.legend;
     }
   }
 
@@ -562,6 +803,19 @@ function svgEl<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<stri
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+function clipboardIconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="4" rx="1"></rect><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"></path></svg>`;
+}
+function checkIconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+}
+function downloadIconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+}
+function errorIconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
 }
 
 function makeLegendClasses(breaks: { breaks: number[]; min: number; max: number; classCount: number }, colors: string[]): { color: string; from: number; to: number }[] {

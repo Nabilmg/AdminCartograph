@@ -18,10 +18,19 @@ export interface BubbleStyle {
   maxRadius: number;
 }
 
+export interface BubbleAnchor {
+  x: number;
+  y: number;
+  /** Bubble radius in screen pixels. */
+  r: number;
+}
+
 export interface BubbleResult {
   minValue: number;
   maxValue: number;
   scale: (v: number) => number;
+  /** Anchor (in screen px) keyed by the same pcode the labels look up. */
+  anchors: Map<string, BubbleAnchor>;
 }
 
 export function renderBubbles(parent: SVGGElement, projection: GeoProjection, features: any[], areaByPcode: Map<string, AreaDatum>, pcodeKey: "ADM1_PCODE" | "ADM2_PCODE", style: BubbleStyle): BubbleResult | null {
@@ -57,17 +66,20 @@ export function renderBubbles(parent: SVGGElement, projection: GeoProjection, fe
   // Largest-first painting so smaller bubbles sit on top.
   valued.sort((a, b) => (b.datum.bubbleSize as number) - (a.datum.bubbleSize as number));
 
+  const anchors = new Map<string, BubbleAnchor>();
   for (const v of valued) {
+    const r = scale(v.datum.bubbleSize as number);
     sel.append("circle")
       .attr("cx", v.anchor[0])
       .attr("cy", v.anchor[1])
-      .attr("r", scale(v.datum.bubbleSize as number))
+      .attr("r", r)
       .attr("fill", style.fillColor)
       .attr("fill-opacity", style.opacity)
       .attr("stroke", style.strokeColor)
       .attr("stroke-width", style.strokeWidth)
       .attr("data-pcode", v.datum.pcode);
+    anchors.set(v.datum.pcode, { x: v.anchor[0], y: v.anchor[1], r });
   }
 
-  return { minValue: minV, maxValue: maxV, scale };
+  return { minValue: minV, maxValue: maxV, scale, anchors };
 }

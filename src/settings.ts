@@ -23,18 +23,18 @@ class GeneralSettings extends FormattingSettingsCard {
     displayName: "View mode",
     items: [
       { value: "auto", displayName: "Auto" },
-      { value: "states", displayName: "States (ADM1)" },
-      { value: "localities", displayName: "Localities (ADM2)" }
+      { value: "states", displayName: "Admin1" },
+      { value: "localities", displayName: "Admin2" }
     ],
     value: { value: "auto", displayName: "Auto" }
   });
   interactionEnabled = new formattingSettings.ToggleSwitch({ name: "interactionEnabled", displayName: "Interaction enabled", value: true });
-  hideUnfilteredStates = new formattingSettings.ToggleSwitch({ name: "hideUnfilteredStates", displayName: "Hide unfiltered states in locality mode", value: false });
+  hideUnfilteredStates = new formattingSettings.ToggleSwitch({ name: "hideUnfilteredStates", displayName: "Hide unfiltered Admin1 in Admin2 mode", value: false });
   background = new formattingSettings.ColorPicker({ name: "background", displayName: "Background color", value: { value: "#ffffff" } });
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
   name = "general";
-  displayName = "General";
+  displayName = "Map";
   slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground];
 }
 
@@ -76,12 +76,12 @@ class ChoroplethSettings extends FormattingSettingsCard {
 }
 
 class BordersSettings extends FormattingSettingsCard {
-  stateColor = new formattingSettings.ColorPicker({ name: "stateColor", displayName: "State border color", value: { value: "#444444" } });
-  stateWidth = new formattingSettings.NumUpDown({ name: "stateWidth", displayName: "State border width", value: 1 });
-  stateOpacity = new formattingSettings.NumUpDown({ name: "stateOpacity", displayName: "State border opacity", value: 1 });
-  localityColor = new formattingSettings.ColorPicker({ name: "localityColor", displayName: "Locality border color", value: { value: "#888888" } });
-  localityWidth = new formattingSettings.NumUpDown({ name: "localityWidth", displayName: "Locality border width", value: 0.5 });
-  localityOpacity = new formattingSettings.NumUpDown({ name: "localityOpacity", displayName: "Locality border opacity", value: 0.8 });
+  stateColor = new formattingSettings.ColorPicker({ name: "stateColor", displayName: "Admin1 border color", value: { value: "#444444" } });
+  stateWidth = new formattingSettings.NumUpDown({ name: "stateWidth", displayName: "Admin1 border width", value: 1 });
+  stateOpacity = new formattingSettings.NumUpDown({ name: "stateOpacity", displayName: "Admin1 border opacity", value: 1 });
+  localityColor = new formattingSettings.ColorPicker({ name: "localityColor", displayName: "Admin2 border color", value: { value: "#888888" } });
+  localityWidth = new formattingSettings.NumUpDown({ name: "localityWidth", displayName: "Admin2 border width", value: 0.5 });
+  localityOpacity = new formattingSettings.NumUpDown({ name: "localityOpacity", displayName: "Admin2 border opacity", value: 0.8 });
 
   name = "borders";
   displayName = "Borders";
@@ -148,9 +148,9 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
   };
 }
 
-const StateLabelsCard = makeLabelCard("stateLabels", "State labels", { show: true, content: "name", fontSize: 12, bold: true });
-const LocalityLabelsCard = makeLabelCard("localityLabels", "Locality labels (all-map view)", { show: false, content: "name", fontSize: 9 });
-const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "Locality labels (drill view)", { show: true, content: "name", fontSize: 10 });
+const StateLabelsCard = makeLabelCard("stateLabels", "Admin1 labels", { show: true, content: "name", fontSize: 12, bold: true });
+const LocalityLabelsCard = makeLabelCard("localityLabels", "Admin2 labels (default view)", { show: false, content: "name", fontSize: 9 });
+const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "Admin2 labels (drill view)", { show: true, content: "name", fontSize: 10 });
 
 class BubblesSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
@@ -162,14 +162,15 @@ class BubblesSettings extends FormattingSettingsCard {
   maxRadius = new formattingSettings.NumUpDown({ name: "maxRadius", displayName: "Max radius (px)", value: 30 });
   labelPlacement = new formattingSettings.ItemDropdown({
     name: "labelPlacement",
-    displayName: "Label placement",
+    displayName: "Label position vs bubble",
     items: [
-      { value: "above", displayName: "Above" },
-      { value: "below", displayName: "Below" },
-      { value: "right", displayName: "Right" },
-      { value: "center", displayName: "Center" }
+      { value: "above", displayName: "Above bubble" },
+      { value: "below", displayName: "Below bubble" },
+      { value: "left", displayName: "Left of bubble" },
+      { value: "right", displayName: "Right of bubble" },
+      { value: "center", displayName: "Center of bubble" }
     ],
-    value: { value: "above", displayName: "Above" }
+    value: { value: "above", displayName: "Above bubble" }
   });
 
   name = "bubbles";
@@ -272,14 +273,18 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   bubbleLegend = new BubbleLegendSettings();
   legendContainer = new LegendContainerSettings();
 
+  // Order matters: this is the order users see in the Power BI format pane.
+  // Group from "what you see first" outward — map setup, then how the map is
+  // colored, then bubbles (a layer that sits above the choropleth), then
+  // borders, labels, and finally legends.
   cards = [
     this.general,
     this.choropleth,
+    this.bubbles,
     this.borders,
     this.stateLabels,
     this.localityLabels,
     this.drillLocalityLabels,
-    this.bubbles,
     this.valueLegend,
     this.bubbleLegend,
     this.legendContainer

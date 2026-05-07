@@ -1,16 +1,16 @@
 {
   "dataRoles": [
     {
-      "displayName": "State PCODE (ADM1)",
+      "displayName": "Admin1 PCODE",
       "name": "statePcode",
       "kind": "Grouping",
-      "description": "Field that uniquely identifies an ADM1 state. Must match ADM1_PCODE in the embedded geometry."
+      "description": "Field that uniquely identifies an Admin1 area (state / province / governorate). Must match ADM1_PCODE in the embedded geometry."
     },
     {
-      "displayName": "Locality PCODE (ADM2)",
+      "displayName": "Admin2 PCODE",
       "name": "localityPcode",
       "kind": "Grouping",
-      "description": "Field that uniquely identifies an ADM2 locality. Must match ADM2_PCODE in the embedded geometry."
+      "description": "Field that uniquely identifies an Admin2 area (locality / district). Must match ADM2_PCODE in the embedded geometry."
     },
     {
       "displayName": "Color Value",
@@ -81,8 +81,8 @@
           "type": {
             "enumeration": [
               { "value": "auto", "displayName": "Auto" },
-              { "value": "states", "displayName": "States (ADM1)" },
-              { "value": "localities", "displayName": "Localities (ADM2)" }
+              { "value": "states", "displayName": "Admin1" },
+              { "value": "localities", "displayName": "Admin2" }
             ]
           }
         },
@@ -91,7 +91,7 @@
           "type": { "bool": true }
         },
         "hideUnfilteredStates": {
-          "displayName": "Hide unfiltered states in locality mode",
+          "displayName": "Hide unfiltered Admin1 in Admin2 mode",
           "type": { "bool": true }
         },
         "background": {
@@ -162,17 +162,17 @@
     "borders": {
       "displayName": "Borders",
       "properties": {
-        "stateColor": { "displayName": "State border color", "type": { "fill": { "solid": { "color": true } } } },
-        "stateWidth": { "displayName": "State border width", "type": { "numeric": true } },
-        "stateOpacity": { "displayName": "State border opacity", "type": { "numeric": true } },
-        "localityColor": { "displayName": "Locality border color", "type": { "fill": { "solid": { "color": true } } } },
-        "localityWidth": { "displayName": "Locality border width", "type": { "numeric": true } },
-        "localityOpacity": { "displayName": "Locality border opacity", "type": { "numeric": true } }
+        "stateColor": { "displayName": "Admin1 border color", "type": { "fill": { "solid": { "color": true } } } },
+        "stateWidth": { "displayName": "Admin1 border width", "type": { "numeric": true } },
+        "stateOpacity": { "displayName": "Admin1 border opacity", "type": { "numeric": true } },
+        "localityColor": { "displayName": "Admin2 border color", "type": { "fill": { "solid": { "color": true } } } },
+        "localityWidth": { "displayName": "Admin2 border width", "type": { "numeric": true } },
+        "localityOpacity": { "displayName": "Admin2 border opacity", "type": { "numeric": true } }
       }
     },
 
     "stateLabels": {
-      "displayName": "State labels",
+      "displayName": "Admin1 labels",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -229,7 +229,7 @@
     },
 
     "localityLabels": {
-      "displayName": "Locality labels (all-map view)",
+      "displayName": "Admin2 labels (default view)",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -266,7 +266,7 @@
     },
 
     "drillLocalityLabels": {
-      "displayName": "Locality labels (drill view)",
+      "displayName": "Admin2 labels (drill view)",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -302,13 +302,14 @@
         "minRadius": { "displayName": "Min radius (px)", "type": { "numeric": true } },
         "maxRadius": { "displayName": "Max radius (px)", "type": { "numeric": true } },
         "labelPlacement": {
-          "displayName": "Label placement",
+          "displayName": "Label position vs bubble",
           "type": {
             "enumeration": [
-              { "value": "above", "displayName": "Above" },
-              { "value": "below", "displayName": "Below" },
-              { "value": "right", "displayName": "Right" },
-              { "value": "center", "displayName": "Center" }
+              { "value": "above", "displayName": "Above bubble" },
+              { "value": "below", "displayName": "Below bubble" },
+              { "value": "left", "displayName": "Left of bubble" },
+              { "value": "right", "displayName": "Right of bubble" },
+              { "value": "center", "displayName": "Center of bubble" }
             ]
           }
         }
