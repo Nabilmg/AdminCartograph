@@ -32,7 +32,7 @@ export interface LegendInputs {
     maxValue: number;
     position: Position;
     size: LegendSize;
-    orientation: "vertical" | "horizontal";
+    orientation: "vertical" | "horizontal" | "compact";
     /** Maps a measure value to a radius — same scale used by the bubbles. */
     scale: (v: number) => number;
   };
@@ -169,10 +169,61 @@ function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"
     .attr("font-size", titleSize).attr("font-weight", 600)
     .text(bubble.title || "");
 
+  if (bubble.orientation === "compact") {
+    return drawBubbleLegendCompact(parent, bubble, yStart + titleSize + 8, fontSize);
+  }
   if (bubble.orientation === "horizontal") {
     return drawBubbleLegendHorizontal(parent, bubble, yStart + titleSize + 8, fontSize);
   }
   return drawBubbleLegendVertical(parent, bubble, yStart + titleSize + 8, fontSize);
+}
+
+/**
+ * Compact bubble legend: just the smallest and largest bubble baseline-
+ * aligned, with a thin connecting bracket between them and their values
+ * labelled at the ends. Roughly half the footprint of the 3-4 bubble
+ * horizontal layout.
+ */
+function drawBubbleLegendCompact(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, fontSize: number): number {
+  const minR = Math.max(2, bubble.scale(bubble.minValue));
+  const maxR = Math.max(minR + 1, bubble.scale(bubble.maxValue));
+  const baselineY = yStart + maxR * 2 + 2;
+
+  const minCx = maxR; // first column reserved for largest-bubble width
+  const minCy = baselineY - minR;
+  // Compact gap between the two centres — width is mostly the larger bubble
+  // diameter plus a fixed margin for the bracket and labels.
+  const gap = Math.max(36, fontSize * 3.5);
+  const maxCx = minCx + maxR + gap + maxR;
+  const maxCy = baselineY - maxR;
+
+  // Connecting bracket — a thin horizontal line at baseline with tiny
+  // tick marks at each end indicating the range.
+  const tick = 4;
+  parent.append("line")
+    .attr("x1", minCx + minR + 2).attr("y1", baselineY)
+    .attr("x2", maxCx - maxR - 2).attr("y2", baselineY)
+    .attr("stroke", "#888").attr("stroke-width", 1);
+  parent.append("line")
+    .attr("x1", minCx + minR + 2).attr("y1", baselineY - tick)
+    .attr("x2", minCx + minR + 2).attr("y2", baselineY).attr("stroke", "#888").attr("stroke-width", 1);
+  parent.append("line")
+    .attr("x1", maxCx - maxR - 2).attr("y1", baselineY - tick)
+    .attr("x2", maxCx - maxR - 2).attr("y2", baselineY).attr("stroke", "#888").attr("stroke-width", 1);
+
+  parent.append("circle").attr("cx", minCx).attr("cy", minCy).attr("r", minR)
+    .attr("fill", bubble.fillColor).attr("fill-opacity", 0.7).attr("stroke", bubble.strokeColor);
+  parent.append("circle").attr("cx", maxCx).attr("cy", maxCy).attr("r", maxR)
+    .attr("fill", bubble.fillColor).attr("fill-opacity", 0.5).attr("stroke", bubble.strokeColor);
+
+  parent.append("text").attr("x", minCx).attr("y", baselineY + fontSize + 4)
+    .attr("text-anchor", "middle").attr("font-size", fontSize)
+    .text(formatNumber(bubble.minValue, 0, "auto"));
+  parent.append("text").attr("x", maxCx).attr("y", baselineY + fontSize + 4)
+    .attr("text-anchor", "middle").attr("font-size", fontSize)
+    .text(formatNumber(bubble.maxValue, 0, "auto"));
+
+  return baselineY + fontSize + 8;
 }
 
 function drawBubbleLegendVertical(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, fontSize: number): number {

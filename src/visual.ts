@@ -474,6 +474,17 @@ export class Visual implements IVisual {
       localityOpacity: this.settings.borders.localityOpacity.value
     });
 
+    // In drill view, dim the neighbour Admin1 borders so the focused state
+    // reads as the foreground. The drilled state's border keeps the user's
+    // configured opacity; everyone else drops to 0.35.
+    if (this.drilledStatePcode && view === "localities") {
+      d3.select(this.adm1Layer).selectAll<SVGPathElement, any>("path")
+        .attr("stroke-opacity", (d: any) => {
+          if (!d || d.pcode === this.drilledStatePcode) return this.settings.borders.stateOpacity.value;
+          return Math.min(this.settings.borders.stateOpacity.value, 0.35);
+        });
+    }
+
     // Bubbles
     const bubbleStyle = this.settings.bubbles;
     const bubbleResult = renderBubbles(
@@ -514,7 +525,9 @@ export class Visual implements IVisual {
       // is rendered into adm1LabelLayer directly afterward.
       const neighborGroup = svgEl("g", { class: "adm1-neighbor-labels" });
       this.adm1LabelLayer.appendChild(neighborGroup);
-      if (isDrill) neighborGroup.setAttribute("opacity", "0.3");
+      // Neighbour labels in drill view dim to 0.55 — readable enough as
+      // context, but clearly subordinate to the focused state's labels.
+      if (isDrill) neighborGroup.setAttribute("opacity", "0.55");
 
       const labelFeatures = isDrill
         ? adm1Visible.filter((f) => f.properties.ADM1_PCODE !== this.drilledStatePcode)
@@ -923,6 +936,9 @@ export class Visual implements IVisual {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           if (!target) return;
+          // Cross-filter other visuals to the new Admin1 the same way a
+          // click on the polygon would, then drill there.
+          this.applyAdmin1Selection(target, false);
           this.drilledStatePcode = target;
           // Treat prev/next as a manual override so a stale slicer
           // doesn't bounce us somewhere else on the next render.

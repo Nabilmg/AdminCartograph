@@ -226,7 +226,8 @@ class BubbleLegendSettings extends FormattingSettingsCard {
     displayName: "Orientation",
     items: [
       { value: "vertical", displayName: "Vertical" },
-      { value: "horizontal", displayName: "Horizontal" }
+      { value: "horizontal", displayName: "Horizontal (3-4 bubbles)" },
+      { value: "compact", displayName: "Compact (min / max)" }
     ],
     value: { value: "vertical", displayName: "Vertical" }
   });
