@@ -770,9 +770,18 @@ export class Visual implements IVisual {
       const datum = lookup.get(f.properties[pcodeKey]);
       return { feature: f, datum };
     });
-    const colorValues = valuedFeatures.map((v) => v.datum?.colorValue).filter((v): v is number => v != null);
-
     const cs = this.settings.choropleth;
+    const treatZeroAsBlank = cs.zeroAsBlank.value;
+    // Helper: is this color value missing for choropleth purposes?
+    // null/undefined are always blank; 0 is blank only when the user
+    // opted in via Treat 0 as no-data.
+    const isBlankValue = (v: number | null | undefined): boolean =>
+      v == null || (treatZeroAsBlank && v === 0);
+
+    const colorValues = valuedFeatures
+      .map((v) => v.datum?.colorValue)
+      .filter((v): v is number => !isBlankValue(v));
+
     const breaks = buildBreaks(colorValues, (cs.classification.value as any).value, cs.classCount.value, cs.manualBreaks.value);
     const customColors = [cs.color1.value.value, cs.color2.value.value, cs.color3.value.value, cs.color4.value.value, cs.color5.value.value];
     const colors = (cs.mode.value as any).value === "custom"
@@ -784,7 +793,7 @@ export class Visual implements IVisual {
     // Choropleth rows
     const rows = valuedFeatures.map(({ feature, datum }) => {
       const v = datum?.colorValue;
-      const fill = v != null ? colors[Math.min(colors.length - 1, classIndex(breaks.breaks, v))] : blank;
+      const fill = !isBlankValue(v) ? colors[Math.min(colors.length - 1, classIndex(breaks.breaks, v as number))] : blank;
       return {
         feature,
         pcode: feature.properties[pcodeKey],

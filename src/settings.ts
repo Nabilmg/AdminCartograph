@@ -93,11 +93,12 @@ class ChoroplethSettings extends FormattingSettingsCard {
   color5 = new formattingSettings.ColorPicker({ name: "color5", displayName: "Class 5", value: { value: "#084594" } });
   blankColor = new formattingSettings.ColorPicker({ name: "blankColor", displayName: "No-data color", value: { value: "#eeeeee" } });
   blankTransparent = new formattingSettings.ToggleSwitch({ name: "blankTransparent", displayName: "Transparent for no-data", value: false });
+  zeroAsBlank = new formattingSettings.ToggleSwitch({ name: "zeroAsBlank", displayName: "Treat 0 as no-data", value: false });
   fillOpacity = new formattingSettings.NumUpDown({ name: "fillOpacity", displayName: "Fill opacity", value: 0.85 });
 
   name = "choropleth";
   displayName = "Choropleth";
-  slices = [this.mode, this.baseColor, this.classification, this.manualBreaks, this.classCount, this.color1, this.color2, this.color3, this.color4, this.color5, this.blankColor, this.blankTransparent, this.fillOpacity];
+  slices = [this.mode, this.baseColor, this.classification, this.manualBreaks, this.classCount, this.color1, this.color2, this.color3, this.color4, this.color5, this.blankColor, this.blankTransparent, this.zeroAsBlank, this.fillOpacity];
 }
 
 class BordersSettings extends FormattingSettingsCard {

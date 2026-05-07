@@ -179,6 +179,11 @@
           "displayName": "Transparent for no-data",
           "type": { "bool": true }
         },
+        "zeroAsBlank": {
+          "displayName": "Treat 0 as no-data",
+          "description": "When on, areas whose Color Value equals 0 use the no-data color and are excluded from the classification breaks.",
+          "type": { "bool": true }
+        },
         "fillOpacity": {
           "displayName": "Fill opacity",
           "type": { "numeric": true }
