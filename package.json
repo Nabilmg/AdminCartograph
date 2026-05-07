@@ -6,6 +6,7 @@
     "fetch-geometry": "node scripts/fetch-geometry.js",
     "build-topojson": "node scripts/build-topojson.js",
     "build-data": "npm run fetch-geometry && npm run build-topojson",
+    "release-all": "node scripts/release-all.js",
     "parse-excel": "node scripts/parse-countries-excel.js",
     "start": "pbiviz start",
     "package": "pbiviz package",

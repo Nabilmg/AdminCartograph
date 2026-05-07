@@ -31,9 +31,15 @@ function opt(name, def) {
 }
 const SIMPLIFY = parseFloat(opt("simplify", "0.0005"));
 const QUANTIZE = parseInt(opt("quantize", "10000"), 10);
+// --only <ISO3>[,<ISO3>...] limits the build to specific countries even
+// when countries.json lists more. Used by release-all.js to produce one
+// .pbiviz per country.
+const onlyArg = opt("only", null);
+const onlySet = onlyArg ? new Set(onlyArg.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)) : null;
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const countries = JSON.parse(fs.readFileSync(COUNTRIES_PATH, "utf8"));
+let countries = JSON.parse(fs.readFileSync(COUNTRIES_PATH, "utf8"));
+if (onlySet) countries = countries.filter((c) => onlySet.has(c.iso3));
 
 function readGeoJSON(p) {
   const txt = fs.readFileSync(p, "utf8");
