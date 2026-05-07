@@ -56,6 +56,11 @@ export class Visual implements IVisual {
   /** Pcode of the state the user has clicked into (drill view). */
   private drilledStatePcode: string | null = null;
   private currentDataView: PreparedDataView | null = null;
+  /** Cached so internal state changes (drill / drill-back) can re-render
+   *  without waiting for Power BI to call update() again. */
+  private lastUpdateOptions: VisualUpdateOptions | null = null;
+  /** Drill-back button (DOM, lives in this.overlay). */
+  private backButton: HTMLButtonElement | null = null;
 
   constructor(options: VisualConstructorOptions) {
     this.host = options.host;
@@ -77,14 +82,17 @@ export class Visual implements IVisual {
     this.adm1Layer = svgEl("g", { class: "adm1-layer" });
     this.adm2Layer = svgEl("g", { class: "adm2-layer" });
     this.bubbleLayer = svgEl("g", { class: "bubble-layer" });
-    this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.adm2LabelLayer = svgEl("g", { class: "adm2-label-layer" });
+    this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.legendLayer = svgEl("g", { class: "legend-layer" });
-    this.mapGroup.appendChild(this.adm1Layer);
+    // Order matters: adm2 fills+borders below, then adm1 on top so state
+    // borders sit above locality borders. Locality labels sit between, state
+    // labels on top.
     this.mapGroup.appendChild(this.adm2Layer);
     this.mapGroup.appendChild(this.bubbleLayer);
-    this.mapGroup.appendChild(this.adm1LabelLayer);
+    this.mapGroup.appendChild(this.adm1Layer);
     this.mapGroup.appendChild(this.adm2LabelLayer);
+    this.mapGroup.appendChild(this.adm1LabelLayer);
     this.svg.appendChild(this.legendLayer);
 
     this.overlay = document.createElement("div");
@@ -98,6 +106,7 @@ export class Visual implements IVisual {
 
   public update(options: VisualUpdateOptions): void {
     if (!options || !options.viewport) return;
+    this.lastUpdateOptions = options;
     const dv = options.dataViews && options.dataViews[0];
     this.settings = this.settingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, dv);
 
@@ -176,16 +185,57 @@ export class Visual implements IVisual {
     if (setting === "states") return "states";
     if (setting === "localities") return country.adm2 ? "localities" : "states";
 
-    // auto: localities if any locality data is bound and the country has ADM2,
-    // or if the user has drilled into a state, or if the locality dimension is
-    // filtered to a manageable subset.
-    if (this.drilledStatePcode && country.adm2) return "localities";
-    if (prepared.hasLocalityBinding && country.adm2) return "localities";
+    // Auto: default to STATES. Drill into localities only when the user has
+    // explicitly clicked a state (this.drilledStatePcode), or when slicers /
+    // cross-filters reduce the dataset to a subset of the country's states.
+    // Just having a Locality PCODE binding is no longer sufficient.
+    if (!country.adm2) return "states";
+    if (this.drilledStatePcode) return "localities";
+    const totalStates = country.adm1.features.length;
+    if (prepared.filteredStatePcodes && prepared.filteredStatePcodes.size > 0 && prepared.filteredStatePcodes.size < totalStates) {
+      return "localities";
+    }
     return "states";
+  }
+
+  /**
+   * Roll up locality-level color/bubble values to their parent state. Used
+   * when only Locality PCODE is bound but the visual is showing the states
+   * view (auto mode default).
+   */
+  private aggregateToStates(prepared: PreparedDataView): Map<string, AreaDatum> {
+    const out = new Map<string, AreaDatum>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; labelTooltip: any[]; sample: AreaDatum }>();
+    for (const a of prepared.areas.values()) {
+      const key = a.level === 1 ? a.pcode : (a.parentPcode || a.pcode.slice(0, 4));
+      if (!sums.has(key)) {
+        sums.set(key, { color: null, bubble: null, labelTooltip: [], sample: a });
+      }
+      const acc = sums.get(key)!;
+      if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
+      if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
+    }
+    for (const [pcode, acc] of sums) {
+      out.set(pcode, {
+        pcode,
+        name: undefined,
+        parentPcode: pcode,
+        level: 1,
+        colorValue: acc.color,
+        bubbleSize: acc.bubble,
+        labelValue2: null,
+        labelText1: null,
+        tooltips: [],
+        selectionId: acc.sample.selectionId,
+        highlighted: acc.sample.highlighted
+      });
+    }
+    return out;
   }
 
   private renderMap(country: CountryGeometry, prepared: PreparedDataView, view: "states" | "localities", width: number, height: number): void {
     this.overlay.innerHTML = "";
+    this.renderBackButton(view);
 
     // Filter the visible feature set based on drill state and slicers.
     const adm1Features = (country.adm1.features as any[]).slice();
@@ -209,6 +259,17 @@ export class Visual implements IVisual {
       }
     }
 
+    // For the states view, if the user only bound Locality PCODE, aggregate
+    // locality-level values up to the parent state so the choropleth still
+    // works.
+    let stateAreas = prepared.areas;
+    if (view === "states") {
+      const anyStateLevel = Array.from(prepared.areas.values()).some((a) => a.level === 1);
+      if (!anyStateLevel) {
+        stateAreas = this.aggregateToStates(prepared);
+      }
+    }
+
     const fitFC = view === "localities" && adm2Visible.length
       ? { type: "FeatureCollection", features: adm2Visible }
       : { type: "FeatureCollection", features: adm1Visible };
@@ -217,8 +278,9 @@ export class Visual implements IVisual {
     // Compute classification breaks from whichever features carry data.
     const pcodeKey = view === "localities" ? "ADM2_PCODE" : "ADM1_PCODE";
     const visibleFeatures = view === "localities" ? adm2Visible : adm1Visible;
+    const lookup = view === "localities" ? prepared.areas : stateAreas;
     const valuedFeatures = visibleFeatures.map((f) => {
-      const datum = prepared.areas.get(f.properties[pcodeKey]);
+      const datum = lookup.get(f.properties[pcodeKey]);
       return { feature: f, datum };
     });
     const colorValues = valuedFeatures.map((v) => v.datum?.colorValue).filter((v): v is number => v != null);
@@ -245,23 +307,26 @@ export class Visual implements IVisual {
       };
     });
 
-    // Render
-    const adm1Rows = view === "localities" && adm1Visible.length === adm1Features.length
-      ? adm1Visible.map((f) => ({ feature: f, pcode: f.properties.ADM1_PCODE, fill: "transparent", fillOpacity: 0, highlighted: false }))
-      : (view === "states" ? rows : adm1Visible.map((f) => {
-          const datum = prepared.areas.get(f.properties.ADM1_PCODE);
-          return {
-            feature: f,
-            pcode: f.properties.ADM1_PCODE,
-            fill: datum?.colorValue != null ? colors[Math.min(colors.length - 1, classIndex(breaks.breaks, datum.colorValue))] : "transparent",
-            fillOpacity: view === "localities" ? 0 : cs.fillOpacity.value,
-            highlighted: !!datum?.highlighted
-          };
+    // Render. State fills/strokes always live in adm1Layer (drawn on TOP so
+    // state borders cover locality borders). In locality view the fill is
+    // none and clicks pass through to the locality layer below.
+    const adm1Rows = view === "states"
+      ? rows
+      : adm1Visible.map((f) => ({
+          feature: f,
+          pcode: f.properties.ADM1_PCODE,
+          fill: "none",
+          fillOpacity: 0,
+          highlighted: false
         }));
     const adm2Rows = view === "localities" ? rows : [];
 
     const adm1Selection = renderChoropleth(this.adm1Layer, path, adm1Rows, "adm1");
     const adm2Selection = renderChoropleth(this.adm2Layer, path, adm2Rows, "adm2");
+
+    // In locality view, state polygons exist only to draw borders on top.
+    // Disable pointer events so clicks fall through to the locality below.
+    adm1Selection.style("pointer-events", view === "localities" ? "none" : null);
 
     applyBorders(this.adm1Layer, this.adm2Layer, {
       stateColor: this.settings.borders.stateColor.value.value,
@@ -278,7 +343,7 @@ export class Visual implements IVisual {
       this.bubbleLayer,
       projection,
       view === "localities" ? adm2Visible : adm1Visible,
-      prepared.areas,
+      lookup,
       pcodeKey as any,
       {
         show: bubbleStyle.show.value,
@@ -294,7 +359,7 @@ export class Visual implements IVisual {
     // Labels — state labels always (when shown); locality labels depend on view.
     if (this.settings.stateLabels.show.value) {
       const labels: LabelDatum[] = adm1Visible.map((f) => {
-        const datum = prepared.areas.get(f.properties.ADM1_PCODE);
+        const datum = stateAreas.get(f.properties.ADM1_PCODE);
         return {
           feature: f,
           name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
@@ -395,31 +460,54 @@ export class Visual implements IVisual {
     target.on("click", (event: MouseEvent, row: any) => {
       const datum = prepared.areas.get(row.pcode);
       if (view === "states") {
-        // Drill into the state's localities (if available).
+        // Drill into the state's localities (if the country has ADM2).
         this.drilledStatePcode = row.pcode;
-      } else {
-        // Toggle selection cross-filter at the locality level.
-        if (datum) {
-          this.selectionManager.select(datum.selectionId, (event as any).ctrlKey || (event as any).metaKey);
-        }
+        event.stopPropagation();
+        this.rerender();
+        return;
+      }
+      // Locality view: toggle selection cross-filter.
+      if (datum) {
+        this.selectionManager.select(datum.selectionId, (event as any).ctrlKey || (event as any).metaKey);
       }
       event.stopPropagation();
       this.refreshSelectionStyles();
-      this.host.persistProperties({}); // no-op trigger to re-render
-      // Force re-render with current viewport — Power BI calls update() when
-      // selection changes, so this also recomputes view mode in 'auto'.
     });
 
-    // Click on background to clear drill / selection.
+    // Click on background clears selection (drill is cleared via the back
+    // button only — clicking the SVG to drill back is too easy to trigger by
+    // accident inside Power BI's interaction model).
     d3.select(this.svg).on("click", () => {
-      if (this.drilledStatePcode) {
-        this.drilledStatePcode = null;
-        this.host.persistProperties({});
-      } else {
-        this.selectionManager.clear();
-      }
+      this.selectionManager.clear();
       this.refreshSelectionStyles();
     });
+  }
+
+  /** Re-runs the latest update() so view-mode changes (drill / drill back)
+   *  take effect immediately without waiting for Power BI. */
+  private rerender(): void {
+    if (this.lastUpdateOptions) this.update(this.lastUpdateOptions);
+  }
+
+  private renderBackButton(view: "states" | "localities"): void {
+    const visible = view === "localities" && !!this.drilledStatePcode;
+    if (!visible) {
+      if (this.backButton && this.backButton.parentElement) this.backButton.parentElement.removeChild(this.backButton);
+      return;
+    }
+    if (!this.backButton || !this.backButton.parentElement) {
+      this.backButton = document.createElement("button");
+      this.backButton.className = "adm-back-button";
+      this.backButton.type = "button";
+      this.backButton.setAttribute("aria-label", "Back to states");
+      this.backButton.innerHTML = "&#8592; Back to states";
+      this.backButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.drilledStatePcode = null;
+        this.rerender();
+      });
+      this.overlay.appendChild(this.backButton);
+    }
   }
 
   private refreshSelectionStyles(): void {

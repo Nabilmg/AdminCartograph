@@ -88,7 +88,7 @@ class BordersSettings extends FormattingSettingsCard {
   slices = [this.stateColor, this.stateWidth, this.stateOpacity, this.localityColor, this.localityWidth, this.localityOpacity];
 }
 
-function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Partial<{ show: boolean; content: LabelContent; fontSize: number; color: string }> = {}) {
+function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Partial<{ show: boolean; content: LabelContent; fontSize: number; color: string; bold: boolean }> = {}) {
   return class LabelCard extends FormattingSettingsCard {
     show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: defaults.show ?? true });
     content = new formattingSettings.ItemDropdown({
@@ -105,7 +105,7 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
     fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: defaults.fontSize ?? 11 });
     color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color", value: { value: defaults.color ?? "#222222" } });
     valueColor = new formattingSettings.ColorPicker({ name: "valueColor", displayName: "Value color", value: { value: "#444444" } });
-    bold = new formattingSettings.ToggleSwitch({ name: "bold", displayName: "Bold", value: false });
+    bold = new formattingSettings.ToggleSwitch({ name: "bold", displayName: "Bold", value: defaults.bold ?? false });
     italic = new formattingSettings.ToggleSwitch({ name: "italic", displayName: "Italic", value: false });
     haloColor = new formattingSettings.ColorPicker({ name: "haloColor", displayName: "Halo color", value: { value: "#ffffff" } });
     haloWidth = new formattingSettings.NumUpDown({ name: "haloWidth", displayName: "Halo width", value: 2 });
@@ -148,7 +148,7 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
   };
 }
 
-const StateLabelsCard = makeLabelCard("stateLabels", "State labels", { show: true, content: "name", fontSize: 12 });
+const StateLabelsCard = makeLabelCard("stateLabels", "State labels", { show: true, content: "name", fontSize: 12, bold: true });
 const LocalityLabelsCard = makeLabelCard("localityLabels", "Locality labels (all-map view)", { show: false, content: "name", fontSize: 9 });
 const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "Locality labels (drill view)", { show: true, content: "name", fontSize: 10 });
 
