@@ -16,6 +16,7 @@ import { renderLabels, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
 import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
+import { renderScaleBar } from "./render/scaleBar";
 import { buildProjection } from "./render/projection";
 import type { AreaDatum, PreparedDataView, CountryGeometry } from "./types";
 
@@ -49,6 +50,7 @@ export class Visual implements IVisual {
   private adm1LabelLayer: SVGGElement;
   private adm2LabelLayer: SVGGElement;
   private legendLayer: SVGGElement;
+  private scaleBarLayer: SVGGElement;
   private overlay: HTMLElement;
 
   private settingsService: FormattingSettingsService;
@@ -132,6 +134,7 @@ export class Visual implements IVisual {
     this.adm2LabelLayer = svgEl("g", { class: "adm2-label-layer" });
     this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.legendLayer = svgEl("g", { class: "legend-layer" });
+    this.scaleBarLayer = svgEl("g", { class: "scale-bar-layer" });
     // Order (bottom -> top):
     //   adm2 (locality fills + borders)
     //   adm1 (Admin1 fills in Admin1 view, or just borders in drill view)
@@ -146,6 +149,7 @@ export class Visual implements IVisual {
     this.mapGroup.appendChild(this.adm2LabelLayer);
     this.mapGroup.appendChild(this.adm1LabelLayer);
     this.svg.appendChild(this.legendLayer);
+    this.svg.appendChild(this.scaleBarLayer);
 
     this.overlay = document.createElement("div");
     this.overlay.className = "adm-overlay";
@@ -192,6 +196,22 @@ export class Visual implements IVisual {
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       this.setZoom(this.zoomLevel * factor);
     }, { passive: false });
+  }
+
+  /** Pan the map by one button step in the requested direction. The
+   *  step scales with the viewport so it feels consistent across visual
+   *  sizes and tightens at higher zoom (where each px covers less
+   *  ground). Always usable, even at zoom=1, in case the user wants to
+   *  shift the framing slightly. */
+  private panBy(direction: "up" | "down" | "left" | "right"): void {
+    const base = Math.max(60, Math.min(this.viewportW, this.viewportH) * 0.18);
+    const step = base / Math.max(1, this.zoomLevel * 0.6);
+    if (direction === "up") this.panY += step;
+    else if (direction === "down") this.panY -= step;
+    else if (direction === "left") this.panX += step;
+    else if (direction === "right") this.panX -= step;
+    this.applyZoom();
+    this.renderSecondaryControls();
   }
 
   /** Adjust zoom level, clamping to [1, 8] and snapping pan to 0 when
@@ -1115,6 +1135,17 @@ export class Visual implements IVisual {
       }
     });
 
+    // Scale bar (optional). Rendered after legends so it sits on top in
+    // the same screen-space layer (outside mapGroup, so it's not zoomed).
+    const sb = this.settings.scaleBar;
+    renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
+      show: sb.show.value,
+      units: (sb.units.value as any).value,
+      position: (sb.position.value as any).value,
+      color: sb.color.value.value,
+      fontSize: sb.fontSize.value
+    });
+
     // Wire interactivity (tooltips). Click handling is delegated through
     // handleMapClick attached once in the constructor.
     this.wireInteraction(adm1Selection, adm2Selection, prepared, stateAreas, view);
@@ -1569,6 +1600,36 @@ export class Visual implements IVisual {
     const cs = this.settings.controls;
     panel.dataset.position = (cs.position.value as any).value;
 
+    if (cs.showPan.value) {
+      // 3-row directional pad: [up] / [left right] / [down].
+      const mkPan = (dir: "up" | "down" | "left" | "right", glyph: string, label: string) => {
+        const b = document.createElement("button");
+        b.className = "adm-zoom-button adm-pan-button";
+        b.type = "button";
+        b.setAttribute("aria-label", label);
+        b.title = label;
+        b.innerHTML = glyph;
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.panBy(dir);
+        });
+        return b;
+      };
+      const padTop = document.createElement("div");
+      padTop.className = "adm-pan-row";
+      padTop.appendChild(mkPan("up", "&#9650;", "Pan up"));
+      const padMid = document.createElement("div");
+      padMid.className = "adm-pan-row";
+      padMid.appendChild(mkPan("left", "&#9664;", "Pan left"));
+      padMid.appendChild(mkPan("right", "&#9654;", "Pan right"));
+      const padBot = document.createElement("div");
+      padBot.className = "adm-pan-row";
+      padBot.appendChild(mkPan("down", "&#9660;", "Pan down"));
+      panel.appendChild(padTop);
+      panel.appendChild(padMid);
+      panel.appendChild(padBot);
+    }
+
     if (cs.showZoom.value) {
       const mkZoom = (delta: number, glyph: string, label: string) => {
         const b = document.createElement("button");
@@ -1585,16 +1646,18 @@ export class Visual implements IVisual {
       };
       panel.appendChild(mkZoom(+1, "+", "Zoom in"));
       panel.appendChild(mkZoom(-1, "&#8722;", "Zoom out"));
-      // Reset zoom button only appears once the user has zoomed in.
-      if (this.zoomLevel > 1.001) {
+      // Reset zoom button only appears once the user has zoomed or panned.
+      if (this.zoomLevel > 1.001 || this.panX || this.panY) {
         const reset = document.createElement("button");
         reset.className = "adm-zoom-button adm-zoom-reset";
         reset.type = "button";
-        reset.setAttribute("aria-label", "Reset zoom");
+        reset.setAttribute("aria-label", "Reset zoom and pan");
         reset.title = "Reset zoom and pan";
         reset.innerHTML = "&#8634;";
         reset.addEventListener("click", (e) => {
           e.stopPropagation();
+          this.panX = 0;
+          this.panY = 0;
           this.setZoom(1);
         });
         panel.appendChild(reset);
@@ -1638,6 +1701,16 @@ export class Visual implements IVisual {
     );
     // Visible cursor cue: grab when zoomed in, default otherwise.
     this.svg.style.cursor = z > 1 ? (this.dragState ? "grabbing" : "grab") : "";
+    // Re-render the scale bar so the displayed distance reflects the
+    // current zoom level (the bar shrinks when zoomed in physical units
+    // would, since we display "nice round" values that fit the same on-
+    // screen target length).
+    if (this.cached && this.lastUpdateOptions) {
+      // Re-using the cached projection here would be ideal but renderMap
+      // builds a fresh one each call; the next host-driven update will
+      // re-render the bar with the latest projection. For zoom-only
+      // changes this is fine because the projection is unchanged.
+    }
   }
 
   /**

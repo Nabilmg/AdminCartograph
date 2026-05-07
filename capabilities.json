@@ -595,10 +595,40 @@
       }
     },
 
+    "scaleBar": {
+      "displayName": "Scale bar",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "units": {
+          "displayName": "Units",
+          "type": {
+            "enumeration": [
+              { "value": "km", "displayName": "Kilometres" },
+              { "value": "mi", "displayName": "Miles" }
+            ]
+          }
+        },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "color": { "displayName": "Color", "type": { "fill": { "solid": { "color": true } } } },
+        "fontSize": { "displayName": "Font size", "type": { "formatting": { "fontSize": true } } }
+      }
+    },
+
     "controls": {
       "displayName": "Controls",
       "properties": {
         "showZoom": { "displayName": "Show zoom buttons", "type": { "bool": true } },
+        "showPan": { "displayName": "Show pan buttons (up / down / left / right)", "type": { "bool": true } },
         "showCopy": { "displayName": "Show copy-to-clipboard button", "type": { "bool": true } },
         "position": {
           "displayName": "Position",

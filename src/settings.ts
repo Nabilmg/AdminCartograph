@@ -379,8 +379,39 @@ class BubbleLegendSettings extends FormattingSettingsCard {
   slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
+class ScaleBarSettings extends FormattingSettingsCard {
+  show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
+  units = new formattingSettings.ItemDropdown({
+    name: "units",
+    displayName: "Units",
+    items: [
+      { value: "km", displayName: "Kilometres" },
+      { value: "mi", displayName: "Miles" }
+    ],
+    value: { value: "km", displayName: "Kilometres" }
+  });
+  position = new formattingSettings.ItemDropdown({
+    name: "position",
+    displayName: "Position",
+    items: [
+      { value: "topLeft", displayName: "Top left" },
+      { value: "topRight", displayName: "Top right" },
+      { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomRight", displayName: "Bottom right" }
+    ],
+    value: { value: "bottomLeft", displayName: "Bottom left" }
+  });
+  color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color", value: { value: "#222222" } });
+  fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: 11 });
+
+  name = "scaleBar";
+  displayName = "Scale bar";
+  slices = [this.show, this.units, this.position, this.color, this.fontSize];
+}
+
 class ControlsSettings extends FormattingSettingsCard {
   showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: true });
+  showPan = new formattingSettings.ToggleSwitch({ name: "showPan", displayName: "Show pan buttons", value: true });
   showCopy = new formattingSettings.ToggleSwitch({ name: "showCopy", displayName: "Show copy-to-clipboard button", value: false });
   position = new formattingSettings.ItemDropdown({
     name: "position",
@@ -396,7 +427,7 @@ class ControlsSettings extends FormattingSettingsCard {
 
   name = "controls";
   displayName = "Controls";
-  slices = [this.showZoom, this.showCopy, this.position];
+  slices = [this.showZoom, this.showPan, this.showCopy, this.position];
 }
 
 class LegendContainerSettings extends FormattingSettingsCard {
@@ -426,6 +457,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   bubbleLegend = new BubbleLegendSettings();
   controls = new ControlsSettings();
   legendContainer = new LegendContainerSettings();
+  scaleBar = new ScaleBarSettings();
 
   // Order matters: this is the order users see in the Power BI format pane.
   // Group from "what you see first" outward — map setup, then how the map is
@@ -444,6 +476,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.valueLegend,
     this.bubbleLegend,
     this.legendContainer,
+    this.scaleBar,
     this.controls
   ];
 }
