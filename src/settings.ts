@@ -34,10 +34,13 @@ class GeneralSettings extends FormattingSettingsCard {
   });
   // These properties are populated programmatically by the upload UI via
   // host.persistProperties — they are not slices the user edits directly.
-  customAdm1Json = new formattingSettings.TextInput({ name: "customAdm1Json", displayName: "Custom Admin1", placeholder: "", value: "" });
-  customAdm2Json = new formattingSettings.TextInput({ name: "customAdm2Json", displayName: "Custom Admin2", placeholder: "", value: "" });
-  customFieldMapping = new formattingSettings.TextInput({ name: "customFieldMapping", displayName: "Custom field mapping", placeholder: "", value: "" });
-  customTopoName = new formattingSettings.TextInput({ name: "customTopoName", displayName: "Custom dataset name", placeholder: "", value: "" });
+  // They MUST appear in the slices array though, otherwise the formatting
+  // service never reads the persisted value back into the model. We hide
+  // them via visible: false so the format pane stays clean.
+  customAdm1Json = new formattingSettings.TextInput({ name: "customAdm1Json", displayName: "Custom Admin1", placeholder: "", value: "", visible: false });
+  customAdm2Json = new formattingSettings.TextInput({ name: "customAdm2Json", displayName: "Custom Admin2", placeholder: "", value: "", visible: false });
+  customFieldMapping = new formattingSettings.TextInput({ name: "customFieldMapping", displayName: "Custom field mapping", placeholder: "", value: "", visible: false });
+  customTopoName = new formattingSettings.TextInput({ name: "customTopoName", displayName: "Custom dataset name", placeholder: "", value: "", visible: false });
   viewMode = new formattingSettings.ItemDropdown({
     name: "viewMode",
     displayName: "View mode",
@@ -55,10 +58,9 @@ class GeneralSettings extends FormattingSettingsCard {
 
   name = "general";
   displayName = "Map";
-  // We deliberately do NOT expose customTopoJson / customTopoName as
-  // editable slices: they're megabyte-scale and only meant to be written
-  // by the upload flow.
-  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground];
+  // Hidden custom* slices live alongside the visible ones so the
+  // formatting service round-trips them through host.persistProperties.
+  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
 }
 
 class ChoroplethSettings extends FormattingSettingsCard {

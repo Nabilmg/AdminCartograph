@@ -335,9 +335,25 @@ export class Visual implements IVisual {
    * 1 MB string isn't re-parsed every render.
    */
   private loadCustomCountry(): CountryGeometry | null {
-    const adm1Raw = this.settings.general.customAdm1Json.value || "";
-    const adm2Raw = this.settings.general.customAdm2Json.value || "";
-    const mappingRaw = this.settings.general.customFieldMapping.value || "";
+    // If we already cached a parsed CountryGeometry from the upload flow,
+    // use that. Power BI's persistProperties round-trip can be slow or
+    // truncate very large strings; the in-memory cache is the most
+    // reliable source within a single session.
+    if (this.customGeometryCache?.country) return this.customGeometryCache.country;
+
+    // Fall back to whatever the formatting service has populated. If the
+    // service didn't pick the values up (some hosts truncate long
+    // TextInput properties), read straight from the raw DataView.
+    let adm1Raw = this.settings.general.customAdm1Json.value || "";
+    let adm2Raw = this.settings.general.customAdm2Json.value || "";
+    let mappingRaw = this.settings.general.customFieldMapping.value || "";
+    if (!adm1Raw && this.lastUpdateOptions) {
+      const dv = this.lastUpdateOptions.dataViews?.[0];
+      const general = (dv?.metadata?.objects as any)?.general || {};
+      adm1Raw = general.customAdm1Json || adm1Raw;
+      adm2Raw = general.customAdm2Json || adm2Raw;
+      mappingRaw = general.customFieldMapping || mappingRaw;
+    }
     if (!adm1Raw) return null;
     const key = `${mappingRaw}::${adm1Raw.length}-${adm1Raw.slice(0, 64)}::${adm2Raw.length}-${adm2Raw.slice(0, 64)}`;
     if (this.customGeometryCache && this.customGeometryCache.key === key) {
@@ -533,21 +549,58 @@ export class Visual implements IVisual {
       return;
     }
     const datasetName = (draft.adm1Filename || "Custom").replace(/\.(topojson|geojson|json)$/i, "");
-    this.host.persistProperties({
-      merge: [
-        {
-          objectName: "general",
-          properties: {
-            customAdm1Json: draft.adm1Raw,
-            customAdm2Json: draft.adm2Raw || "",
-            customFieldMapping: JSON.stringify(draft.mapping),
-            customTopoName: datasetName
-          },
-          selector: null as any
-        }
-      ]
-    } as any);
-    this.customUploadDraft = null; // host re-render will pick up persisted state
+    const mappingStr = JSON.stringify(draft.mapping);
+
+    // Fast path: build the country geometry NOW and seed the cache so the
+    // immediate re-render doesn't have to wait for persistProperties to
+    // round-trip through the host. Without this the user clicks Load map
+    // and sees no change until Power BI hands back a fresh dataView,
+    // which can be several seconds and is sometimes silent on errors.
+    try {
+      const adm1 = parseUploadedShape(draft.adm1Raw);
+      const adm2 = draft.adm2Raw ? parseUploadedShape(draft.adm2Raw) : null;
+      if (adm1 && adm1.features?.length) {
+        this.applyMapping(adm1.features, 1, draft.mapping);
+        if (adm2 && adm2.features?.length) this.applyMapping(adm2.features, 2, draft.mapping);
+        const country: CountryGeometry = {
+          iso3: "CUSTOM",
+          name: datasetName,
+          adm1,
+          adm2: adm2 && adm2.features?.length ? adm2 : null
+        };
+        const key = `${mappingStr}::${draft.adm1Raw.length}-${draft.adm1Raw.slice(0, 64)}::${(draft.adm2Raw || "").length}-${(draft.adm2Raw || "").slice(0, 64)}`;
+        this.customGeometryCache = { key, country };
+      }
+    } catch (e) {
+      if (errSpan) errSpan.textContent = `Could not load files: ${(e as any)?.message || "parse error"}`;
+      return;
+    }
+
+    // Persist for save/reload.
+    try {
+      this.host.persistProperties({
+        merge: [
+          {
+            objectName: "general",
+            properties: {
+              customAdm1Json: draft.adm1Raw,
+              customAdm2Json: draft.adm2Raw || "",
+              customFieldMapping: mappingStr,
+              customTopoName: datasetName
+            },
+            selector: null as any
+          }
+        ]
+      } as any);
+    } catch (e) {
+      // Non-fatal: fast-path cache still renders the map this session.
+      console.warn("persistProperties failed — map will render this session only:", e);
+    }
+
+    this.customUploadDraft = null;
+    // Trigger an immediate render using the seeded cache. The host will
+    // also fire its own update() shortly with the persisted values.
+    this.rerender();
   }
 
   private renderLandingPage(message: string): void {
