@@ -438,17 +438,17 @@ export class Visual implements IVisual {
 
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     if (this.settings.stateLabels.show.value) {
-      if (this.drilledStatePcode && view === "localities") {
-        // Drill view: rendering the Admin1 label on top of the polygon
-        // overlaps with the locality labels. Promote it to a header at the
-        // top center of the canvas so it stays visible and out of the way.
-        const drilledFeature = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode) || adm1Visible[0];
-        if (drilledFeature) {
-          const datum = stateAreas.get(drilledFeature.properties.ADM1_PCODE);
-          this.renderAdmin1Header(width, drilledFeature, datum);
-        }
-      } else {
-        const labels: LabelDatum[] = adm1Visible.map((f) => {
+      const isDrill = !!this.drilledStatePcode && view === "localities";
+
+      // In drill view, every visible Admin1 OTHER than the drilled one still
+      // gets its on-polygon label so the surrounding context is readable.
+      // The drilled state's label is promoted to a header pill so it doesn't
+      // overlap the locality labels in the centre of the focus area.
+      const labelFeatures = isDrill
+        ? adm1Visible.filter((f) => f.properties.ADM1_PCODE !== this.drilledStatePcode)
+        : adm1Visible;
+      if (labelFeatures.length) {
+        const labels: LabelDatum[] = labelFeatures.map((f) => {
           const datum = stateAreas.get(f.properties.ADM1_PCODE);
           return {
             feature: f,
@@ -459,6 +459,14 @@ export class Visual implements IVisual {
           };
         });
         renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
+      }
+
+      if (isDrill) {
+        const drilledFeature = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
+        if (drilledFeature) {
+          const datum = stateAreas.get(drilledFeature.properties.ADM1_PCODE);
+          this.renderAdmin1Header(width, drilledFeature, datum);
+        }
       }
     }
 
@@ -618,41 +626,66 @@ export class Visual implements IVisual {
     }
     if (!lines.length) return;
 
-    const fontSize = Math.max(card.fontSize.value, 13);
-    const lineHeight = fontSize * 1.2;
-    // Anchor under the back button: 8px overlay padding + ~30px button +
-    // 6px gap = 44px from the top, 8px from the left.
+    // Drill pill should read like a screen title: clearly larger than the
+    // surrounding labels even when the user's Admin1 label font size is
+    // small. Floor at 20 px for the name; values render at 0.85x to keep
+    // the hierarchy clear.
+    const titleFontSize = Math.max(card.fontSize.value + 6, 20);
+    const valueFontSize = Math.round(titleFontSize * 0.85);
+
     const baseX = 8;
     const baseY = 44;
     const sel = (this.adm1LabelLayer as any) as SVGGElement;
     const svgNS = "http://www.w3.org/2000/svg";
 
-    // Backing pill keeps the text readable over any choropleth color.
-    const padX = 10;
-    const padY = 6;
-    const widest = Math.max(...lines.map((l) => approxTextWidth(l.text, fontSize)));
+    const padX = 14;
+    const padY = 10;
+    let widest = 0;
+    let totalH = padY * 2;
+    const lineMetrics = lines.map((l) => {
+      const fs = l.kind === "value" ? valueFontSize : titleFontSize;
+      const lh = fs * 1.2;
+      widest = Math.max(widest, approxTextWidth(l.text, fs));
+      totalH += lh;
+      return { fs, lh };
+    });
     const totalW = widest + padX * 2;
-    const totalH = lines.length * lineHeight + padY * 2;
+
+    // Drop shadow gives the pill weight against busy choropleth fills.
+    const filterId = "adm1-pill-shadow";
+    const defs = document.createElementNS(svgNS, "defs");
+    defs.innerHTML =
+      `<filter id="${filterId}" x="-10%" y="-10%" width="120%" height="140%">` +
+      `<feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000" flood-opacity="0.18"/>` +
+      `</filter>`;
+    sel.appendChild(defs);
+
     const rect = document.createElementNS(svgNS, "rect");
     rect.setAttribute("x", String(baseX));
     rect.setAttribute("y", String(baseY));
     rect.setAttribute("width", String(totalW));
     rect.setAttribute("height", String(totalH));
-    rect.setAttribute("rx", "6");
-    rect.setAttribute("ry", "6");
-    rect.setAttribute("fill", "rgba(255,255,255,0.95)");
-    rect.setAttribute("stroke", "#cccccc");
+    rect.setAttribute("rx", "8");
+    rect.setAttribute("ry", "8");
+    rect.setAttribute("fill", "rgba(255,255,255,0.97)");
+    rect.setAttribute("stroke", "#9aa0a6");
     rect.setAttribute("stroke-width", "1");
+    rect.setAttribute("filter", `url(#${filterId})`);
     sel.appendChild(rect);
 
+    let cursorY = baseY + padY;
     for (let i = 0; i < lines.length; i++) {
+      const m = lineMetrics[i];
+      cursorY += m.lh;
       const t = document.createElementNS(svgNS, "text");
       t.setAttribute("x", String(baseX + padX));
-      t.setAttribute("y", String(baseY + padY + (i + 1) * lineHeight - lineHeight * 0.25));
+      t.setAttribute("y", String(cursorY - m.lh * 0.25));
       t.setAttribute("text-anchor", "start");
       t.setAttribute("font-family", card.fontFamily.value);
-      t.setAttribute("font-size", String(fontSize));
-      t.setAttribute("font-weight", card.bold.value ? "600" : "500");
+      t.setAttribute("font-size", String(m.fs));
+      // Always render the title bold so it reads as a header even when the
+      // Admin1 labels card has bold turned off for the on-map labels.
+      t.setAttribute("font-weight", lines[i].kind === "value" ? (card.bold.value ? "600" : "500") : "700");
       t.setAttribute("font-style", card.italic.value ? "italic" : "normal");
       t.setAttribute("fill", lines[i].kind === "value" ? card.valueColor.value.value : card.color.value.value);
       t.textContent = lines[i].text;
