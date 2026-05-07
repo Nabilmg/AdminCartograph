@@ -24,6 +24,11 @@ export function buildBreaks(values: number[], method: Classification, classCount
   const max = sorted[sorted.length - 1];
   const k = Math.max(2, Math.min(7, Math.floor(classCount || 5)));
 
+  // Degenerate case: only one distinct value (e.g. user filtered to a
+  // single area). Return a single class so the legend doesn't repeat the
+  // same range five times.
+  if (min === max) return { breaks: [], min, max, classCount: 1 };
+
   if (method === "manual") {
     const parsed = parseManual(manualText);
     if (parsed.length) return { breaks: parsed, min, max, classCount: parsed.length + 1 };
@@ -42,7 +47,10 @@ export function buildBreaks(values: number[], method: Classification, classCount
     const hi = Math.ceil(q);
     breaks.push(lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (q - lo));
   }
-  return { breaks: dedupe(breaks), min, max, classCount: k };
+  // After dedupe the data may collapse to fewer effective classes than
+  // requested (lots of identical values). Trust the deduped break list.
+  const cleaned = dedupe(breaks);
+  return { breaks: cleaned, min, max, classCount: cleaned.length + 1 };
 }
 
 export function classIndex(breaks: number[], value: number): number {

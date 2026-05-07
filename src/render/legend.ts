@@ -146,8 +146,11 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
   }
   for (const c of value.classes) {
     parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+    const fromTxt = formatNumber(c.from, value.decimals, "auto");
+    const toTxt = formatNumber(c.to, value.decimals, "auto");
+    const text = c.from === c.to ? fromTxt : `${fromTxt} – ${toTxt}`;
     parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
-      .text(`${formatNumber(c.from, value.decimals, "auto")} – ${formatNumber(c.to, value.decimals, "auto")}`);
+      .text(text);
     y += swatch + gap;
   }
   return y;

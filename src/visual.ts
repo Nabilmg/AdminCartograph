@@ -966,6 +966,13 @@ function errorIconSvg(): string {
 
 function makeLegendClasses(breaks: { breaks: number[]; min: number; max: number; classCount: number }, colors: string[]): { color: string; from: number; to: number }[] {
   const out: { color: string; from: number; to: number }[] = [];
+  if (breaks.classCount <= 0) return out;
+  // Single-class case (e.g. user filtered to a single area, or every area
+  // shares the same value): produce one swatch covering the value.
+  if (breaks.classCount === 1) {
+    out.push({ color: colors[0] || "#999999", from: breaks.min, to: breaks.max });
+    return out;
+  }
   const edges = [breaks.min, ...breaks.breaks, breaks.max];
   for (let i = 0; i < breaks.classCount; i++) {
     out.push({ color: colors[Math.min(colors.length - 1, i)], from: edges[i], to: edges[i + 1] });
