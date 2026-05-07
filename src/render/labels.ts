@@ -36,6 +36,13 @@ export interface LabelStyle {
   avoidHoles: boolean;
   labelLargestPart: boolean;
   allowCallout: boolean;
+  /**
+   * If true, drop the label entirely when it cannot be made to fit inside
+   * its polygon's bounding box (after stack / abbreviate / reduce-font).
+   * Used for neighbour Admin1 labels in drill view so they never spill on
+   * top of the focused state.
+   */
+  hideOnOverflow?: boolean;
 }
 
 export interface LabelDatum {
@@ -99,6 +106,7 @@ export function renderLabels(
 
     let baseFontSize = style.fontSize;
     let renderedLines = lines.slice();
+    let labelFits = true;
 
     // When an override is supplied (e.g. label positioned relative to a
     // bubble) we trust the caller and skip fit-to-shape / abbreviate logic.
@@ -112,7 +120,8 @@ export function renderLabels(
       while (attempts-- > 0) {
         const longest = renderedLines.reduce((m, l) => Math.max(m, approxTextWidth(l.text, baseFontSize)), 0);
         const totalH = renderedLines.length * (baseFontSize * 1.15);
-        if (style.allowOverrun || fitsInside(polyBBox, [px, py], longest, totalH)) break;
+        labelFits = fitsInside(polyBBox, [px, py], longest, totalH);
+        if (style.allowOverrun || labelFits) break;
 
         if (style.stackWhenNeeded && !stackedAlready) {
           stackedAlready = true;
@@ -131,6 +140,20 @@ export function renderLabels(
         }
         baseFontSize = Math.max(7, baseFontSize - 1);
       }
+      // After the loop, recompute fit one final time using the chosen size
+      // and content so callers can decide whether to drop overflow labels.
+      const longest = renderedLines.reduce((m, l) => Math.max(m, approxTextWidth(l.text, baseFontSize)), 0);
+      const totalH = renderedLines.length * (baseFontSize * 1.15);
+      labelFits = fitsInside(polyBBox, [px, py], longest, totalH);
+    }
+
+    // Hide-on-overflow: drop labels that still overflow even after fit
+    // attempts. Used for neighbour Admin1 labels in drill view so a small
+    // state's label never spills onto the focused state next door.
+    if (style.hideOnOverflow && polyBBox && !labelFits) {
+      // Remove the empty group we created so we don't leave debris behind.
+      g.remove();
+      continue;
     }
 
     const lineHeight = baseFontSize * 1.15;

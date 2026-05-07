@@ -552,7 +552,14 @@ export class Visual implements IVisual {
             value2: datum?.labelValue2 ?? null
           };
         });
-        renderLabels(neighborGroup, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
+        // In drill view, force neighbour labels to stay inside their own
+        // polygon. If even the smallest size doesn't fit, drop the label
+        // entirely rather than letting it spill onto the focused state.
+        const baseStyle = this.styleFromCard(this.settings.stateLabels);
+        const neighborStyle = isDrill
+          ? { ...baseStyle, allowOverrun: false, hideOnOverflow: true }
+          : baseStyle;
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, view === "states" ? labelOverrides : undefined);
       }
 
       if (isDrill) {
