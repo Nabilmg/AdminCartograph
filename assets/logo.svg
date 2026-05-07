@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="ADM Choropleth + Bubble Map logo">
+  <title>ADM Choropleth + Bubble Map</title>
+
+  <!-- Background pill -->
+  <rect x="8" y="8" width="240" height="240" rx="40" ry="40" fill="#ffffff" stroke="#1f2933" stroke-width="4"/>
+
+  <!-- Stylised country with four admin polygons + a bubble. The polygons
+       use the same blue ramp the visual produces for an automatic
+       choropleth so the icon is a true preview of what the visual draws. -->
+
+  <!-- ADM region 1 (top-left, lightest) -->
+  <path d="M 32,52 L 124,40 L 130,118 L 60,128 Z" fill="#c6dbef" stroke="#1f2933" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- ADM region 2 (top-right) -->
+  <path d="M 124,40 L 220,60 L 210,124 L 130,118 Z" fill="#6baed6" stroke="#1f2933" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- ADM region 3 (bottom-left) -->
+  <path d="M 60,128 L 130,118 L 138,212 L 50,200 Z" fill="#4292c6" stroke="#1f2933" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- ADM region 4 (bottom-right, darkest) -->
+  <path d="M 130,118 L 210,124 L 220,200 L 138,212 Z" fill="#08519c" stroke="#1f2933" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Proportional bubble overlay -->
+  <circle cx="160" cy="150" r="34" fill="#e6550d" fill-opacity="0.85" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="160" cy="150" r="34" fill="none" stroke="#1f2933" stroke-width="2"/>
+
+  <!-- Smaller secondary bubble -->
+  <circle cx="92" cy="86" r="14" fill="#fdae6b" fill-opacity="0.85" stroke="#ffffff" stroke-width="2.5"/>
+  <circle cx="92" cy="86" r="14" fill="none" stroke="#1f2933" stroke-width="1.5"/>
+</svg>
