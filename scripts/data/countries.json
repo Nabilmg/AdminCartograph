@@ -8,12 +8,52 @@
     "gpkgUrl": null
   },
   {
+    "iso3": "COD",
+    "name": "COD",
+    "maxAdm": 2,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
+  },
+  {
+    "iso3": "HTI",
+    "name": "HTI",
+    "maxAdm": 3,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
+  },
+  {
+    "iso3": "IRN",
+    "name": "Iran",
+    "maxAdm": 2,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
+  },
+  {
+    "iso3": "LBN",
+    "name": "Lebanon",
+    "maxAdm": 3,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
+  },
+  {
     "iso3": "SDN",
     "name": "Sudan",
     "maxAdm": 2,
     "geojsonUrl": "https://data.fieldmaps.io/cod/originals/SDN.geojson.zip",
     "shpUrl": "https://data.fieldmaps.io/cod/originals/SDN.shp.zip",
     "gpkgUrl": "https://data.fieldmaps.io/cod/originals/2.gpkg.zip"
+  },
+  {
+    "iso3": "SYR",
+    "name": "Syria",
+    "maxAdm": 3,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
   },
   {
     "iso3": "YEM",

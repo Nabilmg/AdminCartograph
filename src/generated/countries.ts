@@ -2,14 +2,6 @@
 export interface BundledCountry { iso: string; name: string; }
 export const BUNDLED_COUNTRIES: BundledCountry[] = [
   {
-    "iso": "AFG",
-    "name": "Afghanistan"
-  },
-  {
-    "iso": "SDN",
-    "name": "Sudan"
-  },
-  {
     "iso": "YEM",
     "name": "Yemen"
   }
