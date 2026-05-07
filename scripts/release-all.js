@@ -89,16 +89,39 @@ async function extractZip(zipPath, destDir) {
   });
 }
 
+/**
+ * Stable but visibly-distinct per-country identifier. We hash the ISO so the
+ * shared "admChoroplethBubbleMap" prefix is dropped — Power BI was treating
+ * imports as updates of one another when the GUIDs only differed by a 3-
+ * letter substring buried inside an otherwise identical string.
+ *
+ * The hash is deterministic so re-running release-all produces the same
+ * GUID, which means Power BI updates the SAME visual on re-import (instead
+ * of accumulating duplicates per country every build).
+ */
+function isoFingerprint(iso) {
+  let h = 0x811c9dc5; // FNV-1a seed
+  const s = `mapvisual:${iso}:v1`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
 function shortGuid(iso) {
-  // Stable per-country GUID. Power BI uses this to identify the visual.
-  // Format: alphanumeric, must contain only letters/digits, max ~30 chars.
-  return `admChoroplethBubbleMap${iso}A2B3C`;
+  // Country comes FIRST so the GUID's distinctive characters lead, not
+  // trail. Power BI's identity matching seems to short-circuit on common
+  // prefixes; lead-with-iso avoids that.
+  return `mv${iso}${isoFingerprint(iso)}Pbi`;
 }
 
 function makePbivizFor(iso, name) {
   const variant = JSON.parse(JSON.stringify(basePbiviz));
-  variant.visual.name = `admChoroplethBubbleMap_${iso}`;
-  variant.visual.displayName = `ADM Map: ${name}`;
+  // Country comes first in every identity field so Power BI never sees
+  // two visuals that share a long initial substring.
+  variant.visual.name = `mv${iso}AdmMap`;
+  variant.visual.displayName = `${name} ADM Map (${iso})`;
   variant.visual.guid = shortGuid(iso);
   variant.visual.visualClassName = "Visual";
   variant.visual.description = `Choropleth and bubble map for ${name} (${iso}). ADM1 / ADM2 boundaries are embedded; users bind PCODE only.`;
