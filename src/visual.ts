@@ -1718,10 +1718,13 @@ export class Visual implements IVisual {
    * (1748 x 1240 px ≈ 210 x 148 mm at 300 DPI). Falls back to a download
    * when navigator.clipboard.write is blocked by the host iframe.
    *
-   * Strategy: serialize the live on-screen SVG (which already has every
-   * layer and label rendered) and rasterise it onto an A5 canvas with
-   * white letterboxing. No re-render path; the on-screen visual stays
-   * untouched while exporting.
+   * Strategy:
+   *   1. Clone the live SVG (already has every layer painted).
+   *   2. Inline ALL styles from document.styleSheets into a <style> tag
+   *      inside the SVG so the rasteriser doesn't lose CSS rules — the
+   *      SVG-as-Image rendering path is sandboxed and can't see the
+   *      host page's stylesheet.
+   *   3. Convert to PNG via canvas, then either clipboard or download.
    */
   private async exportToClipboard(btn: HTMLButtonElement): Promise<void> {
     const A5_WIDTH = 1748;
@@ -1730,39 +1733,50 @@ export class Visual implements IVisual {
     btn.disabled = true;
     btn.innerHTML = "…";
 
+    let resultMessage = "";
     try {
-      const sourceW = Math.max(40, this.viewportW || this.svg.clientWidth || 800);
-      const sourceH = Math.max(40, this.viewportH || this.svg.clientHeight || 600);
+      const sourceW = Math.max(40, this.viewportW || this.svg.clientWidth || this.root.clientWidth || 800);
+      const sourceH = Math.max(40, this.viewportH || this.svg.clientHeight || this.root.clientHeight || 600);
 
-      // Clone the live SVG so we can set explicit width/height + xmlns
-      // without disturbing the on-screen one.
+      const SVG_NS = "http://www.w3.org/2000/svg";
       const clone = this.svg.cloneNode(true) as SVGSVGElement;
       clone.setAttribute("width", String(sourceW));
       clone.setAttribute("height", String(sourceH));
       clone.setAttribute("viewBox", `0 0 ${sourceW} ${sourceH}`);
-      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("xmlns", SVG_NS);
+      clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 
-      // Inline a white background rect at the bottom so JPEG/PNG paste
-      // looks right (no transparency revealing the slide background).
-      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      // Background rect (otherwise the rasteriser produces a transparent
+      // PNG which reveals whatever colour PowerPoint paints behind).
+      const bg = document.createElementNS(SVG_NS, "rect");
       bg.setAttribute("x", "0");
       bg.setAttribute("y", "0");
       bg.setAttribute("width", String(sourceW));
       bg.setAttribute("height", String(sourceH));
-      bg.setAttribute("fill", this.settings?.general?.transparentBackground?.value ? "#ffffff" : (this.settings?.general?.background?.value?.value || "#ffffff"));
+      const bgColor = this.settings?.general?.transparentBackground?.value
+        ? "#ffffff"
+        : (this.settings?.general?.background?.value?.value || "#ffffff");
+      bg.setAttribute("fill", bgColor);
       clone.insertBefore(bg, clone.firstChild);
+
+      // Inline document stylesheet rules so SVG rendering keeps text /
+      // halo / opacity styling. SVGs rendered through <img src=blob>
+      // don't have access to the parent document's CSSOM.
+      const styleEl = document.createElementNS(SVG_NS, "style");
+      styleEl.textContent = collectVisualCss();
+      clone.insertBefore(styleEl, clone.firstChild);
 
       const xml = new XMLSerializer().serializeToString(clone);
       const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(svgBlob);
 
-      const img = new Image();
-      const loaded = new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = (e) => rej(new Error("SVG image load failed"));
-      });
-      img.src = url;
-      await loaded;
+      let img: HTMLImageElement;
+      try {
+        img = await loadImage(url, 6000);
+      } finally {
+        // Even on failure, free the blob URL.
+        URL.revokeObjectURL(url);
+      }
 
       const canvas = document.createElement("canvas");
       canvas.width = A5_WIDTH;
@@ -1770,48 +1784,74 @@ export class Visual implements IVisual {
       const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, A5_WIDTH, A5_HEIGHT);
-      // Fit source to A5 maintaining aspect ratio, centred (letterboxed).
       const scale = Math.min(A5_WIDTH / sourceW, A5_HEIGHT / sourceH);
       const drawW = sourceW * scale;
       const drawH = sourceH * scale;
       const dx = (A5_WIDTH - drawW) / 2;
       const dy = (A5_HEIGHT - drawH) / 2;
       ctx.drawImage(img, dx, dy, drawW, drawH);
-      URL.revokeObjectURL(url);
 
-      const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/png"));
+      const blob: Blob = await new Promise((res, rej) => {
+        canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas.toBlob returned null"))), "image/png");
+      });
 
-      // Try Async Clipboard. Power BI may block this; fall through to
-      // download in that case so the user always gets the image.
+      // Try Async Clipboard. Many Power BI hosts block this; fall
+      // through to download so the user always gets the image.
       let copied = false;
+      let clipboardError: any = null;
       try {
         const navAny = navigator as any;
-        if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof (window as any).ClipboardItem === "function") {
-          await navAny.clipboard.write([new (window as any).ClipboardItem({ "image/png": blob })]);
+        const ClipboardItemCtor = (window as any).ClipboardItem;
+        if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof ClipboardItemCtor === "function") {
+          await navAny.clipboard.write([new ClipboardItemCtor({ "image/png": blob })]);
           copied = true;
+        } else {
+          clipboardError = new Error("clipboard API unavailable in this host");
         }
       } catch (err) {
-        console.warn("Clipboard write failed, falling back to download:", err);
+        clipboardError = err;
       }
 
       if (!copied) {
+        // Fallback: trigger a download so the user gets the file
+        // regardless. This is the most-permissive path; some hosts
+        // even block <a download> programmatically, in which case we
+        // open the blob in a new tab as a last resort.
+        const dlUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
+        a.href = dlUrl;
         a.download = "map-A5.png";
+        a.rel = "noopener";
+        a.style.display = "none";
         document.body.appendChild(a);
-        a.click();
+        try {
+          a.click();
+        } catch {
+          // If even the click is blocked, try opening in a new tab.
+          try { window.open(dlUrl, "_blank"); } catch { /* drop */ }
+        }
         setTimeout(() => {
-          URL.revokeObjectURL(a.href);
+          URL.revokeObjectURL(dlUrl);
           a.remove();
         }, 5000);
+        resultMessage = clipboardError
+          ? `Clipboard blocked (${describeError(clipboardError)}); downloaded map-A5.png instead.`
+          : "Downloaded map-A5.png";
+        console.info("[ADM Map export] " + resultMessage);
+      } else {
+        resultMessage = "Image copied to clipboard.";
+        console.info("[ADM Map export] " + resultMessage);
       }
 
       btn.innerHTML = copied ? checkIconSvg() : downloadIconSvg();
-      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1500);
+      btn.title = resultMessage;
+      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; btn.title = "Copy map to clipboard (A5 landscape)"; }, 2000);
     } catch (e) {
-      console.error("Export failed:", e);
+      const msg = describeError(e);
+      console.error("[ADM Map export] Export failed:", e);
       btn.innerHTML = errorIconSvg();
-      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1800);
+      btn.title = `Export failed: ${msg}`;
+      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; btn.title = "Copy map to clipboard (A5 landscape)"; }, 2500);
     }
   }
 
@@ -1873,6 +1913,65 @@ function escapeHtml(s: string): string {
 
 function approxTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.55;
+}
+
+/**
+ * Walk every accessible CSS rule in the host document and concatenate
+ * its text. Used to inline styles inside the cloned SVG so that an
+ * SVG-as-image rasteriser (which is isolated from the parent CSSOM)
+ * still applies our halo / font / opacity rules.
+ *
+ * Cross-origin stylesheets throw when you try to read their cssRules;
+ * those are silently skipped.
+ */
+function collectVisualCss(): string {
+  const out: string[] = [];
+  const sheets = document.styleSheets;
+  for (let i = 0; i < sheets.length; i++) {
+    let rules: CSSRuleList | null = null;
+    try {
+      rules = sheets[i].cssRules;
+    } catch {
+      continue; // cross-origin stylesheet
+    }
+    if (!rules) continue;
+    for (let j = 0; j < rules.length; j++) {
+      out.push(rules[j].cssText);
+    }
+  }
+  return out.join("\n");
+}
+
+function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(`SVG image load timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    img.onload = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      reject(new Error("SVG image failed to load (rasteriser rejected the SVG)"));
+    };
+    img.src = src;
+  });
+}
+
+function describeError(err: any): string {
+  if (!err) return "unknown error";
+  if (err instanceof Error) return err.message || err.name || "error";
+  if (typeof err === "string") return err;
+  try { return JSON.stringify(err); } catch { return String(err); }
 }
 
 /**
