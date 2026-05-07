@@ -96,9 +96,17 @@ export class Visual implements IVisual {
   } | null = null;
   /** Current zoom level applied to the mapGroup (1 = 100%). */
   private zoomLevel = 1;
+  /** Pan offset in screen pixels — added to the zoom transform so the
+   *  user can drag the map around when zoomed in. */
+  private panX = 0;
+  private panY = 0;
   /** Cached width/height for the zoom transform. */
   private viewportW = 0;
   private viewportH = 0;
+  /** Drag state for mouse pan. didDrag is consulted by handleMapClick
+   *  so the click that ends a drag doesn't trigger a drill. */
+  private dragState: { startX: number; startY: number; basePanX: number; basePanY: number } | null = null;
+  private didDrag = false;
 
   constructor(options: VisualConstructorOptions) {
     this.host = options.host;
@@ -153,6 +161,52 @@ export class Visual implements IVisual {
     // were race-y inside the Power BI iframe). The handler reads the latest
     // cached state instead of capturing stale closures.
     this.mapGroup.addEventListener("click", (e: MouseEvent) => this.handleMapClick(e));
+
+    // Mouse drag pan + wheel zoom. Only active when zoomed in. didDrag
+    // is checked by handleMapClick so a drag-then-release doesn't drill.
+    this.svg.addEventListener("mousedown", (e: MouseEvent) => {
+      if (this.zoomLevel <= 1) return;
+      this.dragState = { startX: e.clientX, startY: e.clientY, basePanX: this.panX, basePanY: this.panY };
+      this.didDrag = false;
+      this.svg.style.cursor = "grabbing";
+    });
+    window.addEventListener("mousemove", (e: MouseEvent) => {
+      if (!this.dragState) return;
+      const dx = e.clientX - this.dragState.startX;
+      const dy = e.clientY - this.dragState.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) this.didDrag = true;
+      this.panX = this.dragState.basePanX + dx;
+      this.panY = this.dragState.basePanY + dy;
+      this.applyZoom();
+    });
+    window.addEventListener("mouseup", () => {
+      if (!this.dragState) return;
+      this.dragState = null;
+      this.svg.style.cursor = "";
+    });
+    // Mouse wheel zooms in/out around the cursor. preventDefault stops
+    // the page (Power BI report) from scrolling when the user wheels
+    // over the visual.
+    this.svg.addEventListener("wheel", (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      this.setZoom(this.zoomLevel * factor);
+    }, { passive: false });
+  }
+
+  /** Adjust zoom level, clamping to [1, 8] and snapping pan to 0 when
+   *  fully zoomed out so the map stays centred. */
+  private setZoom(z: number): void {
+    const clamped = Math.max(1, Math.min(8, z));
+    if (clamped <= 1.001) {
+      this.panX = 0;
+      this.panY = 0;
+    }
+    this.zoomLevel = clamped;
+    this.applyZoom();
+    // Re-render the secondary controls so the Reset button toggles
+    // visibility correctly.
+    this.renderSecondaryControls();
   }
 
   /**
@@ -163,6 +217,13 @@ export class Visual implements IVisual {
   private handleMapClick(e: MouseEvent): void {
     if (!this.settings?.general?.interactionEnabled.value) return;
     if (!this.cached) return;
+    // Suppress the click that ends a pan drag — the user was dragging
+    // the map, not selecting an Admin1.
+    if (this.didDrag) {
+      this.didDrag = false;
+      e.stopPropagation();
+      return;
+    }
     const node = (e.target as Element)?.closest?.("[data-pcode]") as SVGElement | null;
     if (!node) return;
     const pcode = node.getAttribute("data-pcode");
@@ -1518,9 +1579,7 @@ export class Visual implements IVisual {
         b.innerHTML = glyph;
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          const next = Math.max(1, Math.min(8, this.zoomLevel * (delta > 0 ? 1.25 : 1 / 1.25)));
-          this.zoomLevel = next;
-          this.applyZoom();
+          this.setZoom(this.zoomLevel * (delta > 0 ? 1.25 : 1 / 1.25));
         });
         return b;
       };
@@ -1532,12 +1591,11 @@ export class Visual implements IVisual {
         reset.className = "adm-zoom-button adm-zoom-reset";
         reset.type = "button";
         reset.setAttribute("aria-label", "Reset zoom");
-        reset.title = "Reset zoom";
+        reset.title = "Reset zoom and pan";
         reset.innerHTML = "&#8634;";
         reset.addEventListener("click", (e) => {
           e.stopPropagation();
-          this.zoomLevel = 1;
-          this.applyZoom();
+          this.setZoom(1);
         });
         panel.appendChild(reset);
       }
@@ -1565,21 +1623,32 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Apply the current zoom level to the map content. We zoom around the
-   * centre of the viewport so everything stays framed sensibly. Legends
-   * are NOT zoomed — they live in a separate top-level group.
+   * Apply the current zoom + pan to the map content. We zoom around the
+   * centre of the viewport so the framing stays sensible, then add the
+   * pan offset so the user can drag around the magnified map. Legends
+   * are NOT inside mapGroup, so they keep a constant size and position.
    */
   private applyZoom(): void {
     const z = this.zoomLevel;
     const cx = this.viewportW / 2;
     const cy = this.viewportH / 2;
-    this.mapGroup.setAttribute("transform", `translate(${cx},${cy}) scale(${z}) translate(${-cx},${-cy})`);
+    this.mapGroup.setAttribute(
+      "transform",
+      `translate(${cx + this.panX},${cy + this.panY}) scale(${z}) translate(${-cx},${-cy})`
+    );
+    // Visible cursor cue: grab when zoomed in, default otherwise.
+    this.svg.style.cursor = z > 1 ? (this.dragState ? "grabbing" : "grab") : "";
   }
 
   /**
    * Export the current map to the clipboard as a PNG sized to A5 landscape
-   * (1748 x 1240 px ≈ 210 x 148 mm at 300 DPI). Falls back to a download if
-   * clipboard write is blocked by Power BI's iframe sandbox.
+   * (1748 x 1240 px ≈ 210 x 148 mm at 300 DPI). Falls back to a download
+   * when navigator.clipboard.write is blocked by the host iframe.
+   *
+   * Strategy: serialize the live on-screen SVG (which already has every
+   * layer and label rendered) and rasterise it onto an A5 canvas with
+   * white letterboxing. No re-render path; the on-screen visual stays
+   * untouched while exporting.
    */
   private async exportToClipboard(btn: HTMLButtonElement): Promise<void> {
     const A5_WIDTH = 1748;
@@ -1589,29 +1658,35 @@ export class Visual implements IVisual {
     btn.innerHTML = "…";
 
     try {
-      // Re-render the visual at the export resolution into a clone of the
-      // SVG so the on-screen visual is untouched.
+      const sourceW = Math.max(40, this.viewportW || this.svg.clientWidth || 800);
+      const sourceH = Math.max(40, this.viewportH || this.svg.clientHeight || 600);
+
+      // Clone the live SVG so we can set explicit width/height + xmlns
+      // without disturbing the on-screen one.
       const clone = this.svg.cloneNode(true) as SVGSVGElement;
-      clone.setAttribute("width", String(A5_WIDTH));
-      clone.setAttribute("height", String(A5_HEIGHT));
-      clone.setAttribute("viewBox", `0 0 ${A5_WIDTH} ${A5_HEIGHT}`);
+      clone.setAttribute("width", String(sourceW));
+      clone.setAttribute("height", String(sourceH));
+      clone.setAttribute("viewBox", `0 0 ${sourceW} ${sourceH}`);
       clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
-      // Re-rebuild the map at the target dimensions before serializing so
-      // labels, projection, legends actually align with the larger canvas.
-      if (this.cached) {
-        this.renderMapInto(clone, this.cached.country, this.cached.prepared, this.resolveViewMode(this.cached.prepared, this.cached.country), A5_WIDTH, A5_HEIGHT);
-      }
+      // Inline a white background rect at the bottom so JPEG/PNG paste
+      // looks right (no transparency revealing the slide background).
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bg.setAttribute("x", "0");
+      bg.setAttribute("y", "0");
+      bg.setAttribute("width", String(sourceW));
+      bg.setAttribute("height", String(sourceH));
+      bg.setAttribute("fill", this.settings?.general?.transparentBackground?.value ? "#ffffff" : (this.settings?.general?.background?.value?.value || "#ffffff"));
+      clone.insertBefore(bg, clone.firstChild);
 
       const xml = new XMLSerializer().serializeToString(clone);
       const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(svgBlob);
 
       const img = new Image();
-      img.crossOrigin = "anonymous";
       const loaded = new Promise<void>((res, rej) => {
         img.onload = () => res();
-        img.onerror = (e) => rej(e);
+        img.onerror = (e) => rej(new Error("SVG image load failed"));
       });
       img.src = url;
       await loaded;
@@ -1620,15 +1695,21 @@ export class Visual implements IVisual {
       canvas.width = A5_WIDTH;
       canvas.height = A5_HEIGHT;
       const ctx = canvas.getContext("2d")!;
-      // Fill white background (matches typical PowerPoint paste expectation).
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, A5_WIDTH, A5_HEIGHT);
-      ctx.drawImage(img, 0, 0, A5_WIDTH, A5_HEIGHT);
+      // Fit source to A5 maintaining aspect ratio, centred (letterboxed).
+      const scale = Math.min(A5_WIDTH / sourceW, A5_HEIGHT / sourceH);
+      const drawW = sourceW * scale;
+      const drawH = sourceH * scale;
+      const dx = (A5_WIDTH - drawW) / 2;
+      const dy = (A5_HEIGHT - drawH) / 2;
+      ctx.drawImage(img, dx, dy, drawW, drawH);
       URL.revokeObjectURL(url);
 
       const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/png"));
 
-      // Try the Async Clipboard API first.
+      // Try Async Clipboard. Power BI may block this; fall through to
+      // download in that case so the user always gets the image.
       let copied = false;
       try {
         const navAny = navigator as any;
@@ -1636,78 +1717,28 @@ export class Visual implements IVisual {
           await navAny.clipboard.write([new (window as any).ClipboardItem({ "image/png": blob })]);
           copied = true;
         }
-      } catch {
-        // fall through to download
+      } catch (err) {
+        console.warn("Clipboard write failed, falling back to download:", err);
       }
 
       if (!copied) {
-        // Fallback: trigger a download. Some Power BI hosts disallow
-        // navigator.clipboard inside the visual iframe.
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = "map-A5.png";
+        document.body.appendChild(a);
         a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        setTimeout(() => {
+          URL.revokeObjectURL(a.href);
+          a.remove();
+        }, 5000);
       }
 
       btn.innerHTML = copied ? checkIconSvg() : downloadIconSvg();
       setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1500);
     } catch (e) {
+      console.error("Export failed:", e);
       btn.innerHTML = errorIconSvg();
-      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1500);
-    }
-  }
-
-  /**
-   * Render the visual at an arbitrary size into a different SVG element.
-   * Used by the clipboard exporter; resizes the projection / legends so the
-   * exported image looks right at A5 instead of the on-screen viewport.
-   */
-  private renderMapInto(targetSvg: SVGSVGElement, country: CountryGeometry, prepared: PreparedDataView, view: "states" | "localities", width: number, height: number): void {
-    while (targetSvg.firstChild) targetSvg.removeChild(targetSvg.firstChild);
-    const mapGroup = svgEl("g", { class: "map-group" });
-    targetSvg.appendChild(mapGroup);
-    const adm2 = svgEl("g", { class: "adm2-layer" });
-    const bubble = svgEl("g", { class: "bubble-layer" });
-    const adm1 = svgEl("g", { class: "adm1-layer" });
-    const adm2L = svgEl("g", { class: "adm2-label-layer" });
-    const adm1L = svgEl("g", { class: "adm1-label-layer" });
-    const legend = svgEl("g", { class: "legend-layer" });
-    mapGroup.appendChild(adm2);
-    mapGroup.appendChild(bubble);
-    mapGroup.appendChild(adm1);
-    mapGroup.appendChild(adm2L);
-    mapGroup.appendChild(adm1L);
-    targetSvg.appendChild(legend);
-
-    // Save and swap the visual's layer references temporarily so the existing
-    // renderMap implementation paints into the offscreen layers.
-    const orig = {
-      svg: this.svg,
-      adm1: this.adm1Layer,
-      adm2: this.adm2Layer,
-      bubble: this.bubbleLayer,
-      adm1L: this.adm1LabelLayer,
-      adm2L: this.adm2LabelLayer,
-      legend: this.legendLayer
-    };
-    this.svg = targetSvg;
-    this.adm1Layer = adm1;
-    this.adm2Layer = adm2;
-    this.bubbleLayer = bubble;
-    this.adm1LabelLayer = adm1L;
-    this.adm2LabelLayer = adm2L;
-    this.legendLayer = legend;
-    try {
-      this.renderMap(country, prepared, view, width, height);
-    } finally {
-      this.svg = orig.svg;
-      this.adm1Layer = orig.adm1;
-      this.adm2Layer = orig.adm2;
-      this.bubbleLayer = orig.bubble;
-      this.adm1LabelLayer = orig.adm1L;
-      this.adm2LabelLayer = orig.adm2L;
-      this.legendLayer = orig.legend;
+      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; }, 1800);
     }
   }
 
