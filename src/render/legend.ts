@@ -102,6 +102,10 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
   }
 }
 
+function approxTextWidth(text: string, fontSize: number): number {
+  return text.length * fontSize * 0.6;
+}
+
 function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number): number {
   const scale = SIZE_SCALE[value.size];
   const swatch = 14 * scale;
@@ -116,11 +120,27 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
 
   let y = yStart + titleSize + 6;
   if (value.orientation === "horizontal") {
+    // Width each column to fit the longest label so adjacent labels don't
+    // overlap. Numeric class labels (e.g. "5.4M") are wider than the 14 px
+    // swatch, so the previous fixed swatch+gap stride was wrong.
+    const labels = value.classes.map((c) => formatNumber(c.to, value.decimals, "auto"));
+    const maxLabelWidth = labels.reduce((m, t) => Math.max(m, approxTextWidth(t, fontSize)), 0);
+    const colWidth = Math.max(swatch, maxLabelWidth) + gap * 2;
     let x = 0;
-    for (const c of value.classes) {
-      parent.append("rect").attr("x", x).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
-      parent.append("text").attr("x", x + swatch / 2).attr("y", y + swatch + fontSize + 2).attr("font-size", fontSize).attr("text-anchor", "middle").text(formatNumber(c.to, value.decimals, "auto"));
-      x += swatch + gap;
+    for (let i = 0; i < value.classes.length; i++) {
+      const c = value.classes[i];
+      // Centre the swatch inside its column so swatches align with their
+      // labels even when the column is wider than the swatch.
+      const swatchX = x + (colWidth - swatch) / 2;
+      parent.append("rect")
+        .attr("x", swatchX).attr("y", y)
+        .attr("width", swatch).attr("height", swatch)
+        .attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+      parent.append("text")
+        .attr("x", x + colWidth / 2).attr("y", y + swatch + fontSize + 2)
+        .attr("font-size", fontSize).attr("text-anchor", "middle")
+        .text(labels[i]);
+      x += colWidth;
     }
     return y + swatch + fontSize + 8;
   }

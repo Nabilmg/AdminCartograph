@@ -119,30 +119,31 @@ export function renderLabels(
     const lineHeight = baseFontSize * 1.15;
     const startY = -((renderedLines.length - 1) / 2) * lineHeight;
 
-    // Compute placement adjustments based on the placement setting.
-    //   horizontal: 0deg, anchor stays at polygon centroid (default)
-    //   straight:   no rotation, but if the polygon is much taller than wide,
-    //               rotate so the label flows along its long axis
-    //   curved:     same as straight (we don't have a true curved-text
-    //               implementation; a straight rotation along the principal
-    //               axis is the closest faithful behaviour)
-    //   boundary:   nudge toward the top edge of the polygon's bbox so the
-    //               label sits near the boundary, not the centroid
+    // Placement is a *positioning* decision, applied unconditionally based
+    // on the user's choice. Fitting strategies (stack-when-needed,
+    // reduce-font-size, abbreviate, allow-overrun) are separate and only
+    // activate when the label doesn't fit at its placed position.
+    //
+    //   horizontal: 0deg rotation, anchor at polygon centroid
+    //   straight  : rotated to align with the polygon's principal axis
+    //               (PCA on the outer ring), so text flows along the
+    //               polygon's long direction whatever its orientation
+    //   curved    : same as straight today; reserved for a future text-on-
+    //               path implementation. Picking it now never produces a
+    //               worse result than straight.
+    //   boundary  : anchored near the polygon's upper edge instead of its
+    //               interior, leaving the centre clear for bubbles / fills
     let rotation = 0;
     let dx = 0;
     let dy = 0;
     if (!override) {
       const bbox = polyBBox || pathBBox(path, label.feature);
-      if (bbox) {
-        const w = bbox[2] - bbox[0];
+      if (style.placement === "straight" || style.placement === "curved") {
+        rotation = normalizeRotation(principalAxisAngleDeg(label.feature.geometry, projection));
+      }
+      if (style.placement === "boundary" && bbox) {
         const h = bbox[3] - bbox[1];
-        if ((style.placement === "straight" || style.placement === "curved") && h > w * 1.4) {
-          rotation = -90;
-        }
-        if (style.placement === "boundary") {
-          // Place the label just above the polygon's interior anchor.
-          dy = -(h / 2) * 0.55;
-        }
+        dy = -(h / 2) * 0.55;
       }
     }
 
@@ -242,4 +243,74 @@ function pathBBox(path: GeoPath, feature: any): [number, number, number, number]
   } catch {
     return null;
   }
+}
+
+/**
+ * Returns the principal-axis angle (in degrees) of a polygon's outer ring,
+ * after projecting it through the supplied projection. Uses PCA on the
+ * vertex cloud: the eigenvector of the larger eigenvalue of the 2x2
+ * covariance matrix, expressed as an angle in screen space.
+ *
+ * Returns 0 for empty / degenerate input.
+ */
+function principalAxisAngleDeg(geometry: any, projection: GeoProjection): number {
+  const ring = largestProjectedOuterRing(geometry, projection);
+  if (!ring || ring.length < 3) return 0;
+  let mx = 0;
+  let my = 0;
+  for (const [x, y] of ring) { mx += x; my += y; }
+  mx /= ring.length;
+  my /= ring.length;
+  let sxx = 0;
+  let syy = 0;
+  let sxy = 0;
+  for (const [x, y] of ring) {
+    const dx = x - mx;
+    const dy = y - my;
+    sxx += dx * dx;
+    syy += dy * dy;
+    sxy += dx * dy;
+  }
+  const angleRad = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  return (angleRad * 180) / Math.PI;
+}
+
+function largestProjectedOuterRing(geometry: any, projection: GeoProjection): number[][] | null {
+  if (!geometry) return null;
+  let candidate: number[][] | null = null;
+  if (geometry.type === "Polygon") {
+    candidate = geometry.coordinates[0];
+  } else if (geometry.type === "MultiPolygon") {
+    let bestArea = -Infinity;
+    for (const poly of geometry.coordinates as number[][][][]) {
+      const area = absRingArea(poly[0]);
+      if (area > bestArea) {
+        bestArea = area;
+        candidate = poly[0];
+      }
+    }
+  }
+  if (!candidate) return null;
+  const out: number[][] = [];
+  for (const c of candidate) {
+    const p = projection(c as [number, number]);
+    if (p) out.push(p);
+  }
+  return out;
+}
+
+function absRingArea(ring: number[][]): number {
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    a += (ring[j][0] - ring[i][0]) * (ring[i][1] + ring[j][1]);
+  }
+  return Math.abs(a / 2);
+}
+
+/** Keeps text right-side-up: clamps an angle to [-90, 90] degrees. */
+function normalizeRotation(deg: number): number {
+  let d = deg;
+  while (d > 90) d -= 180;
+  while (d < -90) d += 180;
+  return d;
 }
