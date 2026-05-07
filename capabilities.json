@@ -438,7 +438,57 @@
         "color5": { "displayName": "Category 5 color", "type": { "fill": { "solid": { "color": true } } } },
         "color6": { "displayName": "Category 6 color", "type": { "fill": { "solid": { "color": true } } } },
         "color7": { "displayName": "Category 7 color", "type": { "fill": { "solid": { "color": true } } } },
-        "color8": { "displayName": "Category 8 color", "type": { "fill": { "solid": { "color": true } } } }
+        "color8": { "displayName": "Category 8 color", "type": { "fill": { "solid": { "color": true } } } },
+        "labelPlacement": {
+          "displayName": "Label position vs glyph",
+          "type": {
+            "enumeration": [
+              { "value": "above", "displayName": "Above glyph" },
+              { "value": "below", "displayName": "Below glyph" },
+              { "value": "left", "displayName": "Left of glyph" },
+              { "value": "right", "displayName": "Right of glyph" },
+              { "value": "center", "displayName": "Center of glyph" }
+            ]
+          }
+        }
+      }
+    },
+
+    "glyphLegend": {
+      "displayName": "Glyph legend",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "title": { "displayName": "Title", "type": { "text": true } },
+        "orientation": {
+          "displayName": "Orientation",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical" },
+              { "value": "horizontal", "displayName": "Horizontal" }
+            ]
+          }
+        },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "size": {
+          "displayName": "Size",
+          "type": {
+            "enumeration": [
+              { "value": "small", "displayName": "Small" },
+              { "value": "medium", "displayName": "Medium" },
+              { "value": "large", "displayName": "Large" }
+            ]
+          }
+        }
       }
     },
 

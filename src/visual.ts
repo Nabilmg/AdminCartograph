@@ -526,7 +526,7 @@ export class Visual implements IVisual {
 
     // Glyph charts (pie / donut / column on top of choropleth+bubbles)
     const glyphStyle = this.settings.glyphChart;
-    renderGlyphs(
+    const glyphResult = renderGlyphs(
       this.glyphLayer,
       projection,
       view === "localities" ? adm2Visible : adm1Visible,
@@ -579,11 +579,20 @@ export class Visual implements IVisual {
     // the bubble (above / below / left / right / center) instead of at the
     // polygon's interior centroid. This is what makes the choropleth not
     // hide the bubble + label on top of an opaque fill.
+    // Label-position overrides. Glyph charts win over bubbles when both
+    // are shown — the glyph is typically the larger / more important
+    // visual element so labels should sit relative to it. Bubbles are
+    // the fallback when only bubbles are bound.
     const bubblePlacement = (this.settings.bubbles.labelPlacement.value as any).value as string;
-    const labelOverrides = bubbleResult ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, this.settings.stateLabels.fontSize.value) : undefined;
+    const glyphPlacement = (glyphStyle.labelPlacement.value as any).value as string;
+    const labelOverrides = glyphResult && glyphResult.anchors.size
+      ? this.buildGlyphLabelOverrides(glyphResult, glyphPlacement, this.settings.stateLabels.fontSize.value)
+      : (bubbleResult ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, this.settings.stateLabels.fontSize.value) : undefined);
     const activeLocalityCard = this.drilledStatePcode ? this.settings.drillLocalityLabels : this.settings.localityLabels;
-    const localityOverrides = bubbleResult && view === "localities"
-      ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, activeLocalityCard.fontSize.value)
+    const localityOverrides = view === "localities"
+      ? (glyphResult && glyphResult.anchors.size
+          ? this.buildGlyphLabelOverrides(glyphResult, glyphPlacement, activeLocalityCard.fontSize.value)
+          : (bubbleResult ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, activeLocalityCard.fontSize.value) : undefined))
       : undefined;
 
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
@@ -660,6 +669,7 @@ export class Visual implements IVisual {
     // Legends
     const valueLegend = this.settings.valueLegend;
     const bubbleLegend = this.settings.bubbleLegend;
+    const glyphLegend = this.settings.glyphLegend;
     const valueClasses = breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : [];
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
@@ -674,6 +684,25 @@ export class Visual implements IVisual {
         position: (valueLegend.position.value as any).value,
         size: (valueLegend.size.value as any).value,
         breaks
+      } : undefined,
+      glyph: glyphLegend.show.value && glyphStyle.show.value && prepared.glyphColumns.length ? {
+        title: glyphLegend.title.value || "Categories",
+        items: prepared.glyphColumns.map((c, i) => ({
+          label: c.displayName,
+          color: [
+            glyphStyle.color1.value.value,
+            glyphStyle.color2.value.value,
+            glyphStyle.color3.value.value,
+            glyphStyle.color4.value.value,
+            glyphStyle.color5.value.value,
+            glyphStyle.color6.value.value,
+            glyphStyle.color7.value.value,
+            glyphStyle.color8.value.value
+          ][i % 8]
+        })),
+        orientation: (glyphLegend.orientation.value as any).value,
+        position: (glyphLegend.position.value as any).value,
+        size: (glyphLegend.size.value as any).value
       } : undefined,
       bubble: bubbleLegend.show.value && bubbleResult ? {
         title: bubbleTitle,
@@ -946,6 +975,40 @@ export class Visual implements IVisual {
   private fmt(n: number, style: any): string {
     const d = Math.max(0, Math.min(6, style.decimals | 0));
     return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+
+  /**
+   * Same idea as buildBubbleLabelOverrides but uses the glyph chart's
+   * anchors and the Glyph chart > "Label position vs glyph" setting.
+   */
+  private buildGlyphLabelOverrides(glyphResult: { anchors: Map<string, { x: number; y: number; size: number; values: number[] }> }, placement: string, fontSize: number): Map<string, LabelAnchorOverride> {
+    const out = new Map<string, LabelAnchorOverride>();
+    const padding = 4;
+    const lineHeight = fontSize * 1.15;
+    const horizontalGap = 36;
+    for (const [pcode, anchor] of glyphResult.anchors) {
+      let x = anchor.x;
+      let y = anchor.y;
+      switch (placement) {
+        case "below":
+          y = anchor.y + anchor.size + lineHeight / 2 + padding;
+          break;
+        case "left":
+          x = anchor.x - anchor.size - horizontalGap - padding;
+          break;
+        case "right":
+          x = anchor.x + anchor.size + horizontalGap + padding;
+          break;
+        case "center":
+          break;
+        case "above":
+        default:
+          y = anchor.y - anchor.size - lineHeight / 2 - padding;
+          break;
+      }
+      out.set(pcode, { x, y });
+    }
+    return out;
   }
 
   /**

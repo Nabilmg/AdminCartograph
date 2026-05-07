@@ -34,11 +34,18 @@ export interface GlyphStyle {
   colors: string[];
 }
 
+export interface GlyphAnchor {
+  x: number;
+  y: number;
+  /** Bounding-box half-extent of the glyph in px (radius for pie/donut,
+   *  half the column-chart's max height). Used to position labels next
+   *  to the glyph. */
+  size: number;
+  values: number[];
+}
+
 export interface GlyphResult {
-  /** For each area that rendered a glyph, the screen-space anchor + the
-   *  values used. Returned so the legend / tooltip layer can reference
-   *  them. */
-  anchors: Map<string, { x: number; y: number; values: number[] }>;
+  anchors: Map<string, GlyphAnchor>;
 }
 
 export function renderGlyphs(
@@ -88,7 +95,7 @@ export function renderGlyphs(
   // Largest first so smaller glyphs sit on top.
   valued.sort((a, b) => b.total - a.total);
 
-  const anchors = new Map<string, { x: number; y: number; values: number[] }>();
+  const anchors = new Map<string, GlyphAnchor>();
 
   for (const v of valued) {
     const size = scale(v.total);
@@ -97,7 +104,14 @@ export function renderGlyphs(
     } else {
       drawColumn(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
     }
-    anchors.set(v.datum.pcode, { x: v.anchor[0], y: v.anchor[1], values: v.datum.glyphValues });
+    // size has same semantics for both kinds: half the bbox extent.
+    // Pie/donut: outer radius. Column: half of total height.
+    anchors.set(v.datum.pcode, {
+      x: v.anchor[0],
+      y: v.anchor[1],
+      size: style.type === "column" ? size / 2 : size,
+      values: v.datum.glyphValues
+    });
   }
 
   return { anchors };

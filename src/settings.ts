@@ -216,10 +216,61 @@ class GlyphChartSettings extends FormattingSettingsCard {
   color6 = new formattingSettings.ColorPicker({ name: "color6", displayName: "Category 6", value: { value: "#8c564b" } });
   color7 = new formattingSettings.ColorPicker({ name: "color7", displayName: "Category 7", value: { value: "#e377c2" } });
   color8 = new formattingSettings.ColorPicker({ name: "color8", displayName: "Category 8", value: { value: "#7f7f7f" } });
+  labelPlacement = new formattingSettings.ItemDropdown({
+    name: "labelPlacement",
+    displayName: "Label position vs glyph",
+    items: [
+      { value: "above", displayName: "Above glyph" },
+      { value: "below", displayName: "Below glyph" },
+      { value: "left", displayName: "Left of glyph" },
+      { value: "right", displayName: "Right of glyph" },
+      { value: "center", displayName: "Center of glyph" }
+    ],
+    value: { value: "above", displayName: "Above glyph" }
+  });
 
   name = "glyphChart";
   displayName = "Glyph chart";
-  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8];
+  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement];
+}
+
+class GlyphLegendSettings extends FormattingSettingsCard {
+  show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: true });
+  title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "Categories", value: "" });
+  orientation = new formattingSettings.ItemDropdown({
+    name: "orientation",
+    displayName: "Orientation",
+    items: [
+      { value: "vertical", displayName: "Vertical" },
+      { value: "horizontal", displayName: "Horizontal" }
+    ],
+    value: { value: "vertical", displayName: "Vertical" }
+  });
+  position = new formattingSettings.ItemDropdown({
+    name: "position",
+    displayName: "Position",
+    items: [
+      { value: "topLeft", displayName: "Top left" },
+      { value: "topRight", displayName: "Top right" },
+      { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomRight", displayName: "Bottom right" }
+    ],
+    value: { value: "topRight", displayName: "Top right" }
+  });
+  size = new formattingSettings.ItemDropdown({
+    name: "size",
+    displayName: "Size",
+    items: [
+      { value: "small", displayName: "Small" },
+      { value: "medium", displayName: "Medium" },
+      { value: "large", displayName: "Large" }
+    ],
+    value: { value: "medium", displayName: "Medium" }
+  });
+
+  name = "glyphLegend";
+  displayName = "Glyph legend";
+  slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
 class ValueLegendSettings extends FormattingSettingsCard {
@@ -344,6 +395,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   drillLocalityLabels = new DrillLocalityLabelsCard();
   bubbles = new BubblesSettings();
   glyphChart = new GlyphChartSettings();
+  glyphLegend = new GlyphLegendSettings();
   valueLegend = new ValueLegendSettings();
   bubbleLegend = new BubbleLegendSettings();
   controls = new ControlsSettings();
@@ -358,6 +410,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.choropleth,
     this.bubbles,
     this.glyphChart,
+    this.glyphLegend,
     this.borders,
     this.stateLabels,
     this.localityLabels,

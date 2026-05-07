@@ -21,6 +21,15 @@ export interface LegendInputs {
     size: LegendSize;
     breaks: ClassBreaks;
   };
+  /** Glyph-category legend (pie / donut / column categories). */
+  glyph?: {
+    title: string;
+    /** One entry per category, in the input order. */
+    items: { label: string; color: string }[];
+    orientation: "vertical" | "horizontal";
+    position: Position;
+    size: LegendSize;
+  };
   /** Bubble legend. */
   bubble?: {
     title: string;
@@ -53,7 +62,11 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
   root.selectAll("*").remove();
 
   // Group legends by position so we can combine when they share a corner.
-  const groups: Record<string, { value?: LegendInputs["value"]; bubble?: LegendInputs["bubble"] }> = {};
+  const groups: Record<string, {
+    value?: LegendInputs["value"];
+    bubble?: LegendInputs["bubble"];
+    glyph?: LegendInputs["glyph"];
+  }> = {};
   if (inputs.value) {
     groups[inputs.value.position] = groups[inputs.value.position] || {};
     groups[inputs.value.position].value = inputs.value;
@@ -61,6 +74,10 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
   if (inputs.bubble) {
     groups[inputs.bubble.position] = groups[inputs.bubble.position] || {};
     groups[inputs.bubble.position].bubble = inputs.bubble;
+  }
+  if (inputs.glyph) {
+    groups[inputs.glyph.position] = groups[inputs.glyph.position] || {};
+    groups[inputs.glyph.position].glyph = inputs.glyph;
   }
 
   for (const [position, contents] of Object.entries(groups)) {
@@ -81,6 +98,11 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
     if (contents.bubble) {
       const sub = inner.append("g").attr("class", "legend-bubble-sub");
       drawBubbleLegend(sub, contents.bubble as any, 0);
+      stack.push(sub.node() as SVGGElement);
+    }
+    if (contents.glyph) {
+      const sub = inner.append("g").attr("class", "legend-glyph-sub");
+      drawGlyphLegend(sub, contents.glyph as any, 0);
       stack.push(sub.node() as SVGGElement);
     }
     // Stack the sub-groups vertically with an 8px gap. The first item
@@ -128,6 +150,42 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
 
 function approxTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.6;
+}
+
+/**
+ * Glyph category legend: a swatch + measure-name row per category. Mirrors
+ * the value legend's vertical / horizontal layouts so it slots into the
+ * combined-legend container without surprises.
+ */
+function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>, yStart: number): number {
+  const scaleFactor = SIZE_SCALE[glyph.size];
+  const fontSize = 11 * scaleFactor;
+  const titleSize = 12 * scaleFactor;
+  const swatch = 12 * scaleFactor;
+  const gap = 4;
+
+  parent.append("text")
+    .attr("x", 0).attr("y", yStart + titleSize)
+    .attr("font-size", titleSize).attr("font-weight", 600)
+    .text(glyph.title || "Categories");
+
+  let y = yStart + titleSize + 6;
+  if (glyph.orientation === "horizontal") {
+    let x = 0;
+    for (const it of glyph.items) {
+      parent.append("rect").attr("x", x).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", it.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+      parent.append("text").attr("x", x + swatch + 4).attr("y", y + swatch * 0.8).attr("font-size", fontSize).text(it.label);
+      const colWidth = swatch + 4 + approxTextWidth(it.label, fontSize) + gap * 2;
+      x += colWidth;
+    }
+    return y + swatch + 8;
+  }
+  for (const it of glyph.items) {
+    parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", it.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.8).attr("font-size", fontSize).text(it.label);
+    y += swatch + gap;
+  }
+  return y;
 }
 
 function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number): number {
