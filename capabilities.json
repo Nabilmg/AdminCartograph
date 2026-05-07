@@ -261,7 +261,27 @@
               { "value": "percent", "displayName": "Percent" }
             ]
           }
-        }
+        },
+        "placement": {
+          "displayName": "Placement",
+          "type": {
+            "enumeration": [
+              { "value": "horizontal", "displayName": "Horizontal" },
+              { "value": "straight", "displayName": "Straight" },
+              { "value": "curved", "displayName": "Curved" },
+              { "value": "boundary", "displayName": "Boundary" }
+            ]
+          }
+        },
+        "wordsOnSeparateLines": { "displayName": "Words on separate lines", "type": { "bool": true } },
+        "stackWhenNeeded": { "displayName": "Stack when needed", "type": { "bool": true } },
+        "reduceFontSize": { "displayName": "Reduce font size to fit", "type": { "bool": true } },
+        "allowOverrun": { "displayName": "Allow overrun", "type": { "bool": true } },
+        "abbreviate": { "displayName": "Abbreviate / truncate", "type": { "bool": true } },
+        "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
+        "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
+        "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
       }
     },
 
@@ -287,7 +307,38 @@
         "italic": { "displayName": "Italic", "type": { "bool": true } },
         "haloColor": { "displayName": "Halo color", "type": { "fill": { "solid": { "color": true } } } },
         "haloWidth": { "displayName": "Halo width", "type": { "numeric": true } },
-        "decimals": { "displayName": "Decimals", "type": { "numeric": true } }
+        "decimals": { "displayName": "Decimals", "type": { "numeric": true } },
+        "format": {
+          "displayName": "Number format",
+          "type": {
+            "enumeration": [
+              { "value": "auto", "displayName": "Auto" },
+              { "value": "thousands", "displayName": "Thousands (K)" },
+              { "value": "millions", "displayName": "Millions (M)" },
+              { "value": "percent", "displayName": "Percent" }
+            ]
+          }
+        },
+        "placement": {
+          "displayName": "Placement",
+          "type": {
+            "enumeration": [
+              { "value": "horizontal", "displayName": "Horizontal" },
+              { "value": "straight", "displayName": "Straight" },
+              { "value": "curved", "displayName": "Curved" },
+              { "value": "boundary", "displayName": "Boundary" }
+            ]
+          }
+        },
+        "wordsOnSeparateLines": { "displayName": "Words on separate lines", "type": { "bool": true } },
+        "stackWhenNeeded": { "displayName": "Stack when needed", "type": { "bool": true } },
+        "reduceFontSize": { "displayName": "Reduce font size to fit", "type": { "bool": true } },
+        "allowOverrun": { "displayName": "Allow overrun", "type": { "bool": true } },
+        "abbreviate": { "displayName": "Abbreviate / truncate", "type": { "bool": true } },
+        "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
+        "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
+        "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
       }
     },
 

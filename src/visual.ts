@@ -54,8 +54,17 @@ export class Visual implements IVisual {
   private selectionManager: powerbi.extensibility.ISelectionManager;
   private loader: GeometryLoader | null = null;
 
-  /** Pcode of the Admin1 the user has clicked into (drill view). */
+  /** Pcode of the Admin1 currently in drill view. Either set by a user
+   *  click (drillIsManual = true, persists until back button) or inferred
+   *  from cross-filter context (drillIsManual = false, recomputed each
+   *  render). */
   private drilledStatePcode: string | null = null;
+  private drillIsManual = false;
+  /** When the user hits the back button while a filter-inferred drill is
+   *  active, we record the pcode so the same filter context doesn't
+   *  immediately re-drill back in. Cleared the moment the filter changes
+   *  (i.e. would now infer a different pcode or none at all). */
+  private suppressedFilterDrill: string | null = null;
   private currentDataView: PreparedDataView | null = null;
   /** Cached so internal state changes (drill / drill-back) can re-render
    *  without waiting for Power BI to call update() again. */
@@ -141,6 +150,8 @@ export class Visual implements IVisual {
 
     if (view === "states" && isAdm1) {
       this.drilledStatePcode = pcode;
+      this.drillIsManual = true;
+      this.suppressedFilterDrill = null;
       this.rerender();
       return;
     }
@@ -184,8 +195,61 @@ export class Visual implements IVisual {
     }
 
     this.cached = { country, prepared, width, height };
+    this.applyFilterDrill(prepared, country);
     const view = this.resolveViewMode(prepared, country);
     this.renderMap(country, prepared, view, width, height);
+  }
+
+  /**
+   * Auto-drill from cross-filter context. If another visual / slicer has
+   * narrowed the dataset to exactly one Admin1 (or any number of Admin2
+   * areas that all share the same parent Admin1), treat that as a drill
+   * into the focused area. A manual drill (drillIsManual) always wins —
+   * we don't want a passing slicer change to drag the user away from
+   * what they explicitly clicked.
+   */
+  private applyFilterDrill(prepared: PreparedDataView, country: CountryGeometry): void {
+    if (this.drillIsManual) return;
+    const inferred = this.inferDrillFromFilter(prepared, country);
+    if (inferred && inferred !== this.suppressedFilterDrill) {
+      this.drilledStatePcode = inferred;
+      return;
+    }
+    // Filter no longer implies any drill — clear both the active drill and
+    // any suppression that pointed at a different pcode.
+    if (inferred === null) this.suppressedFilterDrill = null;
+    this.drilledStatePcode = null;
+  }
+
+  private inferDrillFromFilter(prepared: PreparedDataView, country: CountryGeometry): string | null {
+    if (!country.adm2) return null;
+    const totalStates = country.adm1.features.length;
+
+    // Case 1: filter narrowed to a single Admin1.
+    const fs = prepared.filteredStatePcodes;
+    if (fs && fs.size === 1 && fs.size < totalStates) {
+      return Array.from(fs)[0];
+    }
+
+    // Case 2: filter narrowed to one or more Admin2 that all share a
+    // single parent Admin1.
+    const fl = prepared.filteredLocalityPcodes;
+    if (fl && fl.size > 0) {
+      const child2parent = new Map<string, string>();
+      for (const f of country.adm2.features as any[]) {
+        const c = f.properties?.ADM2_PCODE;
+        const p = f.properties?.ADM1_PCODE;
+        if (c && p) child2parent.set(c, p);
+      }
+      const parents = new Set<string>();
+      for (const code of fl) {
+        const p = child2parent.get(code);
+        if (p) parents.add(p);
+        if (parents.size > 1) return null;
+      }
+      if (parents.size === 1) return Array.from(parents)[0];
+    }
+    return null;
   }
 
   // -------------------------------------------------------------- formatting
@@ -783,7 +847,14 @@ export class Visual implements IVisual {
       back.innerHTML = "&#8592; Country View";
       back.addEventListener("click", (e) => {
         e.stopPropagation();
+        // If the drill came from a slicer / cross-filter, remember the
+        // user opted out so this exact filter context doesn't immediately
+        // re-drill back in. Cleared automatically when the filter changes.
+        if (!this.drillIsManual && this.drilledStatePcode) {
+          this.suppressedFilterDrill = this.drilledStatePcode;
+        }
         this.drilledStatePcode = null;
+        this.drillIsManual = false;
         this.rerender();
       });
       bar.appendChild(back);
@@ -809,6 +880,10 @@ export class Visual implements IVisual {
           e.stopPropagation();
           if (!target) return;
           this.drilledStatePcode = target;
+          // Treat prev/next as a manual override so a stale slicer
+          // doesn't bounce us somewhere else on the next render.
+          this.drillIsManual = true;
+          this.suppressedFilterDrill = null;
           this.rerender();
         });
         return btn;
