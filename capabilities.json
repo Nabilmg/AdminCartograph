@@ -445,6 +445,25 @@
       }
     },
 
+    "controls": {
+      "displayName": "Controls",
+      "properties": {
+        "showZoom": { "displayName": "Show zoom buttons", "type": { "bool": true } },
+        "showCopy": { "displayName": "Show copy-to-clipboard button", "type": { "bool": true } },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "bottomRight", "displayName": "Bottom right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" }
+            ]
+          }
+        }
+      }
+    },
+
     "legendContainer": {
       "displayName": "Legend container",
       "properties": {

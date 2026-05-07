@@ -40,6 +40,46 @@
     pointer-events: none;
   }
 
+  .adm-controls {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+
+    &[data-position="topRight"]    { top: 8px;    right: 8px; }
+    &[data-position="topLeft"]     { top: 8px;    left: 8px; }
+    &[data-position="bottomRight"] { bottom: 8px; right: 8px; }
+    &[data-position="bottomLeft"]  { bottom: 8px; left: 8px; }
+  }
+
+  .adm-zoom-button {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #c8c8c8;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 600;
+    color: #222;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+    &:hover { background: #f3f3f3; }
+    &:focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+  }
+
+  .adm-zoom-reset {
+    font-size: 16px;
+  }
+
   .adm-back-button,
   .adm-export-button,
   .adm-nav-button {

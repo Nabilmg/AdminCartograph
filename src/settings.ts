@@ -258,6 +258,26 @@ class BubbleLegendSettings extends FormattingSettingsCard {
   slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
+class ControlsSettings extends FormattingSettingsCard {
+  showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: true });
+  showCopy = new formattingSettings.ToggleSwitch({ name: "showCopy", displayName: "Show copy-to-clipboard button", value: false });
+  position = new formattingSettings.ItemDropdown({
+    name: "position",
+    displayName: "Position",
+    items: [
+      { value: "topRight", displayName: "Top right" },
+      { value: "topLeft", displayName: "Top left" },
+      { value: "bottomRight", displayName: "Bottom right" },
+      { value: "bottomLeft", displayName: "Bottom left" }
+    ],
+    value: { value: "topRight", displayName: "Top right" }
+  });
+
+  name = "controls";
+  displayName = "Controls";
+  slices = [this.showZoom, this.showCopy, this.position];
+}
+
 class LegendContainerSettings extends FormattingSettingsCard {
   borderWidth = new formattingSettings.NumUpDown({ name: "borderWidth", displayName: "Border width", value: 1 });
   borderColor = new formattingSettings.ColorPicker({ name: "borderColor", displayName: "Border color", value: { value: "#cccccc" } });
@@ -281,6 +301,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   bubbles = new BubblesSettings();
   valueLegend = new ValueLegendSettings();
   bubbleLegend = new BubbleLegendSettings();
+  controls = new ControlsSettings();
   legendContainer = new LegendContainerSettings();
 
   // Order matters: this is the order users see in the Power BI format pane.
@@ -297,6 +318,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.drillLocalityLabels,
     this.valueLegend,
     this.bubbleLegend,
-    this.legendContainer
+    this.legendContainer,
+    this.controls
   ];
 }

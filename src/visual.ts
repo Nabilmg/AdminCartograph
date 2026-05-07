@@ -76,6 +76,11 @@ export class Visual implements IVisual {
   private backButton: HTMLButtonElement | null = null;
   /** Clipboard / export button (DOM, lives in this.overlay). */
   private exportButton: HTMLButtonElement | null = null;
+  /** Current zoom level applied to the mapGroup (1 = 100%). */
+  private zoomLevel = 1;
+  /** Cached width/height for the zoom transform. */
+  private viewportW = 0;
+  private viewportH = 0;
 
   constructor(options: VisualConstructorOptions) {
     this.host = options.host;
@@ -380,7 +385,11 @@ export class Visual implements IVisual {
 
   private renderMap(country: CountryGeometry, prepared: PreparedDataView, view: "states" | "localities", width: number, height: number): void {
     this.overlay.innerHTML = "";
+    this.viewportW = width;
+    this.viewportH = height;
     this.renderTopBar(view);
+    this.renderSecondaryControls();
+    this.applyZoom();
 
     // Filter the visible feature set based on drill state and slicers.
     const adm1Features = (country.adm1.features as any[]).slice();
@@ -972,24 +981,93 @@ export class Visual implements IVisual {
       this.backButton = null;
     }
 
-    // Spacer pushes the export button to the right.
-    const spacer = document.createElement("div");
-    spacer.style.flex = "1";
-    bar.appendChild(spacer);
+  }
 
-    // Copy-to-clipboard button (right side, always visible).
-    const exportBtn = document.createElement("button");
-    exportBtn.className = "adm-export-button";
-    exportBtn.type = "button";
-    exportBtn.setAttribute("aria-label", "Copy map to clipboard (A5 landscape)");
-    exportBtn.title = "Copy map to clipboard (A5 landscape)";
-    exportBtn.innerHTML = clipboardIconSvg();
-    exportBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.exportToClipboard(exportBtn);
-    });
-    bar.appendChild(exportBtn);
-    this.exportButton = exportBtn;
+  /**
+   * Floating panel of secondary controls (zoom in / out, copy to
+   * clipboard). Shown / hidden and positioned per the Controls settings
+   * card. Lives in its own overlay group so it never interferes with the
+   * drill-context bar at the top-left.
+   */
+  private renderSecondaryControls(): void {
+    let panel = this.overlay.querySelector(".adm-controls") as HTMLDivElement;
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.className = "adm-controls";
+      this.overlay.appendChild(panel);
+    } else {
+      while (panel.firstChild) panel.removeChild(panel.firstChild);
+    }
+
+    const cs = this.settings.controls;
+    panel.dataset.position = (cs.position.value as any).value;
+
+    if (cs.showZoom.value) {
+      const mkZoom = (delta: number, glyph: string, label: string) => {
+        const b = document.createElement("button");
+        b.className = "adm-zoom-button";
+        b.type = "button";
+        b.setAttribute("aria-label", label);
+        b.title = label;
+        b.innerHTML = glyph;
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const next = Math.max(1, Math.min(8, this.zoomLevel * (delta > 0 ? 1.25 : 1 / 1.25)));
+          this.zoomLevel = next;
+          this.applyZoom();
+        });
+        return b;
+      };
+      panel.appendChild(mkZoom(+1, "+", "Zoom in"));
+      panel.appendChild(mkZoom(-1, "&#8722;", "Zoom out"));
+      // Reset zoom button only appears once the user has zoomed in.
+      if (this.zoomLevel > 1.001) {
+        const reset = document.createElement("button");
+        reset.className = "adm-zoom-button adm-zoom-reset";
+        reset.type = "button";
+        reset.setAttribute("aria-label", "Reset zoom");
+        reset.title = "Reset zoom";
+        reset.innerHTML = "&#8634;";
+        reset.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.zoomLevel = 1;
+          this.applyZoom();
+        });
+        panel.appendChild(reset);
+      }
+    }
+
+    if (cs.showCopy.value) {
+      const exportBtn = document.createElement("button");
+      exportBtn.className = "adm-export-button";
+      exportBtn.type = "button";
+      exportBtn.setAttribute("aria-label", "Copy map to clipboard (A5 landscape)");
+      exportBtn.title = "Copy map to clipboard (A5 landscape)";
+      exportBtn.innerHTML = clipboardIconSvg();
+      exportBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.exportToClipboard(exportBtn);
+      });
+      panel.appendChild(exportBtn);
+      this.exportButton = exportBtn;
+    } else {
+      this.exportButton = null;
+    }
+
+    if (!panel.children.length) panel.style.display = "none";
+    else panel.style.display = "";
+  }
+
+  /**
+   * Apply the current zoom level to the map content. We zoom around the
+   * centre of the viewport so everything stays framed sensibly. Legends
+   * are NOT zoomed — they live in a separate top-level group.
+   */
+  private applyZoom(): void {
+    const z = this.zoomLevel;
+    const cx = this.viewportW / 2;
+    const cy = this.viewportH / 2;
+    this.mapGroup.setAttribute("transform", `translate(${cx},${cy}) scale(${z}) translate(${-cx},${-cy})`);
   }
 
   /**
