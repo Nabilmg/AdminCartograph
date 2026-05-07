@@ -149,6 +149,11 @@ export class Visual implements IVisual {
     const isAdm2 = node.classList.contains("adm2");
 
     if (view === "states" && isAdm1) {
+      // Admin1 click does two things:
+      //   1. cross-filter other visuals to the rows that belong to this
+      //      Admin1 (so a bar chart / table responds to the click)
+      //   2. drill into the Admin1's children
+      this.applyAdmin1Selection(pcode, (e as any).ctrlKey || (e as any).metaKey);
       this.drilledStatePcode = pcode;
       this.drillIsManual = true;
       this.suppressedFilterDrill = null;
@@ -504,10 +509,13 @@ export class Visual implements IVisual {
     if (this.settings.stateLabels.show.value) {
       const isDrill = !!this.drilledStatePcode && view === "localities";
 
-      // In drill view, every visible Admin1 OTHER than the drilled one still
-      // gets its on-polygon label so the surrounding context is readable.
-      // The drilled state's label is promoted to a header pill so it doesn't
-      // overlap the locality labels in the centre of the focus area.
+      // Neighbour labels go into a sub-group so we can dim them as a unit
+      // in drill view (30% opacity) without dimming the title pill, which
+      // is rendered into adm1LabelLayer directly afterward.
+      const neighborGroup = svgEl("g", { class: "adm1-neighbor-labels" });
+      this.adm1LabelLayer.appendChild(neighborGroup);
+      if (isDrill) neighborGroup.setAttribute("opacity", "0.3");
+
       const labelFeatures = isDrill
         ? adm1Visible.filter((f) => f.properties.ADM1_PCODE !== this.drilledStatePcode)
         : adm1Visible;
@@ -522,7 +530,7 @@ export class Visual implements IVisual {
             value2: datum?.labelValue2 ?? null
           };
         });
-        renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
+        renderLabels(neighborGroup, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
       }
 
       if (isDrill) {
@@ -757,7 +765,41 @@ export class Visual implements IVisual {
     }
   }
 
-  /** Sorted list of Admin1 PCODEs for prev/next navigation. */
+  /**
+   * Cross-filter other visuals when the user clicks an Admin1.
+   *
+   * If Admin1 PCODE was bound directly, the matching AreaDatum already
+   * carries an Admin1-level selectionId — submit that. Otherwise the data
+   * lives at Admin2 level only, in which case we collect every Admin2
+   * AreaDatum whose parent (per the embedded geometry) is the clicked
+   * Admin1 and submit them all together. selectionManager.select accepts
+   * an array of selectionIds, so the host filters by the union.
+   */
+  private applyAdmin1Selection(pcode: string, multiSelect: boolean): void {
+    if (!this.cached) return;
+    const directly = this.cached.prepared.areas.get(pcode);
+    if (directly && directly.level === 1) {
+      this.selectionManager.select(directly.selectionId, multiSelect);
+      return;
+    }
+    const country = this.cached.country;
+    const child2parent = new Map<string, string>();
+    if (country.adm2) {
+      for (const f of country.adm2.features as any[]) {
+        const c = f.properties?.ADM2_PCODE;
+        const p = f.properties?.ADM1_PCODE;
+        if (c && p) child2parent.set(c, p);
+      }
+    }
+    const ids: powerbi.extensibility.ISelectionId[] = [];
+    for (const a of this.cached.prepared.areas.values()) {
+      const parent = a.parentPcode || child2parent.get(a.pcode);
+      if (parent === pcode) ids.push(a.selectionId);
+    }
+    if (ids.length) {
+      this.selectionManager.select(ids, multiSelect);
+    }
+  }
   private admin1NavOrder(): string[] {
     if (!this.cached) return [];
     const feats = (this.cached.country.adm1.features as any[]) || [];
