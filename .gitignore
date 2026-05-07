@@ -1,0 +1,15 @@
+node_modules/
+.tmp/
+dist/
+*.log
+.DS_Store
+
+# Downloaded country geometries (recreated by `npm run build-data`).
+scripts/data/raw/
+
+# Built bundle (recreated by `npm run build-data`).
+assets/geometry/world.topojson.json
+assets/geometry/country-index.json
+
+# pbiviz output
+*.pbiviz

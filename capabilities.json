@@ -1,0 +1,408 @@
+{
+  "dataRoles": [
+    {
+      "displayName": "State PCODE (ADM1)",
+      "name": "statePcode",
+      "kind": "Grouping",
+      "description": "Field that uniquely identifies an ADM1 state. Must match ADM1_PCODE in the embedded geometry."
+    },
+    {
+      "displayName": "Locality PCODE (ADM2)",
+      "name": "localityPcode",
+      "kind": "Grouping",
+      "description": "Field that uniquely identifies an ADM2 locality. Must match ADM2_PCODE in the embedded geometry."
+    },
+    {
+      "displayName": "Color Value",
+      "name": "colorValue",
+      "kind": "Measure",
+      "description": "Measure used to color the choropleth fills."
+    },
+    {
+      "displayName": "Bubble Size",
+      "name": "bubbleSize",
+      "kind": "Measure",
+      "description": "Measure used to scale proportional bubbles."
+    },
+    {
+      "displayName": "Label Value 2",
+      "name": "labelValue2",
+      "kind": "Measure",
+      "description": "Optional secondary numeric value displayed in the label."
+    },
+    {
+      "displayName": "Label Text 1",
+      "name": "labelText1",
+      "kind": "Grouping",
+      "description": "Optional override for the area name displayed in labels."
+    },
+    {
+      "displayName": "Tooltips",
+      "name": "tooltips",
+      "kind": "Measure",
+      "description": "Extra fields shown in the tooltip."
+    }
+  ],
+
+  "dataViewMappings": [
+    {
+      "conditions": [
+        { "statePcode": { "max": 1 }, "localityPcode": { "max": 1 }, "colorValue": { "max": 1 }, "bubbleSize": { "max": 1 }, "labelValue2": { "max": 1 }, "labelText1": { "max": 1 } }
+      ],
+      "categorical": {
+        "categories": {
+          "select": [
+            { "bind": { "to": "statePcode" } },
+            { "bind": { "to": "localityPcode" } },
+            { "bind": { "to": "labelText1" } }
+          ]
+        },
+        "values": {
+          "select": [
+            { "bind": { "to": "colorValue" } },
+            { "bind": { "to": "bubbleSize" } },
+            { "bind": { "to": "labelValue2" } },
+            { "bind": { "to": "tooltips" } }
+          ]
+        }
+      }
+    }
+  ],
+
+  "objects": {
+    "general": {
+      "properties": {
+        "selectedCountry": {
+          "displayName": "Country (ISO-3)",
+          "type": { "text": true }
+        },
+        "viewMode": {
+          "displayName": "View mode",
+          "type": {
+            "enumeration": [
+              { "value": "auto", "displayName": "Auto" },
+              { "value": "states", "displayName": "States (ADM1)" },
+              { "value": "localities", "displayName": "Localities (ADM2)" }
+            ]
+          }
+        },
+        "interactionEnabled": {
+          "displayName": "Interaction enabled",
+          "type": { "bool": true }
+        },
+        "hideUnfilteredStates": {
+          "displayName": "Hide unfiltered states in locality mode",
+          "type": { "bool": true }
+        },
+        "background": {
+          "displayName": "Background color",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "transparentBackground": {
+          "displayName": "Transparent background",
+          "type": { "bool": true }
+        }
+      }
+    },
+
+    "choropleth": {
+      "displayName": "Choropleth",
+      "properties": {
+        "mode": {
+          "displayName": "Color mode",
+          "type": {
+            "enumeration": [
+              { "value": "automatic", "displayName": "Automatic ramp" },
+              { "value": "custom", "displayName": "Custom classes" }
+            ]
+          }
+        },
+        "baseColor": {
+          "displayName": "Base color",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "classification": {
+          "displayName": "Classification",
+          "type": {
+            "enumeration": [
+              { "value": "quantile", "displayName": "Quantile" },
+              { "value": "equal", "displayName": "Equal interval" },
+              { "value": "manual", "displayName": "Manual breaks" }
+            ]
+          }
+        },
+        "manualBreaks": {
+          "displayName": "Manual breaks (comma-separated)",
+          "type": { "text": true }
+        },
+        "classCount": {
+          "displayName": "Number of classes",
+          "type": { "numeric": true }
+        },
+        "color1": { "displayName": "Class 1", "type": { "fill": { "solid": { "color": true } } } },
+        "color2": { "displayName": "Class 2", "type": { "fill": { "solid": { "color": true } } } },
+        "color3": { "displayName": "Class 3", "type": { "fill": { "solid": { "color": true } } } },
+        "color4": { "displayName": "Class 4", "type": { "fill": { "solid": { "color": true } } } },
+        "color5": { "displayName": "Class 5", "type": { "fill": { "solid": { "color": true } } } },
+        "blankColor": {
+          "displayName": "No-data color",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "blankTransparent": {
+          "displayName": "Transparent for no-data",
+          "type": { "bool": true }
+        },
+        "fillOpacity": {
+          "displayName": "Fill opacity",
+          "type": { "numeric": true }
+        }
+      }
+    },
+
+    "borders": {
+      "displayName": "Borders",
+      "properties": {
+        "stateColor": { "displayName": "State border color", "type": { "fill": { "solid": { "color": true } } } },
+        "stateWidth": { "displayName": "State border width", "type": { "numeric": true } },
+        "stateOpacity": { "displayName": "State border opacity", "type": { "numeric": true } },
+        "localityColor": { "displayName": "Locality border color", "type": { "fill": { "solid": { "color": true } } } },
+        "localityWidth": { "displayName": "Locality border width", "type": { "numeric": true } },
+        "localityOpacity": { "displayName": "Locality border opacity", "type": { "numeric": true } }
+      }
+    },
+
+    "stateLabels": {
+      "displayName": "State labels",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "content": {
+          "displayName": "Content",
+          "type": {
+            "enumeration": [
+              { "value": "name", "displayName": "Name only" },
+              { "value": "value", "displayName": "Value only" },
+              { "value": "name_value", "displayName": "Name + value" }
+            ]
+          }
+        },
+        "fontFamily": { "displayName": "Font family", "type": { "text": true } },
+        "fontSize": { "displayName": "Font size", "type": { "formatting": { "fontSize": true } } },
+        "color": { "displayName": "Color", "type": { "fill": { "solid": { "color": true } } } },
+        "valueColor": { "displayName": "Value color", "type": { "fill": { "solid": { "color": true } } } },
+        "bold": { "displayName": "Bold", "type": { "bool": true } },
+        "italic": { "displayName": "Italic", "type": { "bool": true } },
+        "haloColor": { "displayName": "Halo color", "type": { "fill": { "solid": { "color": true } } } },
+        "haloWidth": { "displayName": "Halo width", "type": { "numeric": true } },
+        "decimals": { "displayName": "Decimals", "type": { "numeric": true } },
+        "format": {
+          "displayName": "Number format",
+          "type": {
+            "enumeration": [
+              { "value": "auto", "displayName": "Auto" },
+              { "value": "thousands", "displayName": "Thousands (K)" },
+              { "value": "millions", "displayName": "Millions (M)" },
+              { "value": "percent", "displayName": "Percent" }
+            ]
+          }
+        },
+        "placement": {
+          "displayName": "Placement",
+          "type": {
+            "enumeration": [
+              { "value": "horizontal", "displayName": "Horizontal" },
+              { "value": "straight", "displayName": "Straight" },
+              { "value": "curved", "displayName": "Curved" },
+              { "value": "boundary", "displayName": "Boundary" }
+            ]
+          }
+        },
+        "wordsOnSeparateLines": { "displayName": "Words on separate lines", "type": { "bool": true } },
+        "stackWhenNeeded": { "displayName": "Stack when needed", "type": { "bool": true } },
+        "reduceFontSize": { "displayName": "Reduce font size to fit", "type": { "bool": true } },
+        "allowOverrun": { "displayName": "Allow overrun", "type": { "bool": true } },
+        "abbreviate": { "displayName": "Abbreviate / truncate", "type": { "bool": true } },
+        "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
+        "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
+        "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
+      }
+    },
+
+    "localityLabels": {
+      "displayName": "Locality labels (all-map view)",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "content": {
+          "displayName": "Content",
+          "type": {
+            "enumeration": [
+              { "value": "name", "displayName": "Name only" },
+              { "value": "value", "displayName": "Value only" },
+              { "value": "name_value", "displayName": "Name + value" }
+            ]
+          }
+        },
+        "fontFamily": { "displayName": "Font family", "type": { "text": true } },
+        "fontSize": { "displayName": "Font size", "type": { "formatting": { "fontSize": true } } },
+        "color": { "displayName": "Color", "type": { "fill": { "solid": { "color": true } } } },
+        "valueColor": { "displayName": "Value color", "type": { "fill": { "solid": { "color": true } } } },
+        "bold": { "displayName": "Bold", "type": { "bool": true } },
+        "italic": { "displayName": "Italic", "type": { "bool": true } },
+        "haloColor": { "displayName": "Halo color", "type": { "fill": { "solid": { "color": true } } } },
+        "haloWidth": { "displayName": "Halo width", "type": { "numeric": true } },
+        "decimals": { "displayName": "Decimals", "type": { "numeric": true } },
+        "format": {
+          "displayName": "Number format",
+          "type": {
+            "enumeration": [
+              { "value": "auto", "displayName": "Auto" },
+              { "value": "thousands", "displayName": "Thousands (K)" },
+              { "value": "millions", "displayName": "Millions (M)" },
+              { "value": "percent", "displayName": "Percent" }
+            ]
+          }
+        }
+      }
+    },
+
+    "drillLocalityLabels": {
+      "displayName": "Locality labels (drill view)",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "content": {
+          "displayName": "Content",
+          "type": {
+            "enumeration": [
+              { "value": "name", "displayName": "Name only" },
+              { "value": "value", "displayName": "Value only" },
+              { "value": "name_value", "displayName": "Name + value" }
+            ]
+          }
+        },
+        "fontFamily": { "displayName": "Font family", "type": { "text": true } },
+        "fontSize": { "displayName": "Font size", "type": { "formatting": { "fontSize": true } } },
+        "color": { "displayName": "Color", "type": { "fill": { "solid": { "color": true } } } },
+        "valueColor": { "displayName": "Value color", "type": { "fill": { "solid": { "color": true } } } },
+        "bold": { "displayName": "Bold", "type": { "bool": true } },
+        "italic": { "displayName": "Italic", "type": { "bool": true } },
+        "haloColor": { "displayName": "Halo color", "type": { "fill": { "solid": { "color": true } } } },
+        "haloWidth": { "displayName": "Halo width", "type": { "numeric": true } },
+        "decimals": { "displayName": "Decimals", "type": { "numeric": true } }
+      }
+    },
+
+    "bubbles": {
+      "displayName": "Bubbles",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "fillColor": { "displayName": "Fill color", "type": { "fill": { "solid": { "color": true } } } },
+        "strokeColor": { "displayName": "Stroke color", "type": { "fill": { "solid": { "color": true } } } },
+        "strokeWidth": { "displayName": "Stroke width", "type": { "numeric": true } },
+        "opacity": { "displayName": "Opacity", "type": { "numeric": true } },
+        "minRadius": { "displayName": "Min radius (px)", "type": { "numeric": true } },
+        "maxRadius": { "displayName": "Max radius (px)", "type": { "numeric": true } },
+        "labelPlacement": {
+          "displayName": "Label placement",
+          "type": {
+            "enumeration": [
+              { "value": "above", "displayName": "Above" },
+              { "value": "below", "displayName": "Below" },
+              { "value": "right", "displayName": "Right" },
+              { "value": "center", "displayName": "Center" }
+            ]
+          }
+        }
+      }
+    },
+
+    "valueLegend": {
+      "displayName": "Value legend",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "title": { "displayName": "Title (blank = use measure)", "type": { "text": true } },
+        "orientation": {
+          "displayName": "Orientation",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical" },
+              { "value": "horizontal", "displayName": "Horizontal" }
+            ]
+          }
+        },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "size": {
+          "displayName": "Size",
+          "type": {
+            "enumeration": [
+              { "value": "small", "displayName": "Small" },
+              { "value": "medium", "displayName": "Medium" },
+              { "value": "large", "displayName": "Large" }
+            ]
+          }
+        },
+        "decimals": { "displayName": "Decimals", "type": { "numeric": true } }
+      }
+    },
+
+    "bubbleLegend": {
+      "displayName": "Bubble legend",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "title": { "displayName": "Title", "type": { "text": true } },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "size": {
+          "displayName": "Size",
+          "type": {
+            "enumeration": [
+              { "value": "small", "displayName": "Small" },
+              { "value": "medium", "displayName": "Medium" },
+              { "value": "large", "displayName": "Large" }
+            ]
+          }
+        }
+      }
+    },
+
+    "legendContainer": {
+      "displayName": "Legend container",
+      "properties": {
+        "borderWidth": { "displayName": "Border width", "type": { "numeric": true } },
+        "borderColor": { "displayName": "Border color", "type": { "fill": { "solid": { "color": true } } } },
+        "cornerRadius": { "displayName": "Corner radius", "type": { "numeric": true } },
+        "padding": { "displayName": "Padding", "type": { "numeric": true } },
+        "background": { "displayName": "Background color", "type": { "fill": { "solid": { "color": true } } } },
+        "backgroundOpacity": { "displayName": "Background opacity", "type": { "numeric": true } }
+      }
+    }
+  },
+
+  "supportsHighlight": true,
+  "supportsKeyboardFocus": true,
+  "tooltips": {
+    "supportedTypes": { "default": true, "canvas": true },
+    "roles": ["tooltips"],
+    "supportEnhancedTooltips": true
+  },
+  "sorting": { "default": {} },
+  "supportsLandingPage": true
+}

@@ -1,0 +1,39 @@
+{
+  "name": "powerbi-adm-map-visual",
+  "version": "1.0.0",
+  "description": "Custom Power BI choropleth + bubble map visual for ADM1/ADM2 administrative boundaries with PCODE matching. Geometry is embedded at build time from fieldmaps.io.",
+  "scripts": {
+    "fetch-geometry": "node scripts/fetch-geometry.js",
+    "build-topojson": "node scripts/build-topojson.js",
+    "build-data": "npm run fetch-geometry && npm run build-topojson",
+    "parse-excel": "node scripts/parse-countries-excel.js",
+    "start": "pbiviz start",
+    "package": "pbiviz package",
+    "lint": "tslint -c tslint.json -p tsconfig.json"
+  },
+  "dependencies": {
+    "powerbi-visuals-api": "~5.11.0",
+    "powerbi-visuals-utils-formattingmodel": "6.1.1",
+    "powerbi-visuals-utils-tooltiputils": "6.0.4",
+    "powerbi-visuals-utils-colorutils": "6.0.4",
+    "d3": "7.8.5",
+    "d3-geo": "3.1.0",
+    "d3-geo-projection": "4.0.0",
+    "topojson-client": "3.1.0",
+    "topojson-server": "3.0.1",
+    "topojson-simplify": "3.0.3",
+    "@turf/turf": "6.5.0",
+    "polylabel": "1.1.0"
+  },
+  "devDependencies": {
+    "@types/d3": "7.4.0",
+    "@types/node": "^18.0.0",
+    "powerbi-visuals-tools": "5.4.0",
+    "typescript": "5.3.3",
+    "tslint": "^6.1.3",
+    "shapefile": "^0.6.6",
+    "xlsx": "^0.18.5",
+    "node-fetch": "^2.7.0",
+    "yauzl": "^2.10.0"
+  }
+}
