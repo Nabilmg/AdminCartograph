@@ -11,6 +11,7 @@ import { prepareDataView } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles } from "./render/bubbles";
+import { renderGlyphs, GlyphType } from "./render/glyphs";
 import { renderLabels, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
@@ -43,6 +44,7 @@ export class Visual implements IVisual {
   private adm1Layer: SVGGElement;
   private adm2Layer: SVGGElement;
   private bubbleLayer: SVGGElement;
+  private glyphLayer: SVGGElement;
   private adm1LabelLayer: SVGGElement;
   private adm2LabelLayer: SVGGElement;
   private legendLayer: SVGGElement;
@@ -102,6 +104,7 @@ export class Visual implements IVisual {
     this.adm1Layer = svgEl("g", { class: "adm1-layer" });
     this.adm2Layer = svgEl("g", { class: "adm2-layer" });
     this.bubbleLayer = svgEl("g", { class: "bubble-layer" });
+    this.glyphLayer = svgEl("g", { class: "glyph-layer" });
     this.adm2LabelLayer = svgEl("g", { class: "adm2-label-layer" });
     this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.legendLayer = svgEl("g", { class: "legend-layer" });
@@ -109,11 +112,13 @@ export class Visual implements IVisual {
     //   adm2 (locality fills + borders)
     //   adm1 (Admin1 fills in Admin1 view, or just borders in drill view)
     //   bubbles (always above choropleth)
+    //   glyphs (pie / donut / column charts on top of bubbles)
     //   adm2 labels
     //   adm1 labels (always on top)
     this.mapGroup.appendChild(this.adm2Layer);
     this.mapGroup.appendChild(this.adm1Layer);
     this.mapGroup.appendChild(this.bubbleLayer);
+    this.mapGroup.appendChild(this.glyphLayer);
     this.mapGroup.appendChild(this.adm2LabelLayer);
     this.mapGroup.appendChild(this.adm1LabelLayer);
     this.svg.appendChild(this.legendLayer);
@@ -303,6 +308,7 @@ export class Visual implements IVisual {
     while (this.adm1Layer.firstChild) this.adm1Layer.removeChild(this.adm1Layer.firstChild);
     while (this.adm2Layer.firstChild) this.adm2Layer.removeChild(this.adm2Layer.firstChild);
     while (this.bubbleLayer.firstChild) this.bubbleLayer.removeChild(this.bubbleLayer.firstChild);
+    while (this.glyphLayer.firstChild) this.glyphLayer.removeChild(this.glyphLayer.firstChild);
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     while (this.legendLayer.firstChild) this.legendLayer.removeChild(this.legendLayer.firstChild);
@@ -358,7 +364,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; glyph: number[]; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -367,10 +373,15 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, glyph: [], sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
+      // Sum glyph categories index-wise so the rolled-up Admin1 carries the
+      // same number of segments as the source Admin2 areas.
+      for (let i = 0; i < (a.glyphValues?.length || 0); i++) {
+        acc.glyph[i] = (acc.glyph[i] || 0) + (a.glyphValues[i] || 0);
+      }
     }
 
     const out = new Map<string, AreaDatum>();
@@ -382,6 +393,7 @@ export class Visual implements IVisual {
         level: 1,
         colorValue: acc.color,
         bubbleSize: acc.bubble,
+        glyphValues: acc.glyph,
         labelValue2: null,
         labelText1: null,
         tooltips: [],
@@ -511,6 +523,37 @@ export class Visual implements IVisual {
           return Math.min(this.settings.borders.stateOpacity.value, 0.35);
         });
     }
+
+    // Glyph charts (pie / donut / column on top of choropleth+bubbles)
+    const glyphStyle = this.settings.glyphChart;
+    renderGlyphs(
+      this.glyphLayer,
+      projection,
+      view === "localities" ? adm2Visible : adm1Visible,
+      lookup,
+      pcodeKey as any,
+      {
+        show: glyphStyle.show.value,
+        type: (glyphStyle.type.value as any).value as GlyphType,
+        minSize: glyphStyle.minSize.value,
+        maxSize: glyphStyle.maxSize.value,
+        scaleByTotal: glyphStyle.scaleByTotal.value,
+        stroke: glyphStyle.stroke.value.value,
+        strokeWidth: glyphStyle.strokeWidth.value,
+        opacity: glyphStyle.opacity.value,
+        donutInnerRatio: glyphStyle.donutInnerRatio.value,
+        colors: [
+          glyphStyle.color1.value.value,
+          glyphStyle.color2.value.value,
+          glyphStyle.color3.value.value,
+          glyphStyle.color4.value.value,
+          glyphStyle.color5.value.value,
+          glyphStyle.color6.value.value,
+          glyphStyle.color7.value.value,
+          glyphStyle.color8.value.value
+        ]
+      }
+    );
 
     // Bubbles
     const bubbleStyle = this.settings.bubbles;

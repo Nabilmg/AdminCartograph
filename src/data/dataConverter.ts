@@ -12,6 +12,7 @@ const ROLE_BUBBLE = "bubbleSize";
 const ROLE_LABEL2 = "labelValue2";
 const ROLE_LABEL_TEXT = "labelText1";
 const ROLE_TOOLTIPS = "tooltips";
+const ROLE_GLYPH = "glyphValues";
 
 function roleOf(column: powerbi.DataViewMetadataColumn, role: string): boolean {
   return !!(column.roles && column.roles[role]);
@@ -41,6 +42,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     hasLocalityBinding: false,
     colorValueColumn: null,
     bubbleSizeColumn: null,
+    glyphColumns: [],
     filteredStatePcodes: null,
     filteredLocalityPcodes: null
   };
@@ -58,6 +60,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
   const bubbleCol = findValue(values, ROLE_BUBBLE);
   const label2Col = findValue(values, ROLE_LABEL2);
   const tooltipCols = valuesFor(values, ROLE_TOOLTIPS);
+  const glyphCols = valuesFor(values, ROLE_GLYPH);
 
   const hasState = !!stateCat;
   const hasLocality = !!locCat;
@@ -83,6 +86,11 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     const colorValue = numericAt(colorCol, i);
     const bubble = numericAt(bubbleCol, i);
     const label2 = numericAt(label2Col, i);
+    const glyphValues = glyphCols.map((c) => {
+      const raw = c.values[i];
+      const n = raw == null ? null : Number(raw);
+      return Number.isFinite(n as number) ? (n as number) : 0;
+    });
 
     const tooltips: powerbi.extensibility.VisualTooltipDataItem[] = [];
     for (const t of tooltipCols) {
@@ -110,6 +118,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
         level: 2,
         colorValue,
         bubbleSize: bubble,
+        glyphValues,
         labelValue2: label2,
         labelText1: labelText,
         tooltips,
@@ -126,6 +135,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
         level: 1,
         colorValue,
         bubbleSize: bubble,
+        glyphValues,
         labelValue2: label2,
         labelText1: labelText,
         tooltips,
@@ -141,6 +151,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     hasLocalityBinding: hasLocality,
     colorValueColumn: colorCol ? colorCol.source : null,
     bubbleSizeColumn: bubbleCol ? bubbleCol.source : null,
+    glyphColumns: glyphCols.map((c) => c.source),
     filteredStatePcodes: filteredStates,
     filteredLocalityPcodes: filteredLocs
   };

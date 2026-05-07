@@ -189,6 +189,39 @@ class BubblesSettings extends FormattingSettingsCard {
   slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement];
 }
 
+class GlyphChartSettings extends FormattingSettingsCard {
+  show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
+  type = new formattingSettings.ItemDropdown({
+    name: "type",
+    displayName: "Chart type",
+    items: [
+      { value: "pie", displayName: "Pie" },
+      { value: "donut", displayName: "Donut" },
+      { value: "column", displayName: "Column" }
+    ],
+    value: { value: "pie", displayName: "Pie" }
+  });
+  minSize = new formattingSettings.NumUpDown({ name: "minSize", displayName: "Min size (px)", value: 14 });
+  maxSize = new formattingSettings.NumUpDown({ name: "maxSize", displayName: "Max size (px)", value: 36 });
+  scaleByTotal = new formattingSettings.ToggleSwitch({ name: "scaleByTotal", displayName: "Scale glyph by total", value: true });
+  stroke = new formattingSettings.ColorPicker({ name: "stroke", displayName: "Stroke color", value: { value: "#ffffff" } });
+  strokeWidth = new formattingSettings.NumUpDown({ name: "strokeWidth", displayName: "Stroke width", value: 1 });
+  opacity = new formattingSettings.NumUpDown({ name: "opacity", displayName: "Opacity", value: 0.9 });
+  donutInnerRatio = new formattingSettings.NumUpDown({ name: "donutInnerRatio", displayName: "Donut inner ratio", value: 0.5 });
+  color1 = new formattingSettings.ColorPicker({ name: "color1", displayName: "Category 1", value: { value: "#1f77b4" } });
+  color2 = new formattingSettings.ColorPicker({ name: "color2", displayName: "Category 2", value: { value: "#ff7f0e" } });
+  color3 = new formattingSettings.ColorPicker({ name: "color3", displayName: "Category 3", value: { value: "#2ca02c" } });
+  color4 = new formattingSettings.ColorPicker({ name: "color4", displayName: "Category 4", value: { value: "#d62728" } });
+  color5 = new formattingSettings.ColorPicker({ name: "color5", displayName: "Category 5", value: { value: "#9467bd" } });
+  color6 = new formattingSettings.ColorPicker({ name: "color6", displayName: "Category 6", value: { value: "#8c564b" } });
+  color7 = new formattingSettings.ColorPicker({ name: "color7", displayName: "Category 7", value: { value: "#e377c2" } });
+  color8 = new formattingSettings.ColorPicker({ name: "color8", displayName: "Category 8", value: { value: "#7f7f7f" } });
+
+  name = "glyphChart";
+  displayName = "Glyph chart";
+  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8];
+}
+
 class ValueLegendSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: true });
   title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "(measure name)", value: "" });
@@ -310,6 +343,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   localityLabels = new LocalityLabelsCard();
   drillLocalityLabels = new DrillLocalityLabelsCard();
   bubbles = new BubblesSettings();
+  glyphChart = new GlyphChartSettings();
   valueLegend = new ValueLegendSettings();
   bubbleLegend = new BubbleLegendSettings();
   controls = new ControlsSettings();
@@ -323,6 +357,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.general,
     this.choropleth,
     this.bubbles,
+    this.glyphChart,
     this.borders,
     this.stateLabels,
     this.localityLabels,

@@ -25,6 +25,12 @@
       "description": "Measure used to scale proportional bubbles."
     },
     {
+      "displayName": "Glyph Values (pie / column)",
+      "name": "glyphValues",
+      "kind": "Measure",
+      "description": "Two or more measures to render as a pie or column chart per area. Each measure becomes one slice / column."
+    },
+    {
       "displayName": "Label Value 2",
       "name": "labelValue2",
       "kind": "Measure",
@@ -62,6 +68,7 @@
             { "bind": { "to": "colorValue" } },
             { "bind": { "to": "bubbleSize" } },
             { "bind": { "to": "labelValue2" } },
+            { "for": { "in": "glyphValues" } },
             { "bind": { "to": "tooltips" } }
           ]
         }
@@ -400,6 +407,38 @@
             ]
           }
         }
+      }
+    },
+
+    "glyphChart": {
+      "displayName": "Glyph chart",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "type": {
+          "displayName": "Chart type",
+          "type": {
+            "enumeration": [
+              { "value": "pie", "displayName": "Pie" },
+              { "value": "donut", "displayName": "Donut" },
+              { "value": "column", "displayName": "Column" }
+            ]
+          }
+        },
+        "minSize": { "displayName": "Min size (px)", "type": { "numeric": true } },
+        "maxSize": { "displayName": "Max size (px)", "type": { "numeric": true } },
+        "scaleByTotal": { "displayName": "Scale glyph by total", "type": { "bool": true } },
+        "stroke": { "displayName": "Stroke color", "type": { "fill": { "solid": { "color": true } } } },
+        "strokeWidth": { "displayName": "Stroke width", "type": { "numeric": true } },
+        "opacity": { "displayName": "Opacity", "type": { "numeric": true } },
+        "donutInnerRatio": { "displayName": "Donut inner ratio", "type": { "numeric": true } },
+        "color1": { "displayName": "Category 1 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color2": { "displayName": "Category 2 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color3": { "displayName": "Category 3 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color4": { "displayName": "Category 4 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color5": { "displayName": "Category 5 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color6": { "displayName": "Category 6 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color7": { "displayName": "Category 7 color", "type": { "fill": { "solid": { "color": true } } } },
+        "color8": { "displayName": "Category 8 color", "type": { "fill": { "solid": { "color": true } } } }
       }
     },
 
