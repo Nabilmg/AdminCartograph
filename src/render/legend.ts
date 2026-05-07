@@ -1,0 +1,156 @@
+/**
+ * Renders the value legend (choropleth class swatches) and bubble legend
+ * (nested circles) into a single container. When both legends share a corner
+ * they are stacked inside one rounded box per the spec.
+ */
+import * as d3 from "d3";
+import type { Position, LegendSize } from "../settings";
+import { formatNumber } from "./format";
+import type { ClassBreaks } from "./classification";
+
+export interface LegendInputs {
+  width: number;
+  height: number;
+  /** Choropleth value legend. */
+  value?: {
+    title: string;
+    classes: { color: string; from: number; to: number }[];
+    decimals: number;
+    orientation: "vertical" | "horizontal";
+    position: Position;
+    size: LegendSize;
+    breaks: ClassBreaks;
+  };
+  /** Bubble legend. */
+  bubble?: {
+    title: string;
+    fillColor: string;
+    strokeColor: string;
+    minRadius: number;
+    maxRadius: number;
+    minValue: number;
+    maxValue: number;
+    position: Position;
+    size: LegendSize;
+  };
+  container: {
+    borderColor: string;
+    borderWidth: number;
+    cornerRadius: number;
+    padding: number;
+    background: string;
+    backgroundOpacity: number;
+  };
+}
+
+const SIZE_SCALE: Record<LegendSize, number> = { small: 0.8, medium: 1.0, large: 1.2 };
+
+export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
+  const root = d3.select(parent);
+  root.selectAll("*").remove();
+
+  // Group legends by position so we can combine when they share a corner.
+  const groups: Record<string, { value?: LegendInputs["value"]; bubble?: LegendInputs["bubble"] }> = {};
+  if (inputs.value) {
+    groups[inputs.value.position] = groups[inputs.value.position] || {};
+    groups[inputs.value.position].value = inputs.value;
+  }
+  if (inputs.bubble) {
+    groups[inputs.bubble.position] = groups[inputs.bubble.position] || {};
+    groups[inputs.bubble.position].bubble = inputs.bubble;
+  }
+
+  for (const [position, contents] of Object.entries(groups)) {
+    const group = root.append("g").attr("class", `legend legend-${position}`);
+    const inner = group.append("g").attr("class", "legend-inner");
+
+    let yOffset = 0;
+    if (contents.value) {
+      yOffset = drawValueLegend(inner, contents.value as any, yOffset);
+      yOffset += 8;
+    }
+    if (contents.bubble) {
+      yOffset = drawBubbleLegend(inner, contents.bubble as any, yOffset);
+    }
+
+    // Measure and frame.
+    const node = inner.node() as SVGGElement;
+    const bbox = node.getBBox();
+    const pad = inputs.container.padding;
+    inner.insert("rect", ":first-child")
+      .attr("x", bbox.x - pad)
+      .attr("y", bbox.y - pad)
+      .attr("width", bbox.width + pad * 2)
+      .attr("height", bbox.height + pad * 2)
+      .attr("rx", inputs.container.cornerRadius)
+      .attr("ry", inputs.container.cornerRadius)
+      .attr("fill", inputs.container.background)
+      .attr("fill-opacity", inputs.container.backgroundOpacity)
+      .attr("stroke", inputs.container.borderColor)
+      .attr("stroke-width", inputs.container.borderWidth);
+
+    const totalW = bbox.width + pad * 2;
+    const totalH = bbox.height + pad * 2;
+    const margin = 12;
+    let dx = 0;
+    let dy = 0;
+    if (position === "topLeft") { dx = margin - bbox.x + pad; dy = margin - bbox.y + pad; }
+    else if (position === "topRight") { dx = inputs.width - margin - totalW - bbox.x + pad; dy = margin - bbox.y + pad; }
+    else if (position === "bottomLeft") { dx = margin - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
+    else { dx = inputs.width - margin - totalW - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
+    group.attr("transform", `translate(${dx},${dy})`);
+  }
+}
+
+function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number): number {
+  const scale = SIZE_SCALE[value.size];
+  const swatch = 14 * scale;
+  const fontSize = 11 * scale;
+  const titleSize = 12 * scale;
+  const gap = 4;
+
+  parent.append("text")
+    .attr("x", 0).attr("y", yStart + titleSize)
+    .attr("font-size", titleSize).attr("font-weight", 600)
+    .text(value.title || "");
+
+  let y = yStart + titleSize + 6;
+  if (value.orientation === "horizontal") {
+    let x = 0;
+    for (const c of value.classes) {
+      parent.append("rect").attr("x", x).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+      parent.append("text").attr("x", x + swatch / 2).attr("y", y + swatch + fontSize + 2).attr("font-size", fontSize).attr("text-anchor", "middle").text(formatNumber(c.to, value.decimals, "auto"));
+      x += swatch + gap;
+    }
+    return y + swatch + fontSize + 8;
+  }
+  for (const c of value.classes) {
+    parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
+      .text(`${formatNumber(c.from, value.decimals, "auto")} – ${formatNumber(c.to, value.decimals, "auto")}`);
+    y += swatch + gap;
+  }
+  return y;
+}
+
+function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number): number {
+  const scale = SIZE_SCALE[bubble.size];
+  const fontSize = 11 * scale;
+  const titleSize = 12 * scale;
+
+  parent.append("text")
+    .attr("x", 0).attr("y", yStart + titleSize)
+    .attr("font-size", titleSize).attr("font-weight", 600)
+    .text(bubble.title || "");
+
+  const cx = bubble.maxRadius;
+  const cyMax = yStart + titleSize + 8 + bubble.maxRadius;
+
+  parent.append("circle").attr("cx", cx).attr("cy", cyMax).attr("r", bubble.maxRadius).attr("fill", bubble.fillColor).attr("fill-opacity", 0.4).attr("stroke", bubble.strokeColor);
+  parent.append("circle").attr("cx", cx).attr("cy", cyMax + bubble.maxRadius - bubble.minRadius).attr("r", bubble.minRadius).attr("fill", bubble.fillColor).attr("fill-opacity", 0.7).attr("stroke", bubble.strokeColor);
+
+  parent.append("text").attr("x", cx + bubble.maxRadius + 6).attr("y", cyMax - bubble.maxRadius + fontSize).attr("font-size", fontSize).text(formatNumber(bubble.maxValue, 0, "auto"));
+  parent.append("text").attr("x", cx + bubble.maxRadius + 6).attr("y", cyMax + bubble.maxRadius - bubble.minRadius * 2 + fontSize).attr("font-size", fontSize).text(formatNumber(bubble.minValue, 0, "auto"));
+
+  return cyMax + bubble.maxRadius + 6;
+}
