@@ -67,13 +67,34 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
     const group = root.append("g").attr("class", `legend legend-${position}`);
     const inner = group.append("g").attr("class", "legend-inner");
 
-    let yOffset = 0;
+    // Render value and bubble into separate sub-groups so we can measure
+    // each, then stack them with value FIRST (top) and bubble SECOND
+    // (below). Using each sub-group's actual bbox instead of trusting the
+    // returned yOffset is more robust against text descent / circle
+    // overhang outside the predicted range.
+    const stack: SVGGElement[] = [];
     if (contents.value) {
-      yOffset = drawValueLegend(inner, contents.value as any, yOffset);
-      yOffset += 8;
+      const sub = inner.append("g").attr("class", "legend-value-sub");
+      drawValueLegend(sub, contents.value as any, 0);
+      stack.push(sub.node() as SVGGElement);
     }
     if (contents.bubble) {
-      yOffset = drawBubbleLegend(inner, contents.bubble as any, yOffset);
+      const sub = inner.append("g").attr("class", "legend-bubble-sub");
+      drawBubbleLegend(sub, contents.bubble as any, 0);
+      stack.push(sub.node() as SVGGElement);
+    }
+    // Stack the sub-groups vertically with an 8px gap. The first item
+    // (value) keeps its content at its native y; subsequent items get
+    // translated downward so they sit BELOW everything before them.
+    let cursor = 0;
+    for (const sub of stack) {
+      const subBox = sub.getBBox();
+      const targetTop = cursor;
+      // We want subBox.y to land at targetTop, so translate by
+      // (targetTop - subBox.y). This handles negative bbox.y correctly.
+      const ty = targetTop - subBox.y;
+      sub.setAttribute("transform", `translate(0,${ty})`);
+      cursor = targetTop + subBox.height + 8;
     }
 
     // Measure and frame.
