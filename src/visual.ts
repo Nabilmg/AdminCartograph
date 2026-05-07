@@ -592,10 +592,10 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Render the drilled Admin1's label as a centered header at the top of
-   * the canvas (instead of on top of the polygon, where it would overlap
-   * locality labels). Honors the Admin1 labels card's content / colour /
-   * font / decimals so the user's formatting still applies.
+   * Render the drilled Admin1's label as a small pill anchored to the top
+   * left, just under the "Country View" back button. Honors the Admin1
+   * labels card's content / colour / font / decimals so the user's
+   * formatting still applies.
    */
   private renderAdmin1Header(width: number, feature: any, datum: AreaDatum | undefined): void {
     const card = this.settings.stateLabels;
@@ -618,33 +618,38 @@ export class Visual implements IVisual {
     }
     if (!lines.length) return;
 
-    const fontSize = Math.max(card.fontSize.value, 14);
+    const fontSize = Math.max(card.fontSize.value, 13);
     const lineHeight = fontSize * 1.2;
-    const cx = width / 2;
-    const baseY = 36; // below the top-bar buttons
+    // Anchor under the back button: 8px overlay padding + ~30px button +
+    // 6px gap = 44px from the top, 8px from the left.
+    const baseX = 8;
+    const baseY = 44;
     const sel = (this.adm1LabelLayer as any) as SVGGElement;
     const svgNS = "http://www.w3.org/2000/svg";
 
-    // Backing pill so the header is readable over any choropleth color.
-    const totalH = lines.length * lineHeight + 14;
-    const widest = Math.max(...lines.map((l) => approxTextWidth(l.text, fontSize))) + 28;
+    // Backing pill keeps the text readable over any choropleth color.
+    const padX = 10;
+    const padY = 6;
+    const widest = Math.max(...lines.map((l) => approxTextWidth(l.text, fontSize)));
+    const totalW = widest + padX * 2;
+    const totalH = lines.length * lineHeight + padY * 2;
     const rect = document.createElementNS(svgNS, "rect");
-    rect.setAttribute("x", String(cx - widest / 2));
+    rect.setAttribute("x", String(baseX));
     rect.setAttribute("y", String(baseY));
-    rect.setAttribute("width", String(widest));
+    rect.setAttribute("width", String(totalW));
     rect.setAttribute("height", String(totalH));
-    rect.setAttribute("rx", "8");
-    rect.setAttribute("ry", "8");
-    rect.setAttribute("fill", "rgba(255,255,255,0.92)");
+    rect.setAttribute("rx", "6");
+    rect.setAttribute("ry", "6");
+    rect.setAttribute("fill", "rgba(255,255,255,0.95)");
     rect.setAttribute("stroke", "#cccccc");
     rect.setAttribute("stroke-width", "1");
     sel.appendChild(rect);
 
     for (let i = 0; i < lines.length; i++) {
       const t = document.createElementNS(svgNS, "text");
-      t.setAttribute("x", String(cx));
-      t.setAttribute("y", String(baseY + 14 + i * lineHeight));
-      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("x", String(baseX + padX));
+      t.setAttribute("y", String(baseY + padY + (i + 1) * lineHeight - lineHeight * 0.25));
+      t.setAttribute("text-anchor", "start");
       t.setAttribute("font-family", card.fontFamily.value);
       t.setAttribute("font-size", String(fontSize));
       t.setAttribute("font-weight", card.bold.value ? "600" : "500");
@@ -715,13 +720,14 @@ export class Visual implements IVisual {
       while (bar.firstChild) bar.removeChild(bar.firstChild);
     }
 
-    // Drill-back button (left side, only when drilled).
+    // Drill-back button (left side, only when drilled). Label says
+    // "Country View" — i.e. zoom back out to all Admin1 areas.
     if (view === "localities" && this.drilledStatePcode) {
       const back = document.createElement("button");
       back.className = "adm-back-button";
       back.type = "button";
-      back.setAttribute("aria-label", "Back to Admin1");
-      back.innerHTML = "&#8592; Back to Admin1";
+      back.setAttribute("aria-label", "Country View");
+      back.innerHTML = "&#8592; Country View";
       back.addEventListener("click", (e) => {
         e.stopPropagation();
         this.drilledStatePcode = null;
