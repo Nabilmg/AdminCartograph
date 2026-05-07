@@ -11,6 +11,7 @@ scripts/data/raw/
 assets/geometry/world.topojson.json
 assets/geometry/country-index.json
 
-# pbiviz output
-*.pbiviz
+# pbiviz output (build artifacts)
+dist/
 webpack.statistics.*.html
+# but releases/ is checked in
