@@ -32,6 +32,9 @@ export interface LegendInputs {
     maxValue: number;
     position: Position;
     size: LegendSize;
+    orientation: "vertical" | "horizontal";
+    /** Maps a measure value to a radius — same scale used by the bubbles. */
+    scale: (v: number) => number;
   };
   container: {
     borderColor: string;
@@ -157,17 +160,24 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
 }
 
 function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number): number {
-  const scale = SIZE_SCALE[bubble.size];
-  const fontSize = 11 * scale;
-  const titleSize = 12 * scale;
+  const scaleFactor = SIZE_SCALE[bubble.size];
+  const fontSize = 11 * scaleFactor;
+  const titleSize = 12 * scaleFactor;
 
   parent.append("text")
     .attr("x", 0).attr("y", yStart + titleSize)
     .attr("font-size", titleSize).attr("font-weight", 600)
     .text(bubble.title || "");
 
+  if (bubble.orientation === "horizontal") {
+    return drawBubbleLegendHorizontal(parent, bubble, yStart + titleSize + 8, fontSize);
+  }
+  return drawBubbleLegendVertical(parent, bubble, yStart + titleSize + 8, fontSize);
+}
+
+function drawBubbleLegendVertical(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, fontSize: number): number {
   const cx = bubble.maxRadius;
-  const cyMax = yStart + titleSize + 8 + bubble.maxRadius;
+  const cyMax = yStart + bubble.maxRadius;
 
   parent.append("circle").attr("cx", cx).attr("cy", cyMax).attr("r", bubble.maxRadius).attr("fill", bubble.fillColor).attr("fill-opacity", 0.4).attr("stroke", bubble.strokeColor);
   parent.append("circle").attr("cx", cx).attr("cy", cyMax + bubble.maxRadius - bubble.minRadius).attr("r", bubble.minRadius).attr("fill", bubble.fillColor).attr("fill-opacity", 0.7).attr("stroke", bubble.strokeColor);
@@ -176,4 +186,55 @@ function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"
   parent.append("text").attr("x", cx + bubble.maxRadius + 6).attr("y", cyMax + bubble.maxRadius - bubble.minRadius * 2 + fontSize).attr("font-size", fontSize).text(formatNumber(bubble.minValue, 0, "auto"));
 
   return cyMax + bubble.maxRadius + 6;
+}
+
+/**
+ * Horizontal bubble legend: 3-4 baseline-aligned circles ascending in size,
+ * left to right, with their values labelled beneath. Uses the same scale
+ * function the bubbles themselves use, so the legend reflects the actual
+ * visual mapping (square-root area scaling) instead of a synthetic ramp.
+ */
+function drawBubbleLegendHorizontal(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, fontSize: number): number {
+  const min = bubble.minValue;
+  const max = bubble.maxValue;
+  // Three steps when the dynamic range is small, four when it's large
+  // (>= one order of magnitude). Keeps the legend honest.
+  const stepCount = max > 0 && min > 0 && max / min >= 10 ? 4 : 3;
+  const stops: number[] = [];
+  if (max === min) {
+    stops.push(min);
+  } else if (stepCount === 3) {
+    stops.push(min, Math.sqrt(min * max), max);
+  } else {
+    // Four geometric-mean-ish stops between min and max.
+    for (let i = 0; i < 4; i++) {
+      const t = i / 3;
+      const v = min > 0 ? min * Math.pow(max / min, t) : min + (max - min) * t;
+      stops.push(v);
+    }
+  }
+
+  const radii = stops.map((v) => bubble.scale(v));
+  const colGap = Math.max(8, fontSize * 0.6);
+  const baselineY = yStart + bubble.maxRadius * 2 + 4; // bottom of the largest circle
+  let x = 0;
+
+  for (let i = 0; i < stops.length; i++) {
+    const r = radii[i];
+    const cx = x + bubble.maxRadius;
+    const cy = baselineY - r;
+    parent.append("circle")
+      .attr("cx", cx).attr("cy", cy).attr("r", r)
+      .attr("fill", bubble.fillColor)
+      .attr("fill-opacity", 0.6)
+      .attr("stroke", bubble.strokeColor);
+    parent.append("text")
+      .attr("x", cx).attr("y", baselineY + fontSize + 4)
+      .attr("text-anchor", "middle")
+      .attr("font-size", fontSize)
+      .text(formatNumber(stops[i], 0, "auto"));
+    x += bubble.maxRadius * 2 + colGap;
+  }
+
+  return baselineY + fontSize + 8;
 }

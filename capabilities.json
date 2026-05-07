@@ -411,6 +411,15 @@
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "title": { "displayName": "Title", "type": { "text": true } },
+        "orientation": {
+          "displayName": "Orientation",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical" },
+              { "value": "horizontal", "displayName": "Horizontal" }
+            ]
+          }
+        },
         "position": {
           "displayName": "Position",
           "type": {

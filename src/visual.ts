@@ -592,7 +592,9 @@ export class Visual implements IVisual {
         minValue: bubbleResult.minValue,
         maxValue: bubbleResult.maxValue,
         position: (bubbleLegend.position.value as any).value,
-        size: (bubbleLegend.size.value as any).value
+        size: (bubbleLegend.size.value as any).value,
+        orientation: (bubbleLegend.orientation.value as any).value,
+        scale: bubbleResult.scale
       } : undefined,
       container: {
         borderColor: this.settings.legendContainer.borderColor.value.value,

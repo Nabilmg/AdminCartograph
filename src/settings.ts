@@ -221,6 +221,15 @@ class ValueLegendSettings extends FormattingSettingsCard {
 class BubbleLegendSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: true });
   title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "(measure name)", value: "" });
+  orientation = new formattingSettings.ItemDropdown({
+    name: "orientation",
+    displayName: "Orientation",
+    items: [
+      { value: "vertical", displayName: "Vertical" },
+      { value: "horizontal", displayName: "Horizontal" }
+    ],
+    value: { value: "vertical", displayName: "Vertical" }
+  });
   position = new formattingSettings.ItemDropdown({
     name: "position",
     displayName: "Position",
@@ -245,7 +254,7 @@ class BubbleLegendSettings extends FormattingSettingsCard {
 
   name = "bubbleLegend";
   displayName = "Bubble legend";
-  slices = [this.show, this.title, this.position, this.size];
+  slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
 class LegendContainerSettings extends FormattingSettingsCard {
