@@ -149,7 +149,7 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
 }
 
 const StateLabelsCard = makeLabelCard("stateLabels", "Admin1 labels", { show: true, content: "name", fontSize: 12, bold: true });
-const LocalityLabelsCard = makeLabelCard("localityLabels", "Admin2 labels (default view)", { show: false, content: "name", fontSize: 9 });
+const LocalityLabelsCard = makeLabelCard("localityLabels", "Admin2 labels (default view)", { show: true, content: "name", fontSize: 9 });
 const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "Admin2 labels (drill view)", { show: true, content: "name", fontSize: 10 });
 
 class BubblesSettings extends FormattingSettingsCard {

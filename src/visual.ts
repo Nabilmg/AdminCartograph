@@ -430,8 +430,9 @@ export class Visual implements IVisual {
     // hide the bubble + label on top of an opaque fill.
     const bubblePlacement = (this.settings.bubbles.labelPlacement.value as any).value as string;
     const labelOverrides = bubbleResult ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, this.settings.stateLabels.fontSize.value) : undefined;
+    const activeLocalityCard = this.drilledStatePcode ? this.settings.drillLocalityLabels : this.settings.localityLabels;
     const localityOverrides = bubbleResult && view === "localities"
-      ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, (view === "localities" ? this.settings.drillLocalityLabels : this.settings.localityLabels).fontSize.value)
+      ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, activeLocalityCard.fontSize.value)
       : undefined;
 
     if (this.settings.stateLabels.show.value) {
@@ -450,7 +451,13 @@ export class Visual implements IVisual {
       while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     }
 
-    const localityCard = view === "localities" ? this.settings.drillLocalityLabels : this.settings.localityLabels;
+    // Pick the right Admin2 label card based on whether the user has drilled
+    // into a single Admin1 (drill card) or is viewing every Admin2 in the
+    // country (default card). View === "localities" alone isn't enough — the
+    // user may have switched to Admin2 from the View Mode dropdown without
+    // drilling, in which case the "default view" card should apply.
+    const drilled = !!this.drilledStatePcode;
+    const localityCard = drilled ? this.settings.drillLocalityLabels : this.settings.localityLabels;
     if (localityCard.show.value && adm2Visible.length) {
       const labels: LabelDatum[] = adm2Visible.map((f) => {
         const datum = prepared.areas.get(f.properties.ADM2_PCODE);
