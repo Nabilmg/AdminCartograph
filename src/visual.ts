@@ -206,7 +206,16 @@ export class Visual implements IVisual {
     }
 
     this.cached = { country, prepared, width, height };
-    this.applyFilterDrill(prepared, country);
+    // Filter-driven drill is an Auto-mode behaviour. When the user has
+    // explicitly picked "Admin1" or "Admin2" from the View Mode dropdown,
+    // their choice wins — slicers no longer push the visual into drill.
+    const viewSetting = (this.settings.general.viewMode.value as any).value as ViewMode;
+    if (viewSetting === "auto") {
+      this.applyFilterDrill(prepared, country);
+    } else {
+      this.drilledStatePcode = null;
+      this.suppressedFilterDrill = null;
+    }
     const view = this.resolveViewMode(prepared, country);
     this.renderMap(country, prepared, view, width, height);
   }
