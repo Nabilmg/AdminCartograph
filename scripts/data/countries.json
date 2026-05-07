@@ -1,5 +1,13 @@
 [
   {
+    "iso3": "AFG",
+    "name": "Afghanistan",
+    "maxAdm": 2,
+    "geojsonUrl": null,
+    "shpUrl": null,
+    "gpkgUrl": null
+  },
+  {
     "iso3": "SDN",
     "name": "Sudan",
     "maxAdm": 2,
