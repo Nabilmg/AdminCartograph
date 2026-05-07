@@ -66,6 +66,11 @@ export function renderBubbles(parent: SVGGElement, projection: GeoProjection, fe
   // Largest-first painting so smaller bubbles sit on top.
   valued.sort((a, b) => (b.datum.bubbleSize as number) - (a.datum.bubbleSize as number));
 
+  // Bubbles are decorative — pointer-events: none lets clicks fall through
+  // to the underlying Admin1 / Admin2 polygon so drill / selection still
+  // works when the user clicks on a bubble.
+  sel.attr("pointer-events", "none");
+
   const anchors = new Map<string, BubbleAnchor>();
   for (const v of valued) {
     const r = scale(v.datum.bubbleSize as number);

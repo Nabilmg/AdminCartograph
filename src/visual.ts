@@ -112,6 +112,45 @@ export class Visual implements IVisual {
     if (embeddedTopology) {
       this.loader = new GeometryLoader(embeddedTopology, embeddedIndex);
     }
+
+    // Attach the click listener ONCE here, on the persistent mapGroup. Using
+    // event delegation against [data-pcode] survives every re-render (d3's
+    // .data().join() rebuilds path nodes, so per-render .on("click") bindings
+    // were race-y inside the Power BI iframe). The handler reads the latest
+    // cached state instead of capturing stale closures.
+    this.mapGroup.addEventListener("click", (e: MouseEvent) => this.handleMapClick(e));
+  }
+
+  /**
+   * Single click handler for every adm1 / adm2 path. Reads the current view
+   * mode from the cached prepared data view and decides whether to drill,
+   * cross-filter or no-op.
+   */
+  private handleMapClick(e: MouseEvent): void {
+    if (!this.settings?.general?.interactionEnabled.value) return;
+    if (!this.cached) return;
+    const node = (e.target as Element)?.closest?.("[data-pcode]") as SVGElement | null;
+    if (!node) return;
+    const pcode = node.getAttribute("data-pcode");
+    if (!pcode) return;
+    e.stopPropagation();
+
+    const view = this.resolveViewMode(this.cached.prepared, this.cached.country);
+    const isAdm1 = node.classList.contains("adm1");
+    const isAdm2 = node.classList.contains("adm2");
+
+    if (view === "states" && isAdm1) {
+      this.drilledStatePcode = pcode;
+      this.rerender();
+      return;
+    }
+    if (view === "localities" && isAdm2) {
+      const datum = this.cached.prepared.areas.get(pcode);
+      if (datum) {
+        this.selectionManager.select(datum.selectionId, (e as any).ctrlKey || (e as any).metaKey);
+      }
+      this.refreshSelectionStyles();
+    }
   }
 
   public update(options: VisualUpdateOptions): void {
@@ -196,16 +235,16 @@ export class Visual implements IVisual {
     if (setting === "states") return "states";
     if (setting === "localities") return country.adm2 ? "localities" : "states";
 
-    // Auto: default to STATES. Drill into localities only when the user has
-    // explicitly clicked a state (this.drilledStatePcode), or when slicers /
-    // cross-filters reduce the dataset to a subset of the country's states.
-    // Just having a Locality PCODE binding is no longer sufficient.
+    // Auto: ALWAYS start at the Admin1 (states) view. The only thing that
+    // moves the visual into the Admin2 (localities) view is an explicit
+    // user click on an Admin1 area (which sets drilledStatePcode) or the
+    // user picking "Admin2" from the View Mode dropdown.
+    //
+    // We deliberately do NOT auto-drill based on filter context anymore —
+    // sparse data (e.g. a fact table that only has rows for a few states)
+    // was being misread as a filter and triggering an unwanted drill.
     if (!country.adm2) return "states";
     if (this.drilledStatePcode) return "localities";
-    const totalStates = country.adm1.features.length;
-    if (prepared.filteredStatePcodes && prepared.filteredStatePcodes.size > 0 && prepared.filteredStatePcodes.size < totalStates) {
-      return "localities";
-    }
     return "states";
   }
 
@@ -492,35 +531,8 @@ export class Visual implements IVisual {
       (event: any) => prepared.areas.get(event.pcode)?.selectionId
     );
 
-    if (!allowInteract) {
-      target.on("click", null);
-      return;
-    }
-
-    target.on("click", (event: MouseEvent, row: any) => {
-      const datum = prepared.areas.get(row.pcode);
-      if (view === "states") {
-        // Drill into the state's localities (if the country has ADM2).
-        this.drilledStatePcode = row.pcode;
-        event.stopPropagation();
-        this.rerender();
-        return;
-      }
-      // Locality view: toggle selection cross-filter.
-      if (datum) {
-        this.selectionManager.select(datum.selectionId, (event as any).ctrlKey || (event as any).metaKey);
-      }
-      event.stopPropagation();
-      this.refreshSelectionStyles();
-    });
-
-    // Click on background clears selection (drill is cleared via the back
-    // button only — clicking the SVG to drill back is too easy to trigger by
-    // accident inside Power BI's interaction model).
-    d3.select(this.svg).on("click", () => {
-      this.selectionManager.clear();
-      this.refreshSelectionStyles();
-    });
+    // Clicks for both layers go through the delegated handleMapClick
+    // attached once in the constructor. Nothing else to do here.
   }
 
   /**
