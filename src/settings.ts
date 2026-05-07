@@ -410,8 +410,8 @@ class ScaleBarSettings extends FormattingSettingsCard {
 }
 
 class ControlsSettings extends FormattingSettingsCard {
-  showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: true });
-  showPan = new formattingSettings.ToggleSwitch({ name: "showPan", displayName: "Show pan buttons", value: true });
+  showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: false });
+  showPan = new formattingSettings.ToggleSwitch({ name: "showPan", displayName: "Show pan buttons", value: false });
   showCopy = new formattingSettings.ToggleSwitch({ name: "showCopy", displayName: "Show copy-to-clipboard button", value: false });
   position = new formattingSettings.ItemDropdown({
     name: "position",
