@@ -192,7 +192,7 @@
     },
 
     "borders": {
-      "displayName": "Borders",
+      "displayName": "5. Borders",
       "properties": {
         "stateColor": { "displayName": "Admin1 border color", "type": { "fill": { "solid": { "color": true } } } },
         "stateWidth": { "displayName": "Admin1 border width", "type": { "numeric": true } },
@@ -204,7 +204,7 @@
     },
 
     "stateLabels": {
-      "displayName": "Admin1 labels",
+      "displayName": "6. Admin1 labels",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -273,7 +273,7 @@
     },
 
     "localityLabels": {
-      "displayName": "Admin2 labels (default view)",
+      "displayName": "7. Admin2 labels — default view",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -342,7 +342,7 @@
     },
 
     "drillLocalityLabels": {
-      "displayName": "Admin2 labels (drill view)",
+      "displayName": "8. Admin2 labels — drill view",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "content": {
@@ -411,7 +411,7 @@
     },
 
     "bubbles": {
-      "displayName": "Bubbles",
+      "displayName": "3. Bubble overlay",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "fillColor": { "displayName": "Fill color", "type": { "fill": { "solid": { "color": true } } } },
@@ -436,7 +436,7 @@
     },
 
     "glyphChart": {
-      "displayName": "Glyph chart",
+      "displayName": "4. Pie / Column overlay",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "type": {
@@ -480,7 +480,7 @@
     },
 
     "glyphLegend": {
-      "displayName": "Glyph legend",
+      "displayName": "11. Pie / Column legend",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "title": { "displayName": "Title", "type": { "text": true } },
@@ -518,7 +518,7 @@
     },
 
     "valueLegend": {
-      "displayName": "Value legend",
+      "displayName": "9. Choropleth legend",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "title": { "displayName": "Title (blank = use measure)", "type": { "text": true } },
@@ -557,7 +557,7 @@
     },
 
     "bubbleLegend": {
-      "displayName": "Bubble legend",
+      "displayName": "10. Bubble legend",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "title": { "displayName": "Title", "type": { "text": true } },
@@ -596,7 +596,7 @@
     },
 
     "scaleBar": {
-      "displayName": "Scale bar",
+      "displayName": "13. Scale bar",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "units": {
@@ -625,7 +625,7 @@
     },
 
     "controls": {
-      "displayName": "Controls",
+      "displayName": "14. Map controls (zoom / pan / copy)",
       "properties": {
         "showZoom": { "displayName": "Show zoom buttons", "type": { "bool": true } },
         "showPan": { "displayName": "Show pan buttons (up / down / left / right)", "type": { "bool": true } },
@@ -645,7 +645,7 @@
     },
 
     "legendContainer": {
-      "displayName": "Legend container",
+      "displayName": "12. Legend container",
       "properties": {
         "borderWidth": { "displayName": "Border width", "type": { "numeric": true } },
         "borderColor": { "displayName": "Border color", "type": { "fill": { "solid": { "color": true } } } },

@@ -57,7 +57,7 @@ class GeneralSettings extends FormattingSettingsCard {
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
   name = "general";
-  displayName = "Map";
+  displayName = "1. Map setup";
   // Hidden custom* slices live alongside the visible ones so the
   // formatting service round-trips them through host.persistProperties.
   slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
@@ -97,7 +97,7 @@ class ChoroplethSettings extends FormattingSettingsCard {
   fillOpacity = new formattingSettings.NumUpDown({ name: "fillOpacity", displayName: "Fill opacity", value: 0.85 });
 
   name = "choropleth";
-  displayName = "Choropleth";
+  displayName = "2. Choropleth fill";
   slices = [this.mode, this.baseColor, this.classification, this.manualBreaks, this.classCount, this.color1, this.color2, this.color3, this.color4, this.color5, this.blankColor, this.blankTransparent, this.zeroAsBlank, this.fillOpacity];
 }
 
@@ -110,7 +110,7 @@ class BordersSettings extends FormattingSettingsCard {
   localityOpacity = new formattingSettings.NumUpDown({ name: "localityOpacity", displayName: "Admin2 border opacity", value: 0.8 });
 
   name = "borders";
-  displayName = "Borders";
+  displayName = "5. Borders";
   slices = [this.stateColor, this.stateWidth, this.stateOpacity, this.localityColor, this.localityWidth, this.localityOpacity];
 }
 
@@ -185,9 +185,9 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
   };
 }
 
-const StateLabelsCard = makeLabelCard("stateLabels", "Admin1 labels", { show: true, content: "name", fontSize: 12, bold: true });
-const LocalityLabelsCard = makeLabelCard("localityLabels", "Admin2 labels (default view)", { show: true, content: "name", fontSize: 9 });
-const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "Admin2 labels (drill view)", { show: true, content: "name", fontSize: 10 });
+const StateLabelsCard = makeLabelCard("stateLabels", "6. Admin1 labels", { show: true, content: "name", fontSize: 12, bold: true });
+const LocalityLabelsCard = makeLabelCard("localityLabels", "7. Admin2 labels — default view", { show: true, content: "name", fontSize: 9 });
+const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "8. Admin2 labels — drill view", { show: true, content: "name", fontSize: 10 });
 
 class BubblesSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
@@ -211,7 +211,7 @@ class BubblesSettings extends FormattingSettingsCard {
   });
 
   name = "bubbles";
-  displayName = "Bubbles";
+  displayName = "3. Bubble overlay";
   slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement];
 }
 
@@ -256,7 +256,7 @@ class GlyphChartSettings extends FormattingSettingsCard {
   });
 
   name = "glyphChart";
-  displayName = "Glyph chart";
+  displayName = "4. Pie / Column overlay";
   slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement];
 }
 
@@ -295,7 +295,7 @@ class GlyphLegendSettings extends FormattingSettingsCard {
   });
 
   name = "glyphLegend";
-  displayName = "Glyph legend";
+  displayName = "11. Pie / Column legend";
   slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
@@ -335,7 +335,7 @@ class ValueLegendSettings extends FormattingSettingsCard {
   decimals = new formattingSettings.NumUpDown({ name: "decimals", displayName: "Decimals", value: 0 });
 
   name = "valueLegend";
-  displayName = "Value legend";
+  displayName = "9. Choropleth legend";
   slices = [this.show, this.title, this.orientation, this.position, this.size, this.decimals];
 }
 
@@ -375,7 +375,7 @@ class BubbleLegendSettings extends FormattingSettingsCard {
   });
 
   name = "bubbleLegend";
-  displayName = "Bubble legend";
+  displayName = "10. Bubble legend";
   slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
@@ -405,7 +405,7 @@ class ScaleBarSettings extends FormattingSettingsCard {
   fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: 11 });
 
   name = "scaleBar";
-  displayName = "Scale bar";
+  displayName = "13. Scale bar";
   slices = [this.show, this.units, this.position, this.color, this.fontSize];
 }
 
@@ -426,7 +426,7 @@ class ControlsSettings extends FormattingSettingsCard {
   });
 
   name = "controls";
-  displayName = "Controls";
+  displayName = "14. Map controls (zoom / pan / copy)";
   slices = [this.showZoom, this.showPan, this.showCopy, this.position];
 }
 
@@ -439,7 +439,7 @@ class LegendContainerSettings extends FormattingSettingsCard {
   backgroundOpacity = new formattingSettings.NumUpDown({ name: "backgroundOpacity", displayName: "Background opacity", value: 0.9 });
 
   name = "legendContainer";
-  displayName = "Legend container";
+  displayName = "12. Legend container";
   slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity];
 }
 
@@ -463,18 +463,27 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   // Group from "what you see first" outward — map setup, then how the map is
   // colored, then bubbles (a layer that sits above the choropleth), then
   // borders, labels, and finally legends.
+  // Order of cards in the Power BI format pane. Grouped so the user
+  // walks top-down through:
+  //   1. Map setup (which country, view mode, background)
+  //   2. Data layers — choropleth fill, bubble overlay, pie/column overlay
+  //   3. Geometry styling — borders
+  //   4. Labels — Admin1, Admin2 default, Admin2 drill
+  //   5. Legends — one card per layer type, then the shared container
+  //   6. Map decoration — scale bar
+  //   7. On-canvas tools — zoom / pan / copy
   cards = [
     this.general,
     this.choropleth,
     this.bubbles,
     this.glyphChart,
-    this.glyphLegend,
     this.borders,
     this.stateLabels,
     this.localityLabels,
     this.drillLocalityLabels,
     this.valueLegend,
     this.bubbleLegend,
+    this.glyphLegend,
     this.legendContainer,
     this.scaleBar,
     this.controls
