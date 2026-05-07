@@ -205,6 +205,18 @@
             ]
           }
         },
+        "valueSource": {
+          "displayName": "Value source",
+          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "type": {
+            "enumeration": [
+              { "value": "choropleth", "displayName": "Choropleth value" },
+              { "value": "bubble", "displayName": "Bubble value" },
+              { "value": "both", "displayName": "Both (different colors)" }
+            ]
+          }
+        },
+        "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {
@@ -262,6 +274,18 @@
             ]
           }
         },
+        "valueSource": {
+          "displayName": "Value source",
+          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "type": {
+            "enumeration": [
+              { "value": "choropleth", "displayName": "Choropleth value" },
+              { "value": "bubble", "displayName": "Bubble value" },
+              { "value": "both", "displayName": "Both (different colors)" }
+            ]
+          }
+        },
+        "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {
@@ -319,6 +343,18 @@
             ]
           }
         },
+        "valueSource": {
+          "displayName": "Value source",
+          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "type": {
+            "enumeration": [
+              { "value": "choropleth", "displayName": "Choropleth value" },
+              { "value": "bubble", "displayName": "Bubble value" },
+              { "value": "both", "displayName": "Both (different colors)" }
+            ]
+          }
+        },
+        "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {

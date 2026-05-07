@@ -558,7 +558,8 @@ export class Visual implements IVisual {
             pcode: f.properties.ADM1_PCODE,
             name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
             value: datum?.colorValue ?? null,
-            value2: datum?.labelValue2 ?? null
+            value2: datum?.labelValue2 ?? null,
+            bubbleValue: datum?.bubbleSize ?? null
           };
         });
         // In drill view, force neighbour labels to stay inside their own
@@ -595,7 +596,8 @@ export class Visual implements IVisual {
           pcode: f.properties.ADM2_PCODE,
           name: (datum?.labelText1 || datum?.name || f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
           value: datum?.colorValue ?? null,
-          value2: datum?.labelValue2 ?? null
+          value2: datum?.labelValue2 ?? null,
+          bubbleValue: datum?.bubbleSize ?? null
         };
       });
       renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard), localityOverrides);
@@ -724,19 +726,47 @@ export class Visual implements IVisual {
     const lines: { text: string; kind: "name" | "value" }[] = [];
 
     const name = (datum?.labelText1 || datum?.name || feature.properties.ADM1_EN || feature.properties.ADM1_PCODE) as string;
-    const value = datum?.colorValue;
-    const value2 = datum?.labelValue2;
-
-    if (content === "value") {
-      if (value != null) lines.push({ text: this.fmt(value, fmtCard), kind: "value" });
-    } else if (content === "name") {
-      if (name) lines.push({ text: name, kind: "name" });
+    // Same priority as the on-polygon labels:
+    //   value2 (Label Value 2)      -> single line, valueColor
+    //   else choropleth -> single line, valueColor
+    //   else bubble     -> single line, bubbleValueColor
+    //   else both       -> two lines (color value, then bubble value)
+    const valueColor = card.valueColor.value.value;
+    const bubbleValueColor = card.bubbleValueColor?.value?.value || "#e6550d";
+    const source: string = (card.valueSource?.value as any)?.value || "choropleth";
+    const numericLines: { text: string; kind: "value" }[] = [];
+    type NumericPair = { text: string; color: string };
+    const numericRows: NumericPair[] = [];
+    if (datum?.labelValue2 != null) {
+      numericRows.push({ text: this.fmt(datum.labelValue2, fmtCard), color: valueColor });
+    } else if (source === "bubble") {
+      if (datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
+    } else if (source === "both") {
+      if (datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
+      if (datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
     } else {
-      if (name) lines.push({ text: name, kind: "name" });
-      if (value != null) lines.push({ text: this.fmt(value, fmtCard), kind: "value" });
-      if (value2 != null) lines.push({ text: this.fmt(value2, fmtCard), kind: "value" });
+      if (datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
     }
-    if (!lines.length) return;
+
+    type HeaderLine = { text: string; kind: "name" | "value"; color: string };
+    const headerLines: HeaderLine[] = [];
+    if (content === "value") {
+      for (const r of numericRows) headerLines.push({ text: r.text, kind: "value", color: r.color });
+    } else if (content === "name") {
+      if (name) headerLines.push({ text: name, kind: "name", color: card.color.value.value });
+    } else {
+      if (name) headerLines.push({ text: name, kind: "name", color: card.color.value.value });
+      for (const r of numericRows) headerLines.push({ text: r.text, kind: "value", color: r.color });
+    }
+    if (!headerLines.length) return;
+    // Map onto the existing pill-render loop below by writing into `lines`.
+    for (const hl of headerLines) lines.push({ text: hl.text, kind: hl.kind } as any);
+    // Override colors per-line by stashing them on the lines array; the
+    // render loop below reads card.valueColor / card.color uniformly so
+    // we replicate it here with per-row colors instead of the loop's
+    // fixed lookup. We do this by storing colors in a parallel array.
+    const lineColors = headerLines.map((hl) => hl.color);
+    (lines as any).__colors = lineColors;
 
     // Drill pill should read like a screen title: clearly larger than the
     // surrounding labels even when the user's Admin1 label font size is
@@ -799,7 +829,9 @@ export class Visual implements IVisual {
       // Admin1 labels card has bold turned off for the on-map labels.
       t.setAttribute("font-weight", lines[i].kind === "value" ? (card.bold.value ? "600" : "500") : "700");
       t.setAttribute("font-style", card.italic.value ? "italic" : "normal");
-      t.setAttribute("fill", lines[i].kind === "value" ? card.valueColor.value.value : card.color.value.value);
+      // Per-line color picked above (handles choropleth-vs-bubble palette).
+      const perLineColor = (lines as any).__colors?.[i] as string | undefined;
+      t.setAttribute("fill", perLineColor || (lines[i].kind === "value" ? card.valueColor.value.value : card.color.value.value));
       t.textContent = lines[i].text;
       sel.appendChild(t);
     }
@@ -1229,6 +1261,8 @@ export class Visual implements IVisual {
       fontSize: card.fontSize.value,
       color: card.color.value.value,
       valueColor: card.valueColor.value.value,
+      bubbleValueColor: card.bubbleValueColor?.value?.value || "#e6550d",
+      valueSource: (card.valueSource?.value as any)?.value || "choropleth",
       bold: card.bold.value,
       italic: card.italic.value,
       haloColor: card.haloColor.value.value,

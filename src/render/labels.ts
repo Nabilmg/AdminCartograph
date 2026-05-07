@@ -19,7 +19,16 @@ export interface LabelStyle {
   fontFamily: string;
   fontSize: number;
   color: string;
+  /** Color used for the choropleth measure value (or the only displayed
+   *  numeric value when "Label Value 2" is bound). */
   valueColor: string;
+  /** Color used for the bubble-size value when valueSource is "bubble"
+   *  alone, or as the second line when valueSource is "both". */
+  bubbleValueColor: string;
+  /** Choose which numeric value the label shows when "Label Value 2" is
+   *  not bound. "both" renders the choropleth value and bubble value as
+   *  two separate lines using their respective colors. */
+  valueSource: "choropleth" | "bubble" | "both";
   bold: boolean;
   italic: boolean;
   haloColor: string;
@@ -48,8 +57,13 @@ export interface LabelStyle {
 export interface LabelDatum {
   feature: any;
   name: string;
+  /** Choropleth color value. */
   value: number | null;
+  /** Optional explicit override (Label Value 2 binding). When non-null,
+   *  this is the only numeric line rendered, regardless of valueSource. */
   value2?: number | null;
+  /** Bubble size value (used when valueSource is "bubble" or "both"). */
+  bubbleValue?: number | null;
   /** PCODE used for cross-referencing with bubble anchors. */
   pcode?: string;
 }
@@ -185,7 +199,11 @@ export function renderLabels(
 
     for (let i = 0; i < renderedLines.length; i++) {
       const line = renderedLines[i];
-      const textColor = line.kind === "value" ? style.valueColor : style.color;
+      const textColor = line.kind === "value"
+        ? style.valueColor
+        : line.kind === "bubble_value"
+          ? style.bubbleValueColor
+          : style.color;
       const yOffset = startY + i * lineHeight + baseFontSize * 0.35;
 
       // Curved rendering applies only to NAME lines. Value lines keep
@@ -246,12 +264,40 @@ export function renderLabels(
 
 interface ComposedLine {
   text: string;
-  kind: "name" | "value";
+  /** "name" uses the label color; "value" uses valueColor; "bubble_value"
+   *  uses bubbleValueColor (only when the user picked "Both" for the
+   *  Value source setting). */
+  kind: "name" | "value" | "bubble_value";
 }
 
 function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
-  const value = formatNumber(label.value ?? null, style.decimals, style.format);
-  const value2 = label.value2 != null ? formatNumber(label.value2, style.decimals, style.format) : "";
+  // Decide which numeric line(s) to draw. Priority:
+  //   1. label.value2 (Label Value 2 binding) wins outright — always one
+  //      line, painted in valueColor.
+  //   2. Otherwise consult valueSource:
+  //        choropleth -> show label.value (color value), valueColor
+  //        bubble     -> show label.bubbleValue, bubbleValueColor
+  //        both       -> show both as two lines with their own colors
+  const valueLines: ComposedLine[] = [];
+  if (label.value2 != null) {
+    valueLines.push({ text: formatNumber(label.value2, style.decimals, style.format), kind: "value" });
+  } else {
+    const colorTxt = label.value != null ? formatNumber(label.value, style.decimals, style.format) : "";
+    const bubbleTxt = label.bubbleValue != null ? formatNumber(label.bubbleValue, style.decimals, style.format) : "";
+    switch (style.valueSource) {
+      case "bubble":
+        if (bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
+        break;
+      case "both":
+        if (colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
+        if (bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
+        break;
+      case "choropleth":
+      default:
+        if (colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
+        break;
+    }
+  }
 
   // Words on separate lines is the only thing that splits a name into
   // multiple lines up front. stack-when-needed is a fitting strategy that
@@ -262,9 +308,6 @@ function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
     nameLines = nameLines[0].split(/\s+/);
   }
   const nameLinesTagged: ComposedLine[] = nameLines.filter(Boolean).map((t) => ({ text: t, kind: "name" }));
-  const valueLines: ComposedLine[] = [];
-  if (value) valueLines.push({ text: value, kind: "value" });
-  if (value2) valueLines.push({ text: value2, kind: "value" });
 
   switch (style.content) {
     case "value":
