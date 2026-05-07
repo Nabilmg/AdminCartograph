@@ -84,13 +84,23 @@
           "description": "Pick a bundled country, leave on Auto-detect (uses PCODE prefix), or pick Custom and upload a TopoJSON.",
           "type": { "text": true }
         },
-        "customTopoJson": {
-          "displayName": "Custom TopoJSON (uploaded)",
-          "description": "Populated by the upload button when Country = Custom. Contains a TopoJSON whose objects are named adm1 and (optionally) adm2 with ADM1_PCODE / ADM2_PCODE / ADM1_EN / ADM2_EN properties.",
+        "customAdm1Json": {
+          "displayName": "Custom Admin1 (uploaded)",
+          "description": "Populated by the upload UI. TopoJSON or GeoJSON for Admin1 boundaries.",
+          "type": { "text": true }
+        },
+        "customAdm2Json": {
+          "displayName": "Custom Admin2 (uploaded)",
+          "description": "Populated by the upload UI. Optional TopoJSON or GeoJSON for Admin2 boundaries.",
+          "type": { "text": true }
+        },
+        "customFieldMapping": {
+          "displayName": "Custom field mapping",
+          "description": "JSON: { adm1Pcode, adm1Name, adm2Pcode, adm2Name } — which property names from the uploaded files map to PCODE / display name.",
           "type": { "text": true }
         },
         "customTopoName": {
-          "displayName": "Custom TopoJSON name",
+          "displayName": "Custom dataset name",
           "type": { "text": true }
         },
         "viewMode": {

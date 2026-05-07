@@ -32,10 +32,12 @@ class GeneralSettings extends FormattingSettingsCard {
     ],
     value: { value: "auto", displayName: "Auto-detect (from PCODE)" }
   });
-  // These two are populated programmatically by the upload button via
+  // These properties are populated programmatically by the upload UI via
   // host.persistProperties — they are not slices the user edits directly.
-  customTopoJson = new formattingSettings.TextInput({ name: "customTopoJson", displayName: "Custom TopoJSON", placeholder: "", value: "" });
-  customTopoName = new formattingSettings.TextInput({ name: "customTopoName", displayName: "Custom TopoJSON name", placeholder: "", value: "" });
+  customAdm1Json = new formattingSettings.TextInput({ name: "customAdm1Json", displayName: "Custom Admin1", placeholder: "", value: "" });
+  customAdm2Json = new formattingSettings.TextInput({ name: "customAdm2Json", displayName: "Custom Admin2", placeholder: "", value: "" });
+  customFieldMapping = new formattingSettings.TextInput({ name: "customFieldMapping", displayName: "Custom field mapping", placeholder: "", value: "" });
+  customTopoName = new formattingSettings.TextInput({ name: "customTopoName", displayName: "Custom dataset name", placeholder: "", value: "" });
   viewMode = new formattingSettings.ItemDropdown({
     name: "viewMode",
     displayName: "View mode",

@@ -78,8 +78,21 @@ export class Visual implements IVisual {
   private backButton: HTMLButtonElement | null = null;
   /** Clipboard / export button (DOM, lives in this.overlay). */
   private exportButton: HTMLButtonElement | null = null;
-  /** Cached parsed custom country geometry (raw -> CountryGeometry). */
-  private customGeometryCache: { raw: string; country: CountryGeometry } | null = null;
+  /** Cached parsed custom country geometry. Key includes both files +
+   *  mapping so a re-edit recomputes the cache. */
+  private customGeometryCache: { key: string; country: CountryGeometry } | null = null;
+  /** In-flight upload state held in the upload card before the user
+   *  hits "Load map". Files are read locally; nothing persists until
+   *  Confirm. */
+  private customUploadDraft: {
+    adm1Raw: string | null;
+    adm1Filename: string | null;
+    adm2Raw: string | null;
+    adm2Filename: string | null;
+    adm1Properties: string[];
+    adm2Properties: string[];
+    mapping: { adm1Pcode: string; adm1Name: string; adm2Pcode: string; adm2Name: string };
+  } | null = null;
   /** Current zoom level applied to the mapGroup (1 = 100%). */
   private zoomLevel = 1;
   /** Cached width/height for the zoom transform. */
@@ -316,30 +329,32 @@ export class Visual implements IVisual {
   }
 
   /**
-   * If the user picked Country = Custom and uploaded a TopoJSON, parse it
-   * (cached so we don't re-parse a 1 MB string on every render). The
-   * uploaded file must contain TopoJSON with at least an `adm1` object
-   * carrying ADM1_PCODE properties; an `adm2` object is optional and
-   * enables drill into Admin2.
+   * Build a CountryGeometry from the persisted custom files + field
+   * mapping. Files can be TopoJSON (`type: "Topology"`) or GeoJSON
+   * (`type: "FeatureCollection"`). Cached on the combined key so a
+   * 1 MB string isn't re-parsed every render.
    */
   private loadCustomCountry(): CountryGeometry | null {
-    const raw = this.settings.general.customTopoJson.value || "";
-    if (!raw) return null;
-    if (this.customGeometryCache && this.customGeometryCache.raw === raw) {
+    const adm1Raw = this.settings.general.customAdm1Json.value || "";
+    const adm2Raw = this.settings.general.customAdm2Json.value || "";
+    const mappingRaw = this.settings.general.customFieldMapping.value || "";
+    if (!adm1Raw) return null;
+    const key = `${mappingRaw}::${adm1Raw.length}-${adm1Raw.slice(0, 64)}::${adm2Raw.length}-${adm2Raw.slice(0, 64)}`;
+    if (this.customGeometryCache && this.customGeometryCache.key === key) {
       return this.customGeometryCache.country;
     }
+    let mapping: { adm1Pcode: string; adm1Name: string; adm2Pcode: string; adm2Name: string };
     try {
-      const topo = JSON.parse(raw);
-      // Lazy-load the topojson client only when needed.
-      const tjc = require("topojson-client");
-      const adm1Obj = topo.objects?.adm1 || topo.objects?.ADM1;
-      const adm2Obj = topo.objects?.adm2 || topo.objects?.ADM2;
-      if (!adm1Obj) return null;
-      const adm1 = tjc.feature(topo, adm1Obj);
-      const adm2 = adm2Obj ? tjc.feature(topo, adm2Obj) : null;
-      // Normalise property names so the rest of the pipeline keeps working.
-      this.normaliseAdminProps(adm1.features, 1);
-      if (adm2) this.normaliseAdminProps(adm2.features, 2);
+      mapping = JSON.parse(mappingRaw || "{}") || {};
+    } catch {
+      mapping = { adm1Pcode: "", adm1Name: "", adm2Pcode: "", adm2Name: "" };
+    }
+    try {
+      const adm1 = parseUploadedShape(adm1Raw);
+      const adm2 = adm2Raw ? parseUploadedShape(adm2Raw) : null;
+      if (!adm1 || !adm1.features?.length) return null;
+      this.applyMapping(adm1.features, 1, mapping);
+      if (adm2 && adm2.features?.length) this.applyMapping(adm2.features, 2, mapping);
       const name = (this.settings.general.customTopoName.value || "Custom").trim() || "Custom";
       const country: CountryGeometry = {
         iso3: "CUSTOM",
@@ -347,27 +362,27 @@ export class Visual implements IVisual {
         adm1,
         adm2: adm2 && adm2.features?.length ? adm2 : null
       };
-      this.customGeometryCache = { raw, country };
+      this.customGeometryCache = { key, country };
       return country;
     } catch (e) {
-      console.warn("Custom TopoJSON parse failed:", (e as any)?.message || e);
+      console.warn("Custom geometry parse failed:", (e as any)?.message || e);
       return null;
     }
   }
 
-  private normaliseAdminProps(features: any[], level: 1 | 2): void {
+  private applyMapping(features: any[], level: 1 | 2, mapping: { adm1Pcode?: string; adm1Name?: string; adm2Pcode?: string; adm2Name?: string }): void {
     for (const f of features) {
       const p = f.properties || {};
-      const pcode1 = p.ADM1_PCODE || p.adm1_pcode || p.PCODE_1 || p.ADM1PCODE;
-      const name1 = p.ADM1_EN || p.adm1_en || p.NAME_1 || p.name_1 || p.ADM1_NAME;
-      const cleaned: any = { ISO3: p.ISO3 || "CUSTOM", ADM_LEVEL: level };
-      if (pcode1) cleaned.ADM1_PCODE = pcode1;
-      if (name1) cleaned.ADM1_EN = name1;
+      const cleaned: any = { ISO3: "CUSTOM", ADM_LEVEL: level };
+      const adm1PcodeKey = mapping.adm1Pcode || guessPropertyName(p, "adm1Pcode");
+      const adm1NameKey = mapping.adm1Name || guessPropertyName(p, "adm1Name");
+      if (adm1PcodeKey && p[adm1PcodeKey] != null) cleaned.ADM1_PCODE = String(p[adm1PcodeKey]);
+      if (adm1NameKey && p[adm1NameKey] != null) cleaned.ADM1_EN = String(p[adm1NameKey]);
       if (level === 2) {
-        const pcode2 = p.ADM2_PCODE || p.adm2_pcode || p.PCODE_2 || p.ADM2PCODE;
-        const name2 = p.ADM2_EN || p.adm2_en || p.NAME_2 || p.name_2 || p.ADM2_NAME;
-        if (pcode2) cleaned.ADM2_PCODE = pcode2;
-        if (name2) cleaned.ADM2_EN = name2;
+        const adm2PcodeKey = mapping.adm2Pcode || guessPropertyName(p, "adm2Pcode");
+        const adm2NameKey = mapping.adm2Name || guessPropertyName(p, "adm2Name");
+        if (adm2PcodeKey && p[adm2PcodeKey] != null) cleaned.ADM2_PCODE = String(p[adm2PcodeKey]);
+        if (adm2NameKey && p[adm2NameKey] != null) cleaned.ADM2_EN = String(p[adm2NameKey]);
       }
       f.properties = cleaned;
     }
@@ -385,72 +400,154 @@ export class Visual implements IVisual {
 
     this.overlay.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "adm-landing";
-    card.innerHTML = `
-      <strong>Custom TopoJSON</strong>
-      <p>Upload a TopoJSON whose <code>objects</code> contain <code>adm1</code> and (optionally) <code>adm2</code>. Features must carry <code>ADM1_PCODE</code> / <code>ADM2_PCODE</code> properties matching your data.</p>
-      <button class="adm-upload-button" type="button">Choose TopoJSON file…</button>
-      <p class="adm-upload-hint" style="font-size:11px;color:#666;margin-top:8px">Tip: the file is saved into the report (.pbix). Keep it under a few MB if you can.</p>
-    `;
+    card.className = "adm-landing adm-custom-upload";
     this.overlay.appendChild(card);
-
-    const btn = card.querySelector(".adm-upload-button") as HTMLButtonElement;
-    btn.addEventListener("click", () => this.openCustomFilePicker(btn));
+    if (!this.customUploadDraft) {
+      this.customUploadDraft = {
+        adm1Raw: null,
+        adm1Filename: null,
+        adm2Raw: null,
+        adm2Filename: null,
+        adm1Properties: [],
+        adm2Properties: [],
+        mapping: { adm1Pcode: "", adm1Name: "", adm2Pcode: "", adm2Name: "" }
+      };
+    }
+    this.refreshCustomUploadCard(card);
   }
 
-  /**
-   * Open a hidden <input type="file"> and read the chosen file via
-   * FileReader. The parsed JSON is round-tripped through host.persistProperties
-   * so it survives a report save/reload (stored in the .pbix metadata).
-   */
-  private openCustomFilePicker(btn: HTMLButtonElement): void {
+  /** Re-render the upload card based on current draft state. */
+  private refreshCustomUploadCard(card: HTMLDivElement): void {
+    const draft = this.customUploadDraft!;
+    const filesReady = !!draft.adm1Raw;
+    card.innerHTML = `
+      <strong>Custom map data</strong>
+      <p style="margin:4px 0 12px">Upload TopoJSON or GeoJSON for Admin1 (required) and Admin2 (optional).</p>
+
+      <div class="row">
+        <span class="adm-row-label">Admin1 file:</span>
+        <button class="adm-secondary" data-pick="adm1">${draft.adm1Filename ? "Change file…" : "Choose file…"}</button>
+        <span class="adm-filename">${draft.adm1Filename || "(none)"}</span>
+      </div>
+      <div class="row">
+        <span class="adm-row-label">Admin2 file:</span>
+        <button class="adm-secondary" data-pick="adm2">${draft.adm2Filename ? "Change file…" : "Choose file…"}</button>
+        <span class="adm-filename">${draft.adm2Filename || "(none — optional)"}</span>
+      </div>
+
+      <div class="adm-mapping" style="${filesReady ? "" : "display:none"}">
+        <p style="margin:14px 0 6px;font-weight:600">Confirm field mapping</p>
+        <div class="row">
+          <span class="adm-row-label">Admin1 PCODE:</span>
+          ${selectHtml("adm1Pcode", draft.adm1Properties, draft.mapping.adm1Pcode)}
+        </div>
+        <div class="row">
+          <span class="adm-row-label">Admin1 Name:</span>
+          ${selectHtml("adm1Name", draft.adm1Properties, draft.mapping.adm1Name)}
+        </div>
+        <div class="row" style="${draft.adm2Properties.length ? "" : "display:none"}">
+          <span class="adm-row-label">Admin2 PCODE:</span>
+          ${selectHtml("adm2Pcode", draft.adm2Properties, draft.mapping.adm2Pcode)}
+        </div>
+        <div class="row" style="${draft.adm2Properties.length ? "" : "display:none"}">
+          <span class="adm-row-label">Admin2 Name:</span>
+          ${selectHtml("adm2Name", draft.adm2Properties, draft.mapping.adm2Name)}
+        </div>
+        <button class="adm-primary" data-action="confirm" style="margin-top:14px">Load map</button>
+        <span class="adm-error" style="color:#c0392b;margin-left:10px"></span>
+      </div>
+
+      <p style="font-size:11px;color:#666;margin-top:14px">The file is saved inside the report (.pbix). Keep it under a few MB.</p>
+    `;
+    card.querySelectorAll<HTMLButtonElement>("button[data-pick]").forEach((btn) => {
+      btn.addEventListener("click", () => this.pickCustomFile(btn.dataset.pick as "adm1" | "adm2", card));
+    });
+    card.querySelectorAll<HTMLSelectElement>("select[data-role]").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const role = sel.dataset.role as keyof typeof draft.mapping;
+        draft.mapping[role] = sel.value;
+      });
+    });
+    const confirmBtn = card.querySelector('button[data-action="confirm"]') as HTMLButtonElement | null;
+    if (confirmBtn) confirmBtn.addEventListener("click", () => this.confirmCustomUpload(card));
+  }
+
+  /** Read a single file into draft state and re-render the card. */
+  private pickCustomFile(slot: "adm1" | "adm2", card: HTMLDivElement): void {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".json,.topojson,application/json";
+    input.accept = ".json,.topojson,.geojson,application/json,application/geo+json";
     input.style.display = "none";
     input.addEventListener("change", () => {
       const file = input.files && input.files[0];
       if (!file) return;
-      btn.disabled = true;
-      btn.textContent = "Reading…";
       const reader = new FileReader();
-      reader.onerror = () => {
-        btn.disabled = false;
-        btn.textContent = "Read failed — try again";
-      };
       reader.onload = () => {
+        const text = String(reader.result || "");
         try {
-          const text = String(reader.result || "");
-          // Validate quickly so we don't persist garbage.
           const parsed = JSON.parse(text);
-          if (parsed.type !== "Topology" || !parsed.objects?.adm1) {
-            throw new Error("Not a TopoJSON with an 'adm1' object");
+          const props = collectPropertyNames(parsed);
+          if (!props.length) throw new Error("No features found in file");
+          const draft = this.customUploadDraft!;
+          if (slot === "adm1") {
+            draft.adm1Raw = text;
+            draft.adm1Filename = file.name;
+            draft.adm1Properties = props;
+            draft.mapping.adm1Pcode = guessFromList(props, "adm1Pcode");
+            draft.mapping.adm1Name = guessFromList(props, "adm1Name");
+          } else {
+            draft.adm2Raw = text;
+            draft.adm2Filename = file.name;
+            draft.adm2Properties = props;
+            draft.mapping.adm2Pcode = guessFromList(props, "adm2Pcode");
+            draft.mapping.adm2Name = guessFromList(props, "adm2Name");
           }
-          this.host.persistProperties({
-            merge: [
-              {
-                objectName: "general",
-                properties: {
-                  customTopoJson: text,
-                  customTopoName: file.name.replace(/\.(topojson|json)$/i, "")
-                },
-                selector: null as any
-              }
-            ]
-          } as any);
-          // The host call will trigger a fresh update() with the new
-          // settings; in the meantime show a quick confirmation.
-          btn.textContent = "Loaded ✓";
+          this.refreshCustomUploadCard(card);
         } catch (e) {
-          btn.disabled = false;
-          btn.textContent = `Invalid: ${(e as any)?.message || "parse error"}`;
+          const errSpan = card.querySelector(".adm-error");
+          if (errSpan) errSpan.textContent = `Invalid file: ${(e as any)?.message || "parse error"}`;
         }
+      };
+      reader.onerror = () => {
+        const errSpan = card.querySelector(".adm-error");
+        if (errSpan) errSpan.textContent = "Could not read file.";
       };
       reader.readAsText(file);
     });
     document.body.appendChild(input);
     input.click();
     setTimeout(() => input.remove(), 1000);
+  }
+
+  /** User confirmed the mapping — persist everything via host. */
+  private confirmCustomUpload(card: HTMLDivElement): void {
+    const draft = this.customUploadDraft!;
+    const errSpan = card.querySelector(".adm-error") as HTMLElement | null;
+    if (errSpan) errSpan.textContent = "";
+    if (!draft.adm1Raw || !draft.mapping.adm1Pcode || !draft.mapping.adm1Name) {
+      if (errSpan) errSpan.textContent = "Pick the Admin1 PCODE and Name fields.";
+      return;
+    }
+    if (draft.adm2Raw && (!draft.mapping.adm2Pcode || !draft.mapping.adm2Name)) {
+      if (errSpan) errSpan.textContent = "Pick the Admin2 PCODE and Name fields, or remove the Admin2 file.";
+      return;
+    }
+    const datasetName = (draft.adm1Filename || "Custom").replace(/\.(topojson|geojson|json)$/i, "");
+    this.host.persistProperties({
+      merge: [
+        {
+          objectName: "general",
+          properties: {
+            customAdm1Json: draft.adm1Raw,
+            customAdm2Json: draft.adm2Raw || "",
+            customFieldMapping: JSON.stringify(draft.mapping),
+            customTopoName: datasetName
+          },
+          selector: null as any
+        }
+      ]
+    } as any);
+    this.customUploadDraft = null; // host re-render will pick up persisted state
   }
 
   private renderLandingPage(message: string): void {
@@ -1561,6 +1658,96 @@ function escapeHtml(s: string): string {
 
 function approxTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.55;
+}
+
+/**
+ * Parse a TopoJSON or GeoJSON string into a FeatureCollection. Returns
+ * null if the structure is unrecognised.
+ *
+ * TopoJSON: extract the first GeometryCollection in `objects` (preferring
+ * adm1/adm2/admin1/admin2 names) via topojson-client.
+ * GeoJSON FeatureCollection: returned as-is.
+ */
+function parseUploadedShape(raw: string): any | null {
+  if (!raw) return null;
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed?.type === "Topology" && parsed.objects) {
+    const tjc = require("topojson-client");
+    const preferred = ["adm1", "adm2", "ADM1", "ADM2", "admin1", "admin2"];
+    let key = preferred.find((k) => parsed.objects[k]) ||
+              Object.keys(parsed.objects).find((k) => parsed.objects[k]?.geometries?.length);
+    if (!key) return null;
+    return tjc.feature(parsed, parsed.objects[key]);
+  }
+  if (parsed?.type === "FeatureCollection" && Array.isArray(parsed.features)) {
+    return parsed;
+  }
+  if (parsed?.type === "Feature") {
+    return { type: "FeatureCollection", features: [parsed] };
+  }
+  return null;
+}
+
+/** Collect every distinct property name across the file's features. */
+function collectPropertyNames(parsed: any): string[] {
+  const fc = parseUploadedShapeFromObject(parsed);
+  if (!fc) return [];
+  const seen = new Set<string>();
+  for (const f of fc.features as any[]) {
+    if (!f.properties) continue;
+    for (const k of Object.keys(f.properties)) seen.add(k);
+  }
+  return Array.from(seen).sort();
+}
+
+function parseUploadedShapeFromObject(parsed: any): any | null {
+  if (!parsed) return null;
+  if (parsed.type === "Topology" && parsed.objects) {
+    const tjc = require("topojson-client");
+    const preferred = ["adm1", "adm2", "ADM1", "ADM2", "admin1", "admin2"];
+    const key = preferred.find((k) => parsed.objects[k]) ||
+                Object.keys(parsed.objects).find((k) => parsed.objects[k]?.geometries?.length);
+    if (!key) return null;
+    return tjc.feature(parsed, parsed.objects[key]);
+  }
+  if (parsed.type === "FeatureCollection") return parsed;
+  if (parsed.type === "Feature") return { type: "FeatureCollection", features: [parsed] };
+  return null;
+}
+
+/**
+ * Heuristically pick a property name for one of the four mapping roles.
+ * Used to pre-fill the mapping dropdowns; the user can always override.
+ */
+function guessPropertyName(props: Record<string, any>, role: "adm1Pcode" | "adm1Name" | "adm2Pcode" | "adm2Name"): string {
+  return guessFromList(Object.keys(props), role);
+}
+
+function guessFromList(names: string[], role: "adm1Pcode" | "adm1Name" | "adm2Pcode" | "adm2Name"): string {
+  const patterns: Record<typeof role, RegExp[]> = {
+    adm1Pcode: [/^adm1[_]?pcode$/i, /^pcode[_]?1$/i, /^adm1[_]?code$/i, /^admin1[_]?code$/i, /^gid[_]?1$/i, /^iso[_]?1$/i],
+    adm1Name: [/^adm1[_]?en$/i, /^name[_]?1$/i, /^adm1[_]?name$/i, /^admin1[_]?name$/i, /^state[_]?name$/i, /^region$/i],
+    adm2Pcode: [/^adm2[_]?pcode$/i, /^pcode[_]?2$/i, /^adm2[_]?code$/i, /^admin2[_]?code$/i, /^gid[_]?2$/i],
+    adm2Name: [/^adm2[_]?en$/i, /^name[_]?2$/i, /^adm2[_]?name$/i, /^admin2[_]?name$/i, /^locality[_]?name$/i, /^district$/i]
+  };
+  for (const re of patterns[role]) {
+    const hit = names.find((n) => re.test(n));
+    if (hit) return hit;
+  }
+  return "";
+}
+
+function selectHtml(role: string, options: string[], current: string): string {
+  const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+  const opts = ['<option value="">(pick a field)</option>']
+    .concat(options.map((o) => `<option value="${escape(o)}"${o === current ? " selected" : ""}>${escape(o)}</option>`))
+    .join("");
+  return `<select data-role="${role}">${opts}</select>`;
 }
 
 function formatTooltipNumber(n: number): string {

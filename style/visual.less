@@ -130,7 +130,7 @@
 
     .adm-landing {
       pointer-events: auto;
-      max-width: 480px;
+      max-width: 520px;
       padding: 18px 22px;
       background: rgba(255, 255, 255, 0.96);
       border: 1px solid #d0d0d0;
@@ -142,6 +142,29 @@
 
       strong { display: block; font-size: 14px; margin-bottom: 6px; color: #111; }
       p { margin: 0; }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0;
+
+        .adm-row-label { width: 110px; font-weight: 500; }
+        .adm-filename { color: #555; font-style: italic; }
+        select { flex: 1; padding: 4px 6px; }
+      }
+      button.adm-secondary,
+      button.adm-primary {
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      button.adm-secondary { background: #f3f3f3; border: 1px solid #c8c8c8; color: #222; }
+      button.adm-secondary:hover { background: #e8e8e8; }
+      button.adm-primary { background: #0078d4; border: 1px solid #0067b8; color: #fff; }
+      button.adm-primary:hover { background: #0067b8; }
     }
   }
 }
