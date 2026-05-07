@@ -136,28 +136,15 @@ export function renderLabels(
     const lineHeight = baseFontSize * 1.15;
     const startY = -((renderedLines.length - 1) / 2) * lineHeight;
 
-    // Placement is a *positioning* decision, applied unconditionally based
-    // on the user's choice. Fitting strategies (stack-when-needed,
-    // reduce-font-size, abbreviate, allow-overrun) are separate and only
-    // activate when the label doesn't fit at its placed position.
-    //
+    // Placement modes:
     //   horizontal: 0deg rotation, anchor at polygon centroid
-    //   straight  : rotated to align with the polygon's principal axis
-    //               (PCA on the outer ring), so text flows along the
-    //               polygon's long direction whatever its orientation
-    //   curved    : same as straight today; reserved for a future text-on-
-    //               path implementation. Picking it now never produces a
-    //               worse result than straight.
-    //   boundary  : anchored near the polygon's upper edge instead of its
-    //               interior, leaving the centre clear for bubbles / fills
-    // Placement is applied to EVERY label, including ones whose anchor was
-    // overridden (e.g. labels positioned next to a bubble). The override
-    // only relocates the centroid; rotation / offset still follow the
-    // polygon's principal axis or boundary as the user requested. The only
-    // exception is "boundary", which is meaningless when the anchor is
-    // forced to a bubble centre.
+    //   straight  : principal-axis rotation; text laid in a single straight
+    //               run along the polygon's long direction
+    //   curved    : principal-axis rotation AND the name line flows along a
+    //               quadratic Bezier so the line bends. Distinct from
+    //               straight: straight has no curvature, curved does.
+    //   boundary  : anchor nudged toward the polygon's upper edge
     let rotation = 0;
-    let dx = 0;
     let dy = 0;
     const bbox = polyBBox || (label.feature ? pathBBox(path, label.feature) : null);
     if (style.placement === "straight" || style.placement === "curved") {
@@ -167,28 +154,62 @@ export function renderLabels(
       const h = bbox[3] - bbox[1];
       dy = -(h / 2) * 0.55;
     }
-
-    if (rotation || dx || dy) {
-      g.attr("transform", `translate(${px + dx},${py + dy}) rotate(${rotation})`);
+    if (rotation || dy) {
+      g.attr("transform", `translate(${px},${py + dy}) rotate(${rotation})`);
     }
+
+    const useCurvedPath = style.placement === "curved" && !!bbox && renderedLines.some((l) => l.kind === "name");
 
     for (let i = 0; i < renderedLines.length; i++) {
       const line = renderedLines[i];
       const textColor = line.kind === "value" ? style.valueColor : style.color;
+      const yOffset = startY + i * lineHeight + baseFontSize * 0.35;
 
-      // Single text element with paint-order: stroke fill renders the halo
-      // beneath the glyph in one pass. This avoids the doubled-element halo
-      // technique, which looked broken around letter-spacing.
+      // Curved rendering applies only to NAME lines. Value lines keep
+      // straight rotated rendering so numbers stay easy to read.
+      if (useCurvedPath && line.kind === "name") {
+        const w = approxTextWidth(line.text, baseFontSize) * 1.05;
+        const h = bbox![3] - bbox![1];
+        const arcDepth = Math.max(2, Math.min(h * 0.18, w * 0.12));
+        const pathId = `adm-curve-${(label.pcode || Math.random().toString(36).slice(2))}-${i}`;
+        const pathD = `M ${-w / 2},${yOffset} Q 0,${yOffset - arcDepth} ${w / 2},${yOffset}`;
+        g.append("path")
+          .attr("id", pathId)
+          .attr("d", pathD)
+          .attr("fill", "none")
+          .attr("stroke", "none");
+
+        const t = g.append("text")
+          .attr("font-family", style.fontFamily)
+          .attr("font-size", baseFontSize)
+          .attr("font-style", fontStyle)
+          .attr("font-weight", fontWeight)
+          .attr("fill", textColor)
+          .attr("letter-spacing", style.spreadCharacters ? "1.5px" : null);
+        if (style.haloWidth > 0) {
+          t.attr("stroke", style.haloColor)
+            .attr("stroke-width", style.haloWidth)
+            .attr("stroke-linejoin", "round")
+            .attr("paint-order", "stroke fill");
+        }
+        t.append("textPath")
+          .attr("href", `#${pathId}`)
+          .attr("startOffset", "50%")
+          .attr("text-anchor", "middle")
+          .text(line.text);
+        continue;
+      }
+
+      // Default straight-line rendering.
       const t = g.append("text")
         .attr("text-anchor", "middle")
-        .attr("y", startY + i * lineHeight + baseFontSize * 0.35)
+        .attr("y", yOffset)
         .attr("font-family", style.fontFamily)
         .attr("font-size", baseFontSize)
         .attr("font-style", fontStyle)
         .attr("font-weight", fontWeight)
         .attr("fill", textColor)
         .attr("letter-spacing", style.spreadCharacters ? "1.5px" : null);
-
       if (style.haloWidth > 0) {
         t.attr("stroke", style.haloColor)
           .attr("stroke-width", style.haloWidth)
