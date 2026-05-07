@@ -80,7 +80,17 @@
     "general": {
       "properties": {
         "selectedCountry": {
-          "displayName": "Country (ISO-3)",
+          "displayName": "Country",
+          "description": "Pick a bundled country, leave on Auto-detect (uses PCODE prefix), or pick Custom and upload a TopoJSON.",
+          "type": { "text": true }
+        },
+        "customTopoJson": {
+          "displayName": "Custom TopoJSON (uploaded)",
+          "description": "Populated by the upload button when Country = Custom. Contains a TopoJSON whose objects are named adm1 and (optionally) adm2 with ADM1_PCODE / ADM2_PCODE / ADM1_EN / ADM2_EN properties.",
+          "type": { "text": true }
+        },
+        "customTopoName": {
+          "displayName": "Custom TopoJSON name",
           "type": { "text": true }
         },
         "viewMode": {

@@ -78,6 +78,8 @@ export class Visual implements IVisual {
   private backButton: HTMLButtonElement | null = null;
   /** Clipboard / export button (DOM, lives in this.overlay). */
   private exportButton: HTMLButtonElement | null = null;
+  /** Cached parsed custom country geometry (raw -> CountryGeometry). */
+  private customGeometryCache: { raw: string; country: CountryGeometry } | null = null;
   /** Current zoom level applied to the mapGroup (1 = 100%). */
   private zoomLevel = 1;
   /** Cached width/height for the zoom transform. */
@@ -204,10 +206,19 @@ export class Visual implements IVisual {
       this.renderLandingPage("Bind State PCODE (ADM1) or Locality PCODE (ADM2), then optionally set the Country in the format pane (or it will be auto-detected from PCODE prefixes).");
       return;
     }
-    const country = this.loader.forIso3(iso3);
-    if (!country) {
-      this.renderLandingPage(`Country '${iso3}' is not in the embedded bundle. Add it to scripts/data/countries.json and rebuild.`);
-      return;
+    let country: CountryGeometry | null = null;
+    if (iso3 === "CUSTOM") {
+      country = this.loadCustomCountry();
+      if (!country) {
+        this.renderCustomUploadPrompt();
+        return;
+      }
+    } else {
+      country = this.loader.forIso3(iso3);
+      if (!country) {
+        this.renderLandingPage(`Country '${iso3}' is not in the bundle. Add its zip to country-geojson/ and rebuild, or pick "Custom" to upload a TopoJSON.`);
+        return;
+      }
     }
 
     this.cached = { country, prepared, width, height };
@@ -304,6 +315,144 @@ export class Visual implements IVisual {
     }
   }
 
+  /**
+   * If the user picked Country = Custom and uploaded a TopoJSON, parse it
+   * (cached so we don't re-parse a 1 MB string on every render). The
+   * uploaded file must contain TopoJSON with at least an `adm1` object
+   * carrying ADM1_PCODE properties; an `adm2` object is optional and
+   * enables drill into Admin2.
+   */
+  private loadCustomCountry(): CountryGeometry | null {
+    const raw = this.settings.general.customTopoJson.value || "";
+    if (!raw) return null;
+    if (this.customGeometryCache && this.customGeometryCache.raw === raw) {
+      return this.customGeometryCache.country;
+    }
+    try {
+      const topo = JSON.parse(raw);
+      // Lazy-load the topojson client only when needed.
+      const tjc = require("topojson-client");
+      const adm1Obj = topo.objects?.adm1 || topo.objects?.ADM1;
+      const adm2Obj = topo.objects?.adm2 || topo.objects?.ADM2;
+      if (!adm1Obj) return null;
+      const adm1 = tjc.feature(topo, adm1Obj);
+      const adm2 = adm2Obj ? tjc.feature(topo, adm2Obj) : null;
+      // Normalise property names so the rest of the pipeline keeps working.
+      this.normaliseAdminProps(adm1.features, 1);
+      if (adm2) this.normaliseAdminProps(adm2.features, 2);
+      const name = (this.settings.general.customTopoName.value || "Custom").trim() || "Custom";
+      const country: CountryGeometry = {
+        iso3: "CUSTOM",
+        name,
+        adm1,
+        adm2: adm2 && adm2.features?.length ? adm2 : null
+      };
+      this.customGeometryCache = { raw, country };
+      return country;
+    } catch (e) {
+      console.warn("Custom TopoJSON parse failed:", (e as any)?.message || e);
+      return null;
+    }
+  }
+
+  private normaliseAdminProps(features: any[], level: 1 | 2): void {
+    for (const f of features) {
+      const p = f.properties || {};
+      const pcode1 = p.ADM1_PCODE || p.adm1_pcode || p.PCODE_1 || p.ADM1PCODE;
+      const name1 = p.ADM1_EN || p.adm1_en || p.NAME_1 || p.name_1 || p.ADM1_NAME;
+      const cleaned: any = { ISO3: p.ISO3 || "CUSTOM", ADM_LEVEL: level };
+      if (pcode1) cleaned.ADM1_PCODE = pcode1;
+      if (name1) cleaned.ADM1_EN = name1;
+      if (level === 2) {
+        const pcode2 = p.ADM2_PCODE || p.adm2_pcode || p.PCODE_2 || p.ADM2PCODE;
+        const name2 = p.ADM2_EN || p.adm2_en || p.NAME_2 || p.name_2 || p.ADM2_NAME;
+        if (pcode2) cleaned.ADM2_PCODE = pcode2;
+        if (name2) cleaned.ADM2_EN = name2;
+      }
+      f.properties = cleaned;
+    }
+  }
+
+  /** Pre-render UI shown when Custom is selected but no upload yet. */
+  private renderCustomUploadPrompt(): void {
+    while (this.adm1Layer.firstChild) this.adm1Layer.removeChild(this.adm1Layer.firstChild);
+    while (this.adm2Layer.firstChild) this.adm2Layer.removeChild(this.adm2Layer.firstChild);
+    while (this.bubbleLayer.firstChild) this.bubbleLayer.removeChild(this.bubbleLayer.firstChild);
+    while (this.glyphLayer.firstChild) this.glyphLayer.removeChild(this.glyphLayer.firstChild);
+    while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
+    while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
+    while (this.legendLayer.firstChild) this.legendLayer.removeChild(this.legendLayer.firstChild);
+
+    this.overlay.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = "adm-landing";
+    card.innerHTML = `
+      <strong>Custom TopoJSON</strong>
+      <p>Upload a TopoJSON whose <code>objects</code> contain <code>adm1</code> and (optionally) <code>adm2</code>. Features must carry <code>ADM1_PCODE</code> / <code>ADM2_PCODE</code> properties matching your data.</p>
+      <button class="adm-upload-button" type="button">Choose TopoJSON file…</button>
+      <p class="adm-upload-hint" style="font-size:11px;color:#666;margin-top:8px">Tip: the file is saved into the report (.pbix). Keep it under a few MB if you can.</p>
+    `;
+    this.overlay.appendChild(card);
+
+    const btn = card.querySelector(".adm-upload-button") as HTMLButtonElement;
+    btn.addEventListener("click", () => this.openCustomFilePicker(btn));
+  }
+
+  /**
+   * Open a hidden <input type="file"> and read the chosen file via
+   * FileReader. The parsed JSON is round-tripped through host.persistProperties
+   * so it survives a report save/reload (stored in the .pbix metadata).
+   */
+  private openCustomFilePicker(btn: HTMLButtonElement): void {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,.topojson,application/json";
+    input.style.display = "none";
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      btn.disabled = true;
+      btn.textContent = "Reading…";
+      const reader = new FileReader();
+      reader.onerror = () => {
+        btn.disabled = false;
+        btn.textContent = "Read failed — try again";
+      };
+      reader.onload = () => {
+        try {
+          const text = String(reader.result || "");
+          // Validate quickly so we don't persist garbage.
+          const parsed = JSON.parse(text);
+          if (parsed.type !== "Topology" || !parsed.objects?.adm1) {
+            throw new Error("Not a TopoJSON with an 'adm1' object");
+          }
+          this.host.persistProperties({
+            merge: [
+              {
+                objectName: "general",
+                properties: {
+                  customTopoJson: text,
+                  customTopoName: file.name.replace(/\.(topojson|json)$/i, "")
+                },
+                selector: null as any
+              }
+            ]
+          } as any);
+          // The host call will trigger a fresh update() with the new
+          // settings; in the meantime show a quick confirmation.
+          btn.textContent = "Loaded ✓";
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = `Invalid: ${(e as any)?.message || "parse error"}`;
+        }
+      };
+      reader.readAsText(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  }
+
   private renderLandingPage(message: string): void {
     while (this.adm1Layer.firstChild) this.adm1Layer.removeChild(this.adm1Layer.firstChild);
     while (this.adm2Layer.firstChild) this.adm2Layer.removeChild(this.adm2Layer.firstChild);
@@ -316,8 +465,10 @@ export class Visual implements IVisual {
   }
 
   private resolveCountry(prepared: PreparedDataView): string | null {
-    const explicit = (this.settings.general.selectedCountry.value || "").trim().toUpperCase();
-    if (explicit && explicit !== "AUTO") return explicit;
+    const dropdownValue = (this.settings.general.selectedCountry.value as any)?.value as string | undefined;
+    const value = (dropdownValue || "").trim();
+    if (value === "custom") return "CUSTOM";
+    if (value && value.toLowerCase() !== "auto") return value.toUpperCase();
     if (!this.loader) return null;
     const sample = new Set<string>();
     for (const a of prepared.areas.values()) {

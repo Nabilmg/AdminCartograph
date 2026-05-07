@@ -4,6 +4,7 @@
  */
 import powerbi from "powerbi-visuals-api";
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
+import { BUNDLED_COUNTRIES } from "./generated/countries";
 
 import FormattingSettingsCard = formattingSettings.SimpleCard;
 import FormattingSettingsModel = formattingSettings.Model;
@@ -17,7 +18,24 @@ export type Classification = "quantile" | "equal" | "manual";
 export type ChoroplethMode = "automatic" | "custom";
 
 class GeneralSettings extends FormattingSettingsCard {
-  selectedCountry = new formattingSettings.TextInput({ name: "selectedCountry", displayName: "Country (ISO-3)", placeholder: "auto", value: "" });
+  // Dropdown items reflect every country bundled at build time via
+  // src/generated/countries.ts (auto-written by build-topojson.js).
+  // "auto" delegates to PCODE-prefix sniffing, "custom" enables the
+  // upload-TopoJSON flow.
+  selectedCountry = new formattingSettings.ItemDropdown({
+    name: "selectedCountry",
+    displayName: "Country",
+    items: [
+      { value: "auto", displayName: "Auto-detect (from PCODE)" },
+      ...BUNDLED_COUNTRIES.map((c) => ({ value: c.iso, displayName: `${c.name} (${c.iso})` })),
+      { value: "custom", displayName: "Custom (upload TopoJSON)" }
+    ],
+    value: { value: "auto", displayName: "Auto-detect (from PCODE)" }
+  });
+  // These two are populated programmatically by the upload button via
+  // host.persistProperties — they are not slices the user edits directly.
+  customTopoJson = new formattingSettings.TextInput({ name: "customTopoJson", displayName: "Custom TopoJSON", placeholder: "", value: "" });
+  customTopoName = new formattingSettings.TextInput({ name: "customTopoName", displayName: "Custom TopoJSON name", placeholder: "", value: "" });
   viewMode = new formattingSettings.ItemDropdown({
     name: "viewMode",
     displayName: "View mode",
@@ -35,6 +53,9 @@ class GeneralSettings extends FormattingSettingsCard {
 
   name = "general";
   displayName = "Map";
+  // We deliberately do NOT expose customTopoJson / customTopoName as
+  // editable slices: they're megabyte-scale and only meant to be written
+  // by the upload flow.
   slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground];
 }
 
