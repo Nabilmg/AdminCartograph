@@ -13,6 +13,7 @@ import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles } from "./render/bubbles";
 import { renderGlyphs, GlyphType } from "./render/glyphs";
 import { renderLabels, LabelDatum, LabelAnchorOverride } from "./render/labels";
+import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
 import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
 import { buildProjection } from "./render/projection";
@@ -940,7 +941,14 @@ export class Visual implements IVisual {
         const neighborStyle = isDrill
           ? { ...baseStyle, allowOverrun: false, hideOnOverflow: true }
           : baseStyle;
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, view === "states" ? labelOverrides : undefined);
+        // In drill view, also bias neighbour anchors toward the focused
+        // state so their labels sit near the shared border instead of
+        // at each neighbour's interior centroid (which is often off-canvas).
+        let neighborOverrides = view === "states" ? labelOverrides : undefined;
+        if (isDrill) {
+          neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
+        }
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides);
       }
 
       if (isDrill) {
@@ -1317,6 +1325,38 @@ export class Visual implements IVisual {
           break;
       }
       out.set(pcode, { x, y });
+    }
+    return out;
+  }
+
+  /**
+   * For each Admin1 in `features` that ISN'T the drilled state, return
+   * a label-anchor override that pulls the label toward the boundary
+   * shared with the drilled state. Anchors are computed in projected
+   * screen space so they line up with whatever the path renderer
+   * eventually draws.
+   */
+  private buildNeighborLabelOverrides(features: any[], drilledPcode: string, projection: any): Map<string, LabelAnchorOverride> {
+    const out = new Map<string, LabelAnchorOverride>();
+    const drilled = features.find((f) => f.properties.ADM1_PCODE === drilledPcode);
+    if (!drilled) return out;
+
+    // Drilled state's centroid in projected coords — that's the target
+    // we pull neighbour labels toward.
+    const drilledAnchorGeo = pickAnchor(drilled.geometry, { largestPartOnly: true, avoidHoles: true });
+    if (!drilledAnchorGeo) return out;
+    const drilledAnchor = projection(drilledAnchorGeo as [number, number]);
+    if (!drilledAnchor) return out;
+
+    for (const f of features) {
+      if (f.properties.ADM1_PCODE === drilledPcode) continue;
+      const projectedRing = projectFeatureRing(f.geometry, projection);
+      if (!projectedRing) continue;
+      // 70% of the way from neighbour's centroid toward the boundary
+      // point closest to the drilled state. Reads as "very close to the
+      // shared border, but still safely inside the polygon".
+      const anchor = pickAnchorTowardPoint(projectedRing, drilledAnchor as [number, number], 0.7);
+      if (anchor) out.set(f.properties.ADM1_PCODE, { x: anchor[0], y: anchor[1] });
     }
     return out;
   }
@@ -1720,6 +1760,31 @@ function escapeHtml(s: string): string {
 
 function approxTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.55;
+}
+
+/**
+ * Project a feature's geometry into a synthetic GeoJSON-like geometry
+ * whose coordinates are already in screen pixels. Used so the
+ * pickAnchorTowardPoint helper can work in pixel space without having
+ * to know about the original projection.
+ */
+function projectFeatureRing(geometry: any, projection: any): any | null {
+  if (!geometry) return null;
+  function project(coords: any): any {
+    if (typeof coords[0] === "number") {
+      const p = projection(coords as [number, number]);
+      return p ? p : null;
+    }
+    const out: any[] = [];
+    for (const c of coords) {
+      const r = project(c);
+      if (r !== null) out.push(r);
+    }
+    return out;
+  }
+  const projected = project(geometry.coordinates);
+  if (!projected) return null;
+  return { type: geometry.type, coordinates: projected };
 }
 
 /**

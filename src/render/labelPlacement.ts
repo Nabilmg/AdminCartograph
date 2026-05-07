@@ -69,3 +69,63 @@ export function fitsInside(bbox: [number, number, number, number], anchor: [numb
   const halfH = height / 2;
   return anchor[0] - halfW >= minX && anchor[0] + halfW <= maxX && anchor[1] - halfH >= minY && anchor[1] + halfH <= maxY;
 }
+
+/**
+ * Pick a label anchor inside a polygon that is biased TOWARD a given
+ * target point in the same coordinate space. Used in drill view so that
+ * neighbour Admin1 labels come close to the border they share with the
+ * drilled state instead of sitting at the polygon's interior centroid
+ * (which is often outside the visible canvas).
+ *
+ * Implementation: linearly interpolate between the polygon's centroid
+ * (polylabel) and the closest vertex on its outer ring to the target.
+ * `weight` of 0 returns the centroid, 1 returns the boundary point.
+ * 0.7 reads as "70% of the way from centroid to the border that faces
+ * the focused state".
+ *
+ * Coordinates of `geometry` and `target` must be in the same space —
+ * i.e. both already projected to screen pixels.
+ */
+export function pickAnchorTowardPoint(geometry: any, target: [number, number], weight: number): [number, number] | null {
+  if (!geometry) return null;
+  const rings = collectRings(geometry, true, true);
+  if (!rings.length) return null;
+  const outer = rings[0];
+  if (!outer || outer.length < 3) return null;
+
+  // Centroid via polylabel (best interior point even for concave shapes).
+  let centroid: [number, number];
+  try {
+    const [cx, cy] = polylabel(rings, 1.0);
+    centroid = Number.isFinite(cx) && Number.isFinite(cy) ? [cx, cy] : averagePoint(outer);
+  } catch {
+    centroid = averagePoint(outer);
+  }
+
+  // Closest vertex on the outer ring to the target.
+  let bestDist = Infinity;
+  let closest = outer[0] as [number, number];
+  for (const p of outer) {
+    const d = Math.hypot(p[0] - target[0], p[1] - target[1]);
+    if (d < bestDist) {
+      bestDist = d;
+      closest = p as [number, number];
+    }
+  }
+
+  const w = Math.max(0, Math.min(1, weight));
+  return [
+    centroid[0] + (closest[0] - centroid[0]) * w,
+    centroid[1] + (closest[1] - centroid[1]) * w
+  ];
+}
+
+function averagePoint(ring: number[][]): [number, number] {
+  let sx = 0;
+  let sy = 0;
+  for (const [x, y] of ring) {
+    sx += x;
+    sy += y;
+  }
+  return [sx / ring.length, sy / ring.length];
+}
