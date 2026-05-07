@@ -133,18 +133,22 @@ export function renderLabels(
     //               worse result than straight.
     //   boundary  : anchored near the polygon's upper edge instead of its
     //               interior, leaving the centre clear for bubbles / fills
+    // Placement is applied to EVERY label, including ones whose anchor was
+    // overridden (e.g. labels positioned next to a bubble). The override
+    // only relocates the centroid; rotation / offset still follow the
+    // polygon's principal axis or boundary as the user requested. The only
+    // exception is "boundary", which is meaningless when the anchor is
+    // forced to a bubble centre.
     let rotation = 0;
     let dx = 0;
     let dy = 0;
-    if (!override) {
-      const bbox = polyBBox || pathBBox(path, label.feature);
-      if (style.placement === "straight" || style.placement === "curved") {
-        rotation = normalizeRotation(principalAxisAngleDeg(label.feature.geometry, projection));
-      }
-      if (style.placement === "boundary" && bbox) {
-        const h = bbox[3] - bbox[1];
-        dy = -(h / 2) * 0.55;
-      }
+    const bbox = polyBBox || (label.feature ? pathBBox(path, label.feature) : null);
+    if (style.placement === "straight" || style.placement === "curved") {
+      rotation = normalizeRotation(principalAxisAngleDeg(label.feature.geometry, projection));
+    }
+    if (style.placement === "boundary" && !override && bbox) {
+      const h = bbox[3] - bbox[1];
+      dy = -(h / 2) * 0.55;
     }
 
     if (rotation || dx || dy) {
