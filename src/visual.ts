@@ -513,33 +513,71 @@ export class Visual implements IVisual {
       }
     });
 
-    // Wire interactivity (tooltips, click-to-drill, selection).
-    this.wireInteraction(adm1Selection, adm2Selection, prepared, view);
+    // Wire interactivity (tooltips). Click handling is delegated through
+    // handleMapClick attached once in the constructor.
+    this.wireInteraction(adm1Selection, adm2Selection, prepared, stateAreas, view);
   }
 
-  private wireInteraction(adm1Sel: any, adm2Sel: any, prepared: PreparedDataView, view: "states" | "localities"): void {
-    const allowInteract = this.settings.general.interactionEnabled.value;
+  private wireInteraction(adm1Sel: any, adm2Sel: any, prepared: PreparedDataView, stateAreas: Map<string, AreaDatum>, view: "states" | "localities"): void {
+    // Tooltips on both layers so a hover anywhere on the map produces info.
+    // The bound datum on each path is a ChoroplethRow ({ feature, pcode, ... }).
+    const adm1Tooltip = (row: any) => this.buildTooltip(row, prepared, stateAreas, /*isAdmin2*/ false);
+    const adm2Tooltip = (row: any) => this.buildTooltip(row, prepared, prepared.areas, /*isAdmin2*/ true);
 
-    const tooltipFor = (datum: AreaDatum | undefined): powerbi.extensibility.VisualTooltipDataItem[] => {
-      if (!datum) return [];
-      const items: powerbi.extensibility.VisualTooltipDataItem[] = [];
-      if (datum.name) items.push({ displayName: "Area", value: datum.name });
-      if (datum.colorValue != null && prepared.colorValueColumn)
-        items.push({ displayName: prepared.colorValueColumn.displayName, value: String(datum.colorValue) });
-      if (datum.bubbleSize != null && prepared.bubbleSizeColumn)
-        items.push({ displayName: prepared.bubbleSizeColumn.displayName, value: String(datum.bubbleSize) });
-      return items.concat(datum.tooltips);
-    };
-
-    const target = view === "localities" ? adm2Sel : adm1Sel;
     this.tooltipService.addTooltip(
-      target,
-      (event: any) => tooltipFor(prepared.areas.get(event.pcode)),
-      (event: any) => prepared.areas.get(event.pcode)?.selectionId
+      adm1Sel,
+      adm1Tooltip,
+      (row: any) => stateAreas.get(row.pcode)?.selectionId
     );
+    this.tooltipService.addTooltip(
+      adm2Sel,
+      adm2Tooltip,
+      (row: any) => prepared.areas.get(row.pcode)?.selectionId
+    );
+  }
 
-    // Clicks for both layers go through the delegated handleMapClick
-    // attached once in the constructor. Nothing else to do here.
+  /**
+   * Build the tooltip rows for a single hovered area.
+   *
+   * Always shows the Admin1 name. Adds the Admin2 name when hovering an
+   * Admin2 polygon. Then the color measure (if bound), the bubble measure
+   * (if bound), and any user-supplied Tooltips fields.
+   *
+   * Names are taken from the embedded geometry's ADM1_EN / ADM2_EN
+   * properties so they work even when the user binds only the PCODE.
+   */
+  private buildTooltip(
+    row: any,
+    prepared: PreparedDataView,
+    lookup: Map<string, AreaDatum>,
+    isAdmin2: boolean
+  ): powerbi.extensibility.VisualTooltipDataItem[] {
+    const items: powerbi.extensibility.VisualTooltipDataItem[] = [];
+    const props = row?.feature?.properties || {};
+    const datum = lookup.get(row?.pcode) || prepared.areas.get(row?.pcode);
+
+    const admin1Name = props.ADM1_EN || (datum && datum.level === 1 ? datum.name : undefined) || props.ADM1_PCODE;
+    if (admin1Name) items.push({ displayName: "Admin1", value: String(admin1Name) });
+
+    if (isAdmin2) {
+      const admin2Name = props.ADM2_EN || (datum && datum.level === 2 ? datum.name : undefined) || props.ADM2_PCODE;
+      if (admin2Name) items.push({ displayName: "Admin2", value: String(admin2Name) });
+    }
+
+    if (datum?.colorValue != null && prepared.colorValueColumn) {
+      items.push({
+        displayName: prepared.colorValueColumn.displayName,
+        value: formatTooltipNumber(datum.colorValue)
+      });
+    }
+    if (datum?.bubbleSize != null && prepared.bubbleSizeColumn) {
+      items.push({
+        displayName: prepared.bubbleSizeColumn.displayName,
+        value: formatTooltipNumber(datum.bubbleSize)
+      });
+    }
+    if (datum?.tooltips?.length) items.push(...datum.tooltips);
+    return items;
   }
 
   /**
@@ -822,6 +860,11 @@ function svgEl<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<stri
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+function formatTooltipNumber(n: number): string {
+  if (!Number.isFinite(n)) return String(n);
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function clipboardIconSvg(): string {
