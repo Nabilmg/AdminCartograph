@@ -105,10 +105,27 @@ export function renderLabels(
     const polyBBox = override ? null : pathBBox(path, label.feature);
     if (polyBBox) {
       let attempts = style.reduceFontSize ? 4 : 1;
+      // stack-when-needed is a one-shot fitting fallback: try to wrap each
+      // multi-word name line if the label still overflows after font size
+      // and abbreviation fixes have been considered.
+      let stackedAlready = false;
       while (attempts-- > 0) {
-        const longest = renderedLines.reduce((max, l) => Math.max(max, approxTextWidth(l.text, baseFontSize)), 0);
+        const longest = renderedLines.reduce((m, l) => Math.max(m, approxTextWidth(l.text, baseFontSize)), 0);
         const totalH = renderedLines.length * (baseFontSize * 1.15);
         if (style.allowOverrun || fitsInside(polyBBox, [px, py], longest, totalH)) break;
+
+        if (style.stackWhenNeeded && !stackedAlready) {
+          stackedAlready = true;
+          const polyW = polyBBox[2] - polyBBox[0];
+          const charW = baseFontSize * 0.55;
+          const maxChars = Math.max(6, Math.floor(polyW / charW));
+          renderedLines = renderedLines.flatMap((line) => {
+            if (line.kind !== "name" || !line.text.includes(" ")) return [line];
+            return wrapWords(line.text, maxChars).map((t) => ({ text: t, kind: line.kind }));
+          });
+          continue; // try fit again with the stacked layout before shrinking
+        }
+
         if (style.abbreviate) {
           renderedLines = renderedLines.map((l) => ({ ...l, text: abbreviate(l.text, polyBBox[2] - polyBBox[0], baseFontSize) }));
         }
@@ -192,11 +209,13 @@ function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
   const value = formatNumber(label.value ?? null, style.decimals, style.format);
   const value2 = label.value2 != null ? formatNumber(label.value2, style.decimals, style.format) : "";
 
+  // Words on separate lines is the only thing that splits a name into
+  // multiple lines up front. stack-when-needed is a fitting strategy that
+  // only kicks in inside renderLabels when a label doesn't fit at its
+  // placed size, and it never runs unless the user enables it.
   let nameLines: string[] = [label.name || ""];
   if (style.wordsOnSeparateLines && nameLines[0]) {
     nameLines = nameLines[0].split(/\s+/);
-  } else if (style.stackWhenNeeded && (label.name || "").length > 14) {
-    nameLines = wrapWords(label.name || "", 14);
   }
   const nameLinesTagged: ComposedLine[] = nameLines.filter(Boolean).map((t) => ({ text: t, kind: "name" }));
   const valueLines: ComposedLine[] = [];
