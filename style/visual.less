@@ -154,15 +154,21 @@
         select { flex: 1; padding: 4px 6px; }
       }
       button.adm-secondary,
-      button.adm-primary {
+      button.adm-primary,
+      label.adm-file-label {
         padding: 5px 10px;
         border-radius: 4px;
         font-size: 12px;
         cursor: pointer;
         font-family: inherit;
+        display: inline-block;
+        position: relative;
       }
-      button.adm-secondary { background: #f3f3f3; border: 1px solid #c8c8c8; color: #222; }
-      button.adm-secondary:hover { background: #e8e8e8; }
+      button.adm-secondary,
+      label.adm-file-label { background: #f3f3f3; border: 1px solid #c8c8c8; color: #222; }
+      button.adm-secondary:hover,
+      label.adm-file-label:hover { background: #e8e8e8; }
+      label.adm-file-label:focus-within { outline: 2px solid #0078d4; outline-offset: 1px; }
       button.adm-primary { background: #0078d4; border: 1px solid #0067b8; color: #fff; }
       button.adm-primary:hover { background: #0067b8; }
     }

@@ -442,12 +442,18 @@ export class Visual implements IVisual {
 
       <div class="row">
         <span class="adm-row-label">Admin1 file:</span>
-        <button class="adm-secondary" data-pick="adm1">${draft.adm1Filename ? "Change file…" : "Choose file…"}</button>
+        <label class="adm-secondary adm-file-label" tabindex="0">
+          ${draft.adm1Filename ? "Change file…" : "Choose file…"}
+          <input type="file" data-pick="adm1" accept=".json,.topojson,.geojson,application/json,application/geo+json" style="position:absolute;left:-9999px;width:1px;height:1px">
+        </label>
         <span class="adm-filename">${draft.adm1Filename || "(none)"}</span>
       </div>
       <div class="row">
         <span class="adm-row-label">Admin2 file:</span>
-        <button class="adm-secondary" data-pick="adm2">${draft.adm2Filename ? "Change file…" : "Choose file…"}</button>
+        <label class="adm-secondary adm-file-label" tabindex="0">
+          ${draft.adm2Filename ? "Change file…" : "Choose file…"}
+          <input type="file" data-pick="adm2" accept=".json,.topojson,.geojson,application/json,application/geo+json" style="position:absolute;left:-9999px;width:1px;height:1px">
+        </label>
         <span class="adm-filename">${draft.adm2Filename || "(none — optional)"}</span>
       </div>
 
@@ -475,8 +481,12 @@ export class Visual implements IVisual {
 
       <p style="font-size:11px;color:#666;margin-top:14px">The file is saved inside the report (.pbix). Keep it under a few MB.</p>
     `;
-    card.querySelectorAll<HTMLButtonElement>("button[data-pick]").forEach((btn) => {
-      btn.addEventListener("click", () => this.pickCustomFile(btn.dataset.pick as "adm1" | "adm2", card));
+    // File pickers: <label> wraps the hidden <input type="file"> so the
+    // native click event opens the OS file dialog. No JS .click() needed —
+    // works in every Power BI host (Service / Desktop / web embed) without
+    // running into sandbox quirks.
+    card.querySelectorAll<HTMLInputElement>('input[type="file"][data-pick]').forEach((inp) => {
+      inp.addEventListener("change", () => this.handleCustomFileInput(inp, card));
     });
     card.querySelectorAll<HTMLSelectElement>("select[data-role]").forEach((sel) => {
       sel.addEventListener("change", () => {
@@ -488,51 +498,43 @@ export class Visual implements IVisual {
     if (confirmBtn) confirmBtn.addEventListener("click", () => this.confirmCustomUpload(card));
   }
 
-  /** Read a single file into draft state and re-render the card. */
-  private pickCustomFile(slot: "adm1" | "adm2", card: HTMLDivElement): void {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,.topojson,.geojson,application/json,application/geo+json";
-    input.style.display = "none";
-    input.addEventListener("change", () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
+  /** Handle a file selected via one of the inline <input type="file"> elements. */
+  private handleCustomFileInput(input: HTMLInputElement, card: HTMLDivElement): void {
+    const slot = input.dataset.pick as "adm1" | "adm2";
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const errSpan = card.querySelector(".adm-error") as HTMLElement | null;
+    if (errSpan) errSpan.textContent = "";
+    const reader = new FileReader();
+    reader.onerror = () => {
+      if (errSpan) errSpan.textContent = "Could not read file.";
+    };
+    reader.onload = () => {
+      try {
         const text = String(reader.result || "");
-        try {
-          const parsed = JSON.parse(text);
-          const props = collectPropertyNames(parsed);
-          if (!props.length) throw new Error("No features found in file");
-          const draft = this.customUploadDraft!;
-          if (slot === "adm1") {
-            draft.adm1Raw = text;
-            draft.adm1Filename = file.name;
-            draft.adm1Properties = props;
-            draft.mapping.adm1Pcode = guessFromList(props, "adm1Pcode");
-            draft.mapping.adm1Name = guessFromList(props, "adm1Name");
-          } else {
-            draft.adm2Raw = text;
-            draft.adm2Filename = file.name;
-            draft.adm2Properties = props;
-            draft.mapping.adm2Pcode = guessFromList(props, "adm2Pcode");
-            draft.mapping.adm2Name = guessFromList(props, "adm2Name");
-          }
-          this.refreshCustomUploadCard(card);
-        } catch (e) {
-          const errSpan = card.querySelector(".adm-error");
-          if (errSpan) errSpan.textContent = `Invalid file: ${(e as any)?.message || "parse error"}`;
+        const parsed = JSON.parse(text);
+        const props = collectPropertyNames(parsed);
+        if (!props.length) throw new Error("No features found in file");
+        const draft = this.customUploadDraft!;
+        if (slot === "adm1") {
+          draft.adm1Raw = text;
+          draft.adm1Filename = file.name;
+          draft.adm1Properties = props;
+          draft.mapping.adm1Pcode = guessFromList(props, "adm1Pcode");
+          draft.mapping.adm1Name = guessFromList(props, "adm1Name");
+        } else {
+          draft.adm2Raw = text;
+          draft.adm2Filename = file.name;
+          draft.adm2Properties = props;
+          draft.mapping.adm2Pcode = guessFromList(props, "adm2Pcode");
+          draft.mapping.adm2Name = guessFromList(props, "adm2Name");
         }
-      };
-      reader.onerror = () => {
-        const errSpan = card.querySelector(".adm-error");
-        if (errSpan) errSpan.textContent = "Could not read file.";
-      };
-      reader.readAsText(file);
-    });
-    document.body.appendChild(input);
-    input.click();
-    setTimeout(() => input.remove(), 1000);
+        this.refreshCustomUploadCard(card);
+      } catch (e) {
+        if (errSpan) errSpan.textContent = `Invalid file: ${(e as any)?.message || "parse error"}`;
+      }
+    };
+    reader.readAsText(file);
   }
 
   /** User confirmed the mapping — persist everything via host. */
