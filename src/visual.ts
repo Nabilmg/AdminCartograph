@@ -176,13 +176,17 @@ export class Visual implements IVisual {
       // Admin1 click does two things:
       //   1. cross-filter other visuals to the rows that belong to this
       //      Admin1 (so a bar chart / table responds to the click)
-      //   2. drill into the Admin1's children
-      // We set drilledStatePcode immediately for instant feedback. The
-      // next update() reconciles via the filter context, which keeps the
-      // visual in sync with whatever the host actually filtered to.
+      //   2. drill into the Admin1's children — but only when there's
+      //      something at Admin2 level to drill into. If the user only
+      //      bound Admin1 PCODE, or the country has no Admin2 geometry,
+      //      a drill would show empty Admin2 polygons. We just stay in
+      //      the Admin1 view in that case and only cross-filter.
       this.applyAdmin1Selection(pcode, (e as any).ctrlKey || (e as any).metaKey);
-      this.drilledStatePcode = pcode;
-      this.suppressedFilterDrill = null;
+      const canDrill = !!this.cached.country.adm2 && this.cached.prepared.hasLocalityBinding;
+      if (canDrill) {
+        this.drilledStatePcode = pcode;
+        this.suppressedFilterDrill = null;
+      }
       this.rerender();
       return;
     }
@@ -279,7 +283,11 @@ export class Visual implements IVisual {
   }
 
   private inferDrillFromFilter(prepared: PreparedDataView, country: CountryGeometry): string | null {
+    // No drill possible without Admin2 geometry, or without any data at
+    // Admin2 level: drilling into a state with no locality bindings just
+    // produces blank polygons. Stay in Admin1 view in those cases.
     if (!country.adm2) return null;
+    if (!prepared.hasLocalityBinding) return null;
     const totalStates = country.adm1.features.length;
 
     // Case 1: filter narrowed to a single Admin1.
@@ -636,14 +644,13 @@ export class Visual implements IVisual {
     if (setting === "states") return "states";
     if (setting === "localities") return country.adm2 ? "localities" : "states";
 
-    // Auto: ALWAYS start at the Admin1 (states) view. The only thing that
-    // moves the visual into the Admin2 (localities) view is an explicit
-    // user click on an Admin1 area (which sets drilledStatePcode) or the
-    // user picking "Admin2" from the View Mode dropdown.
-    //
-    // We deliberately do NOT auto-drill based on filter context anymore —
-    // sparse data (e.g. a fact table that only has rows for a few states)
-    // was being misread as a filter and triggering an unwanted drill.
+    // Auto: ALWAYS start at Admin1. Drill into Admin2 only when:
+    //   - the country has Admin2 geometry, AND
+    //   - either the user clicked an Admin1 (drilledStatePcode set), OR
+    //     the filter context implies a single-Admin1 focus AND Admin2
+    //     data is bound (handled in applyFilterDrill).
+    // If only Admin1 PCODE is bound, drill never fires and the visual
+    // stays a normal Admin1 choropleth.
     if (!country.adm2) return "states";
     if (this.drilledStatePcode) return "localities";
     return "states";
