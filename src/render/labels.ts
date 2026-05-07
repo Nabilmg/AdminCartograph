@@ -106,11 +106,11 @@ export function renderLabels(
     if (polyBBox) {
       let attempts = style.reduceFontSize ? 4 : 1;
       while (attempts-- > 0) {
-        const longest = renderedLines.reduce((max, l) => Math.max(max, approxTextWidth(l, baseFontSize)), 0);
+        const longest = renderedLines.reduce((max, l) => Math.max(max, approxTextWidth(l.text, baseFontSize)), 0);
         const totalH = renderedLines.length * (baseFontSize * 1.15);
         if (style.allowOverrun || fitsInside(polyBBox, [px, py], longest, totalH)) break;
         if (style.abbreviate) {
-          renderedLines = renderedLines.map((l) => abbreviate(l, polyBBox[2] - polyBBox[0], baseFontSize));
+          renderedLines = renderedLines.map((l) => ({ ...l, text: abbreviate(l.text, polyBBox[2] - polyBBox[0], baseFontSize) }));
         }
         baseFontSize = Math.max(7, baseFontSize - 1);
       }
@@ -120,25 +120,13 @@ export function renderLabels(
     const startY = -((renderedLines.length - 1) / 2) * lineHeight;
 
     for (let i = 0; i < renderedLines.length; i++) {
-      const text = renderedLines[i];
-      const isValueLine = lines.length > 1 && i >= 1 && style.content === "name_value";
-      const textColor = isValueLine ? style.valueColor : style.color;
+      const line = renderedLines[i];
+      const textColor = line.kind === "value" ? style.valueColor : style.color;
 
-      if (style.haloWidth > 0) {
-        g.append("text")
-          .attr("text-anchor", "middle")
-          .attr("y", startY + i * lineHeight + baseFontSize * 0.35)
-          .attr("font-family", style.fontFamily)
-          .attr("font-size", baseFontSize)
-          .attr("font-style", fontStyle)
-          .attr("font-weight", fontWeight)
-          .attr("stroke", style.haloColor)
-          .attr("stroke-width", style.haloWidth)
-          .attr("paint-order", "stroke")
-          .attr("fill", "none")
-          .text(text);
-      }
-      g.append("text")
+      // Single text element with paint-order: stroke fill renders the halo
+      // beneath the glyph in one pass. This avoids the doubled-element halo
+      // technique, which looked broken around letter-spacing.
+      const t = g.append("text")
         .attr("text-anchor", "middle")
         .attr("y", startY + i * lineHeight + baseFontSize * 0.35)
         .attr("font-family", style.fontFamily)
@@ -146,13 +134,25 @@ export function renderLabels(
         .attr("font-style", fontStyle)
         .attr("font-weight", fontWeight)
         .attr("fill", textColor)
-        .attr("letter-spacing", style.spreadCharacters ? "1.5px" : null)
-        .text(text);
+        .attr("letter-spacing", style.spreadCharacters ? "1.5px" : null);
+
+      if (style.haloWidth > 0) {
+        t.attr("stroke", style.haloColor)
+          .attr("stroke-width", style.haloWidth)
+          .attr("stroke-linejoin", "round")
+          .attr("paint-order", "stroke fill");
+      }
+      t.text(line.text);
     }
   }
 }
 
-function composeLines(label: LabelDatum, style: LabelStyle): string[] {
+interface ComposedLine {
+  text: string;
+  kind: "name" | "value";
+}
+
+function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
   const value = formatNumber(label.value ?? null, style.decimals, style.format);
   const value2 = label.value2 != null ? formatNumber(label.value2, style.decimals, style.format) : "";
 
@@ -162,15 +162,19 @@ function composeLines(label: LabelDatum, style: LabelStyle): string[] {
   } else if (style.stackWhenNeeded && (label.name || "").length > 14) {
     nameLines = wrapWords(label.name || "", 14);
   }
+  const nameLinesTagged: ComposedLine[] = nameLines.filter(Boolean).map((t) => ({ text: t, kind: "name" }));
+  const valueLines: ComposedLine[] = [];
+  if (value) valueLines.push({ text: value, kind: "value" });
+  if (value2) valueLines.push({ text: value2, kind: "value" });
 
   switch (style.content) {
     case "value":
-      return value ? [value] : [];
+      return valueLines;
     case "name":
-      return nameLines.filter(Boolean);
+      return nameLinesTagged;
     case "name_value":
     default:
-      return [...nameLines, ...(value ? [value] : []), ...(value2 ? [value2] : [])].filter(Boolean);
+      return [...nameLinesTagged, ...valueLines];
   }
 }
 
