@@ -119,6 +119,37 @@ export function renderLabels(
     const lineHeight = baseFontSize * 1.15;
     const startY = -((renderedLines.length - 1) / 2) * lineHeight;
 
+    // Compute placement adjustments based on the placement setting.
+    //   horizontal: 0deg, anchor stays at polygon centroid (default)
+    //   straight:   no rotation, but if the polygon is much taller than wide,
+    //               rotate so the label flows along its long axis
+    //   curved:     same as straight (we don't have a true curved-text
+    //               implementation; a straight rotation along the principal
+    //               axis is the closest faithful behaviour)
+    //   boundary:   nudge toward the top edge of the polygon's bbox so the
+    //               label sits near the boundary, not the centroid
+    let rotation = 0;
+    let dx = 0;
+    let dy = 0;
+    if (!override) {
+      const bbox = polyBBox || pathBBox(path, label.feature);
+      if (bbox) {
+        const w = bbox[2] - bbox[0];
+        const h = bbox[3] - bbox[1];
+        if ((style.placement === "straight" || style.placement === "curved") && h > w * 1.4) {
+          rotation = -90;
+        }
+        if (style.placement === "boundary") {
+          // Place the label just above the polygon's interior anchor.
+          dy = -(h / 2) * 0.55;
+        }
+      }
+    }
+
+    if (rotation || dx || dy) {
+      g.attr("transform", `translate(${px + dx},${py + dy}) rotate(${rotation})`);
+    }
+
     for (let i = 0; i < renderedLines.length; i++) {
       const line = renderedLines[i];
       const textColor = line.kind === "value" ? style.valueColor : style.color;

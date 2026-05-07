@@ -329,12 +329,13 @@ export class Visual implements IVisual {
     // For the states view, if the user only bound Locality PCODE, aggregate
     // locality-level values up to the parent state so the choropleth still
     // works.
+    // Compute the Admin1-level lookup unconditionally. We need it for
+    // tooltips and the Admin1 label even when the visual is in Admin2 mode
+    // (e.g. show the drilled state's name + value at the top of the canvas).
     let stateAreas = prepared.areas;
-    if (view === "states") {
-      const anyStateLevel = Array.from(prepared.areas.values()).some((a) => a.level === 1);
-      if (!anyStateLevel) {
-        stateAreas = this.aggregateToStates(prepared, country);
-      }
+    const anyStateLevel = Array.from(prepared.areas.values()).some((a) => a.level === 1);
+    if (!anyStateLevel) {
+      stateAreas = this.aggregateToStates(prepared, country);
     }
 
     const fitFC = view === "localities" && adm2Visible.length
@@ -435,20 +436,30 @@ export class Visual implements IVisual {
       ? this.buildBubbleLabelOverrides(bubbleResult, bubblePlacement, activeLocalityCard.fontSize.value)
       : undefined;
 
+    while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     if (this.settings.stateLabels.show.value) {
-      const labels: LabelDatum[] = adm1Visible.map((f) => {
-        const datum = stateAreas.get(f.properties.ADM1_PCODE);
-        return {
-          feature: f,
-          pcode: f.properties.ADM1_PCODE,
-          name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
-          value: datum?.colorValue ?? null,
-          value2: datum?.labelValue2 ?? null
-        };
-      });
-      renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
-    } else {
-      while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
+      if (this.drilledStatePcode && view === "localities") {
+        // Drill view: rendering the Admin1 label on top of the polygon
+        // overlaps with the locality labels. Promote it to a header at the
+        // top center of the canvas so it stays visible and out of the way.
+        const drilledFeature = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode) || adm1Visible[0];
+        if (drilledFeature) {
+          const datum = stateAreas.get(drilledFeature.properties.ADM1_PCODE);
+          this.renderAdmin1Header(width, drilledFeature, datum);
+        }
+      } else {
+        const labels: LabelDatum[] = adm1Visible.map((f) => {
+          const datum = stateAreas.get(f.properties.ADM1_PCODE);
+          return {
+            feature: f,
+            pcode: f.properties.ADM1_PCODE,
+            name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            value: datum?.colorValue ?? null,
+            value2: datum?.labelValue2 ?? null
+          };
+        });
+        renderLabels(this.adm1LabelLayer, projection, path, labels, this.styleFromCard(this.settings.stateLabels), view === "states" ? labelOverrides : undefined);
+      }
     }
 
     // Pick the right Admin2 label card based on whether the user has drilled
@@ -578,6 +589,75 @@ export class Visual implements IVisual {
     }
     if (datum?.tooltips?.length) items.push(...datum.tooltips);
     return items;
+  }
+
+  /**
+   * Render the drilled Admin1's label as a centered header at the top of
+   * the canvas (instead of on top of the polygon, where it would overlap
+   * locality labels). Honors the Admin1 labels card's content / colour /
+   * font / decimals so the user's formatting still applies.
+   */
+  private renderAdmin1Header(width: number, feature: any, datum: AreaDatum | undefined): void {
+    const card = this.settings.stateLabels;
+    const content = (card.content.value as any).value as string;
+    const fmtCard = this.styleFromCard(card);
+    const lines: { text: string; kind: "name" | "value" }[] = [];
+
+    const name = (datum?.labelText1 || datum?.name || feature.properties.ADM1_EN || feature.properties.ADM1_PCODE) as string;
+    const value = datum?.colorValue;
+    const value2 = datum?.labelValue2;
+
+    if (content === "value") {
+      if (value != null) lines.push({ text: this.fmt(value, fmtCard), kind: "value" });
+    } else if (content === "name") {
+      if (name) lines.push({ text: name, kind: "name" });
+    } else {
+      if (name) lines.push({ text: name, kind: "name" });
+      if (value != null) lines.push({ text: this.fmt(value, fmtCard), kind: "value" });
+      if (value2 != null) lines.push({ text: this.fmt(value2, fmtCard), kind: "value" });
+    }
+    if (!lines.length) return;
+
+    const fontSize = Math.max(card.fontSize.value, 14);
+    const lineHeight = fontSize * 1.2;
+    const cx = width / 2;
+    const baseY = 36; // below the top-bar buttons
+    const sel = (this.adm1LabelLayer as any) as SVGGElement;
+    const svgNS = "http://www.w3.org/2000/svg";
+
+    // Backing pill so the header is readable over any choropleth color.
+    const totalH = lines.length * lineHeight + 14;
+    const widest = Math.max(...lines.map((l) => approxTextWidth(l.text, fontSize))) + 28;
+    const rect = document.createElementNS(svgNS, "rect");
+    rect.setAttribute("x", String(cx - widest / 2));
+    rect.setAttribute("y", String(baseY));
+    rect.setAttribute("width", String(widest));
+    rect.setAttribute("height", String(totalH));
+    rect.setAttribute("rx", "8");
+    rect.setAttribute("ry", "8");
+    rect.setAttribute("fill", "rgba(255,255,255,0.92)");
+    rect.setAttribute("stroke", "#cccccc");
+    rect.setAttribute("stroke-width", "1");
+    sel.appendChild(rect);
+
+    for (let i = 0; i < lines.length; i++) {
+      const t = document.createElementNS(svgNS, "text");
+      t.setAttribute("x", String(cx));
+      t.setAttribute("y", String(baseY + 14 + i * lineHeight));
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("font-family", card.fontFamily.value);
+      t.setAttribute("font-size", String(fontSize));
+      t.setAttribute("font-weight", card.bold.value ? "600" : "500");
+      t.setAttribute("font-style", card.italic.value ? "italic" : "normal");
+      t.setAttribute("fill", lines[i].kind === "value" ? card.valueColor.value.value : card.color.value.value);
+      t.textContent = lines[i].text;
+      sel.appendChild(t);
+    }
+  }
+
+  private fmt(n: number, style: any): string {
+    const d = Math.max(0, Math.min(6, style.decimals | 0));
+    return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
   /**
@@ -860,6 +940,10 @@ function svgEl<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<stri
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+function approxTextWidth(text: string, fontSize: number): number {
+  return text.length * fontSize * 0.55;
 }
 
 function formatTooltipNumber(n: number): string {
