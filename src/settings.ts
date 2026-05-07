@@ -412,7 +412,7 @@ class ScaleBarSettings extends FormattingSettingsCard {
 class ControlsSettings extends FormattingSettingsCard {
   showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: false });
   showPan = new formattingSettings.ToggleSwitch({ name: "showPan", displayName: "Show pan buttons", value: false });
-  showCopy = new formattingSettings.ToggleSwitch({ name: "showCopy", displayName: "Show copy-to-clipboard button", value: false });
+  showExport = new formattingSettings.ToggleSwitch({ name: "showExport", displayName: "Show export buttons (PNG / SVG)", value: false });
   position = new formattingSettings.ItemDropdown({
     name: "position",
     displayName: "Position",
@@ -427,7 +427,7 @@ class ControlsSettings extends FormattingSettingsCard {
 
   name = "controls";
   displayName = "14. Map controls (zoom / pan / copy)";
-  slices = [this.showZoom, this.showPan, this.showCopy, this.position];
+  slices = [this.showZoom, this.showPan, this.showExport, this.position];
 }
 
 class LegendContainerSettings extends FormattingSettingsCard {

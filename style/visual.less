@@ -127,10 +127,15 @@
     svg { display: block; }
   }
 
+  // Export buttons are slightly wider so the "PNG" / "SVG" labels fit
+  // legibly. Same height as the zoom buttons so the column stays aligned.
   .adm-export-button {
-    width: 22px;
+    width: auto;
+    min-width: 32px;
     height: 22px;
-    padding: 0;
+    padding: 0 6px;
+    font-size: 10px;
+    letter-spacing: 0.4px;
   }
 
   .adm-nav-button {

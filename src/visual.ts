@@ -79,8 +79,8 @@ export class Visual implements IVisual {
   private cached: { country: CountryGeometry; prepared: PreparedDataView; width: number; height: number } | null = null;
   /** Drill-back button (DOM, lives in this.overlay). */
   private backButton: HTMLButtonElement | null = null;
-  /** Clipboard / export button (DOM, lives in this.overlay). */
-  private exportButton: HTMLButtonElement | null = null;
+  // (Export buttons used to live here; now created on-demand inside the
+  // controls panel so we don't need a long-lived reference.)
   /** Cached parsed custom country geometry. Key includes both files +
    *  mapping so a re-edit recomputes the cache. */
   private customGeometryCache: { key: string; country: CountryGeometry } | null = null;
@@ -1664,21 +1664,30 @@ export class Visual implements IVisual {
       }
     }
 
-    if (cs.showCopy.value) {
-      const exportBtn = document.createElement("button");
-      exportBtn.className = "adm-export-button";
-      exportBtn.type = "button";
-      exportBtn.setAttribute("aria-label", "Copy map to clipboard (A5 landscape)");
-      exportBtn.title = "Copy map to clipboard (A5 landscape)";
-      exportBtn.innerHTML = clipboardIconSvg();
-      exportBtn.addEventListener("click", (e) => {
+    if (cs.showExport.value) {
+      const png = document.createElement("button");
+      png.className = "adm-zoom-button adm-export-button";
+      png.type = "button";
+      png.setAttribute("aria-label", "Export as PNG (A5 landscape)");
+      png.title = "Export as PNG (A5 landscape, ~300 DPI)";
+      png.innerHTML = "PNG";
+      png.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.exportToClipboard(exportBtn);
+        this.exportPng(png);
       });
-      panel.appendChild(exportBtn);
-      this.exportButton = exportBtn;
-    } else {
-      this.exportButton = null;
+      panel.appendChild(png);
+
+      const svg = document.createElement("button");
+      svg.className = "adm-zoom-button adm-export-button";
+      svg.type = "button";
+      svg.setAttribute("aria-label", "Export as SVG (vector)");
+      svg.title = "Export as SVG (vector, opens in a browser / Illustrator)";
+      svg.innerHTML = "SVG";
+      svg.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.exportSvg(svg);
+      });
+      panel.appendChild(svg);
     }
 
     if (!panel.children.length) panel.style.display = "none";
@@ -1714,144 +1723,117 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Export the current map to the clipboard as a PNG sized to A5 landscape
-   * (1748 x 1240 px ≈ 210 x 148 mm at 300 DPI). Falls back to a download
-   * when navigator.clipboard.write is blocked by the host iframe.
-   *
-   * Strategy:
-   *   1. Clone the live SVG (already has every layer painted).
-   *   2. Inline ALL styles from document.styleSheets into a <style> tag
-   *      inside the SVG so the rasteriser doesn't lose CSS rules — the
-   *      SVG-as-Image rendering path is sandboxed and can't see the
-   *      host page's stylesheet.
-   *   3. Convert to PNG via canvas, then either clipboard or download.
+   * Build a self-contained SVG snapshot of the live visual: clones the
+   * on-screen <svg>, inlines the document stylesheet so the rasteriser
+   * keeps every halo / font / opacity rule, prepends a coloured
+   * background rect so the image isn't transparent. Returns both the
+   * cloned SVG element and its serialised XML so callers can choose
+   * to download either form (PNG via canvas, or the SVG itself).
    */
-  private async exportToClipboard(btn: HTMLButtonElement): Promise<void> {
+  private buildExportSvg(): { svg: SVGSVGElement; xml: string; width: number; height: number; bgColor: string } | null {
+    const sourceW = Math.max(40, this.viewportW || this.svg.clientWidth || this.root.clientWidth || 800);
+    const sourceH = Math.max(40, this.viewportH || this.svg.clientHeight || this.root.clientHeight || 600);
+
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const clone = this.svg.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute("width", String(sourceW));
+    clone.setAttribute("height", String(sourceH));
+    clone.setAttribute("viewBox", `0 0 ${sourceW} ${sourceH}`);
+    clone.setAttribute("xmlns", SVG_NS);
+    clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+    const bgColor = this.settings?.general?.transparentBackground?.value
+      ? "#ffffff"
+      : (this.settings?.general?.background?.value?.value || "#ffffff");
+    const bg = document.createElementNS(SVG_NS, "rect");
+    bg.setAttribute("x", "0");
+    bg.setAttribute("y", "0");
+    bg.setAttribute("width", String(sourceW));
+    bg.setAttribute("height", String(sourceH));
+    bg.setAttribute("fill", bgColor);
+    clone.insertBefore(bg, clone.firstChild);
+
+    // Inline the host document's stylesheets so the SVG is portable
+    // (works in Illustrator / browsers / PowerPoint paste).
+    const styleEl = document.createElementNS(SVG_NS, "style");
+    styleEl.textContent = collectVisualCss();
+    clone.insertBefore(styleEl, clone.firstChild);
+
+    const xml = new XMLSerializer().serializeToString(clone);
+    return { svg: clone, xml, width: sourceW, height: sourceH, bgColor };
+  }
+
+  /**
+   * Export the current map as a PNG. A5 landscape (1748 x 1240 ≈ 300 DPI),
+   * source visual letterboxed in white. Triggers a browser download —
+   * no clipboard call, so it works on every Power BI host.
+   */
+  private async exportPng(btn: HTMLButtonElement): Promise<void> {
     const A5_WIDTH = 1748;
     const A5_HEIGHT = 1240;
-    const originalLabel = btn.innerHTML;
+    const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = "…";
-
-    let resultMessage = "";
     try {
-      const sourceW = Math.max(40, this.viewportW || this.svg.clientWidth || this.root.clientWidth || 800);
-      const sourceH = Math.max(40, this.viewportH || this.svg.clientHeight || this.root.clientHeight || 600);
-
-      const SVG_NS = "http://www.w3.org/2000/svg";
-      const clone = this.svg.cloneNode(true) as SVGSVGElement;
-      clone.setAttribute("width", String(sourceW));
-      clone.setAttribute("height", String(sourceH));
-      clone.setAttribute("viewBox", `0 0 ${sourceW} ${sourceH}`);
-      clone.setAttribute("xmlns", SVG_NS);
-      clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-
-      // Background rect (otherwise the rasteriser produces a transparent
-      // PNG which reveals whatever colour PowerPoint paints behind).
-      const bg = document.createElementNS(SVG_NS, "rect");
-      bg.setAttribute("x", "0");
-      bg.setAttribute("y", "0");
-      bg.setAttribute("width", String(sourceW));
-      bg.setAttribute("height", String(sourceH));
-      const bgColor = this.settings?.general?.transparentBackground?.value
-        ? "#ffffff"
-        : (this.settings?.general?.background?.value?.value || "#ffffff");
-      bg.setAttribute("fill", bgColor);
-      clone.insertBefore(bg, clone.firstChild);
-
-      // Inline document stylesheet rules so SVG rendering keeps text /
-      // halo / opacity styling. SVGs rendered through <img src=blob>
-      // don't have access to the parent document's CSSOM.
-      const styleEl = document.createElementNS(SVG_NS, "style");
-      styleEl.textContent = collectVisualCss();
-      clone.insertBefore(styleEl, clone.firstChild);
-
-      const xml = new XMLSerializer().serializeToString(clone);
-      const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+      const built = this.buildExportSvg();
+      if (!built) throw new Error("could not build export SVG");
+      const svgBlob = new Blob([built.xml], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(svgBlob);
-
       let img: HTMLImageElement;
       try {
         img = await loadImage(url, 6000);
       } finally {
-        // Even on failure, free the blob URL.
         URL.revokeObjectURL(url);
       }
-
       const canvas = document.createElement("canvas");
       canvas.width = A5_WIDTH;
       canvas.height = A5_HEIGHT;
       const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, A5_WIDTH, A5_HEIGHT);
-      const scale = Math.min(A5_WIDTH / sourceW, A5_HEIGHT / sourceH);
-      const drawW = sourceW * scale;
-      const drawH = sourceH * scale;
+      const scale = Math.min(A5_WIDTH / built.width, A5_HEIGHT / built.height);
+      const drawW = built.width * scale;
+      const drawH = built.height * scale;
       const dx = (A5_WIDTH - drawW) / 2;
       const dy = (A5_HEIGHT - drawH) / 2;
       ctx.drawImage(img, dx, dy, drawW, drawH);
-
-      const blob: Blob = await new Promise((res, rej) => {
-        canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas.toBlob returned null"))), "image/png");
-      });
-
-      // Try Async Clipboard. Many Power BI hosts block this; fall
-      // through to download so the user always gets the image.
-      let copied = false;
-      let clipboardError: any = null;
-      try {
-        const navAny = navigator as any;
-        const ClipboardItemCtor = (window as any).ClipboardItem;
-        if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof ClipboardItemCtor === "function") {
-          await navAny.clipboard.write([new ClipboardItemCtor({ "image/png": blob })]);
-          copied = true;
-        } else {
-          clipboardError = new Error("clipboard API unavailable in this host");
-        }
-      } catch (err) {
-        clipboardError = err;
-      }
-
-      if (!copied) {
-        // Fallback: trigger a download so the user gets the file
-        // regardless. This is the most-permissive path; some hosts
-        // even block <a download> programmatically, in which case we
-        // open the blob in a new tab as a last resort.
-        const dlUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = dlUrl;
-        a.download = "map-A5.png";
-        a.rel = "noopener";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        try {
-          a.click();
-        } catch {
-          // If even the click is blocked, try opening in a new tab.
-          try { window.open(dlUrl, "_blank"); } catch { /* drop */ }
-        }
-        setTimeout(() => {
-          URL.revokeObjectURL(dlUrl);
-          a.remove();
-        }, 5000);
-        resultMessage = clipboardError
-          ? `Clipboard blocked (${describeError(clipboardError)}); downloaded map-A5.png instead.`
-          : "Downloaded map-A5.png";
-        console.info("[ADM Map export] " + resultMessage);
-      } else {
-        resultMessage = "Image copied to clipboard.";
-        console.info("[ADM Map export] " + resultMessage);
-      }
-
-      btn.innerHTML = copied ? checkIconSvg() : downloadIconSvg();
-      btn.title = resultMessage;
-      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; btn.title = "Copy map to clipboard (A5 landscape)"; }, 2000);
+      const blob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas.toBlob returned null"))), "image/png")
+      );
+      triggerDownload(blob, "map-A5.png");
+      btn.innerHTML = checkIconSvg();
+      console.info("[ADM Map export] PNG downloaded.");
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
     } catch (e) {
-      const msg = describeError(e);
-      console.error("[ADM Map export] Export failed:", e);
+      console.error("[ADM Map export] PNG export failed:", e);
       btn.innerHTML = errorIconSvg();
-      btn.title = `Export failed: ${msg}`;
-      setTimeout(() => { btn.innerHTML = originalLabel; btn.disabled = false; btn.title = "Copy map to clipboard (A5 landscape)"; }, 2500);
+      btn.title = `PNG export failed: ${describeError(e)}`;
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Export as PNG (A5 landscape, ~300 DPI)"; }, 2500);
+    }
+  }
+
+  /**
+   * Export the current map as an SVG. The cloned SVG with inlined CSS
+   * is downloaded directly, so the file opens in any vector tool
+   * (Illustrator, Inkscape, browsers, PowerPoint Insert SVG) and
+   * stays editable.
+   */
+  private exportSvg(btn: HTMLButtonElement): void {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    try {
+      const built = this.buildExportSvg();
+      if (!built) throw new Error("could not build export SVG");
+      const svgBlob = new Blob([built.xml], { type: "image/svg+xml;charset=utf-8" });
+      triggerDownload(svgBlob, "map.svg");
+      btn.innerHTML = checkIconSvg();
+      console.info("[ADM Map export] SVG downloaded.");
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
+    } catch (e) {
+      console.error("[ADM Map export] SVG export failed:", e);
+      btn.innerHTML = errorIconSvg();
+      btn.title = `SVG export failed: ${describeError(e)}`;
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Export as SVG (vector)"; }, 2500);
     }
   }
 
@@ -1913,6 +1895,28 @@ function escapeHtml(s: string): string {
 
 function approxTextWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.55;
+}
+
+/** Trigger a browser download of `blob` with the given filename. Uses the
+ *  classic anchor-element technique, with a window.open fallback for
+ *  hosts that block programmatic clicks. */
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  try {
+    a.click();
+  } catch {
+    try { window.open(url, "_blank"); } catch { /* drop */ }
+  }
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 5000);
 }
 
 /**
