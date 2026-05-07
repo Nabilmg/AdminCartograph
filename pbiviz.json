@@ -4,15 +4,15 @@
     "displayName": "ADM Choropleth + Bubble Map",
     "guid": "admChoroplethBubbleMap1A2B3C",
     "visualClassName": "Visual",
-    "version": "1.0.0",
+    "version": "1.0.0.0",
     "description": "Choropleth and bubble map for administrative boundaries (ADM1/ADM2) with PCODE matching. Geometry is embedded; no shapefile upload required.",
-    "supportUrl": "",
-    "gitHubUrl": ""
+    "supportUrl": "https://github.com/Nabilmg/MapVisual",
+    "gitHubUrl": "https://github.com/Nabilmg/MapVisual"
   },
   "apiVersion": "5.11.0",
   "author": {
     "name": "MapVisual",
-    "email": ""
+    "email": "support@example.com"
   },
   "assets": {
     "icon": "assets/icon.png"

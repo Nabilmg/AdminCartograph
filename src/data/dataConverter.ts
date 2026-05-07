@@ -3,7 +3,6 @@
  * PCODE. Locality rows take precedence over state rows when both are bound.
  */
 import powerbi from "powerbi-visuals-api";
-import type { IVisualHost } from "powerbi-visuals-api/extensibility/visual/IVisualHost";
 import type { AreaDatum, PreparedDataView } from "../types";
 
 const ROLE_STATE = "statePcode";

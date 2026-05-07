@@ -13,3 +13,4 @@ assets/geometry/country-index.json
 
 # pbiviz output
 *.pbiviz
+webpack.statistics.*.html

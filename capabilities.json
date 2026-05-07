@@ -396,6 +396,7 @@
     }
   },
 
+  "privileges": [],
   "supportsHighlight": true,
   "supportsKeyboardFocus": true,
   "tooltips": {

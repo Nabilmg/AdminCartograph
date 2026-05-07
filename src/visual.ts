@@ -22,9 +22,7 @@ import type { AreaDatum, PreparedDataView, CountryGeometry } from "./types";
 let embeddedTopology: any = null;
 let embeddedIndex: Record<string, any> = {};
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   embeddedTopology = require("../assets/geometry/world.topojson.json");
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   embeddedIndex = require("../assets/geometry/country-index.json");
 } catch {
   embeddedTopology = null;
