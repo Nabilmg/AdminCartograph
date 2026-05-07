@@ -693,6 +693,26 @@ export class Visual implements IVisual {
     }
   }
 
+  /** Sorted list of Admin1 PCODEs for prev/next navigation. */
+  private admin1NavOrder(): string[] {
+    if (!this.cached) return [];
+    const feats = (this.cached.country.adm1.features as any[]) || [];
+    return feats
+      .map((f) => ({
+        pcode: f.properties.ADM1_PCODE as string,
+        name: (f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string
+      }))
+      .filter((x) => x.pcode)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((x) => x.pcode);
+  }
+
+  private admin1NameFor(pcode: string): string {
+    if (!this.cached) return pcode;
+    const f = (this.cached.country.adm1.features as any[]).find((f) => f.properties.ADM1_PCODE === pcode);
+    return f?.properties?.ADM1_EN || pcode;
+  }
+
   private fmt(n: number, style: any): string {
     const d = Math.max(0, Math.min(6, style.decimals | 0));
     return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -768,6 +788,33 @@ export class Visual implements IVisual {
       });
       bar.appendChild(back);
       this.backButton = back;
+
+      // Prev / next arrows step through every Admin1 in the embedded
+      // geometry alphabetically by ADM1_EN, so the user can flip between
+      // states without going back to the Country View.
+      const order = this.admin1NavOrder();
+      const idx = order.indexOf(this.drilledStatePcode);
+      const prev = order.length ? order[(idx - 1 + order.length) % order.length] : null;
+      const next = order.length ? order[(idx + 1) % order.length] : null;
+
+      const mkNav = (dir: "prev" | "next", target: string | null, glyph: string, label: string) => {
+        const btn = document.createElement("button");
+        btn.className = `adm-nav-button adm-nav-${dir}`;
+        btn.type = "button";
+        btn.setAttribute("aria-label", label);
+        btn.title = label;
+        btn.innerHTML = glyph;
+        btn.disabled = !target;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!target) return;
+          this.drilledStatePcode = target;
+          this.rerender();
+        });
+        return btn;
+      };
+      bar.appendChild(mkNav("prev", prev, "&#8249;", `Previous Admin1${prev ? ` (${this.admin1NameFor(prev)})` : ""}`));
+      bar.appendChild(mkNav("next", next, "&#8250;", `Next Admin1${next ? ` (${this.admin1NameFor(next)})` : ""}`));
     } else {
       this.backButton = null;
     }
