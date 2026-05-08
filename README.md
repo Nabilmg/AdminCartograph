@@ -1,16 +1,36 @@
-# ADM Choropleth + Bubble Map (Power BI custom visual)
+# AdminCartograph
 
-A choropleth + bubble + pie/column map visual for Power BI that renders
-country-level administrative boundaries (ADM1 + ADM2) using **PCODE
-matching** against geometry that is **embedded inside the visual at build
-time**. Report users do not need to upload TopoJSON, GeoJSON or shapefiles
-into Power BI to render the map. Source geometry: <https://fieldmaps.io/data/cod/>.
+A Power BI custom visual for **multi-layer subnational mapping**:
+choropleth fills, proportional bubbles, and pie / donut / column overlays
+on top of administrative boundaries (Admin1 + Admin2), with **boundaries
+embedded inside the visual** so report users don't have to upload TopoJSON
+or shapefiles. Boundaries source: <https://fieldmaps.io/data/cod/>.
 
 ![logo](assets/logo.png)
 
+## Why not just use Shape Map?
+
+Power BI's built-in **Shape Map** visual has real gaps for serious admin-
+boundary reporting. AdminCartograph closes them:
+
+| Feature | Built-in Shape Map | AdminCartograph |
+|---|---|---|
+| **Area labels** (name / value) | ✗ — none at all | ✓ full halo, font, color, rotation, fit-to-shape |
+| **Embedded boundaries** | ✗ — must upload TopoJSON | ✓ 8 countries bundled |
+| **PCODE-native binding** | ✗ — manual property mapping | ✓ |
+| **Bubble overlay** | ✗ | ✓ size by measure |
+| **Pie / donut / column overlay** | ✗ | ✓ multi-measure glyphs per area |
+| **Drill Admin1 → Admin2** | ✗ | ✓ click + filter-driven + prev/next nav |
+| **Scale bar** (km / miles) | ✗ | ✓ |
+| **PNG / SVG export** | ✗ | ✓ A5 landscape + portable SVG |
+| **Mouse / button zoom + pan** | ✗ | ✓ |
+| **Custom upload** | ✓ TopoJSON | ✓ TopoJSON or GeoJSON, with auto field mapping |
+
+Same data binding, dramatically more capability.
+
 ## Bundled countries
 
-The shipping `.pbiviz` embeds the following 8 countries' ADM1 + ADM2
+The shipping `.pbiviz` embeds the following 8 countries' Admin1 + Admin2
 boundaries (165 Admin1 + 1,772 Admin2 features). The dropdown auto-detects
 the correct country from your bound PCODEs, or you can pick one explicitly:
 
@@ -25,7 +45,7 @@ the correct country from your bound PCODEs, or you can pick one explicitly:
 | SYR | Syria | governorates | districts |
 | YEM | Yemen | 21 governorates | 333 districts |
 
-The ninth option in the dropdown is **Custom (upload TopoJSON)** — see
+The ninth dropdown option is **Custom (upload TopoJSON)** — see
 [Using a custom country](#using-a-custom-country) below.
 
 ## Capabilities
@@ -56,10 +76,10 @@ The ninth option in the dropdown is **Custom (upload TopoJSON)** — see
   container when they share a corner.
 - **Scale bar** (km or miles), latitude-aware, "nice round" distances,
   follows zoom.
-- **Zoom + pan** with on-canvas controls (off by default).
-  Mouse drag pans, mouse wheel zooms, directional buttons step the map.
-- **Copy to clipboard** as A5 landscape PNG (1748 × 1240 @ 300 DPI),
-  with PNG download fallback when the host blocks clipboard write.
+- **Zoom + pan** with on-canvas controls (off by default). Mouse drag
+  pans, mouse wheel zooms, directional buttons step the map.
+- **PNG / SVG export** — A5-landscape PNG (1748 × 1240 @ ~300 DPI) for
+  PowerPoint paste, or portable SVG with inlined CSS for vector tools.
 - **Custom geometry upload** (separate Admin1 / Admin2 files, GeoJSON
   or TopoJSON, with auto-detected field mapping that the user confirms
   via dropdowns).
@@ -79,7 +99,7 @@ The ninth option in the dropdown is **Custom (upload TopoJSON)** — see
 11. **Pie / Column legend**
 12. **Legend container** (shared frame styling)
 13. **Scale bar**
-14. **Map controls** (zoom / pan / copy buttons)
+14. **Map controls** (zoom / pan / export buttons)
 
 ## Data roles
 
@@ -102,7 +122,7 @@ mode and clicks just cross-filter without drilling.
 
 ```
 capabilities.json                  Power BI data role + objects schema
-pbiviz.json                        Visual metadata
+pbiviz.json                        Visual metadata (name = adminCartograph)
 country-geojson/                   Drop fieldmaps.io <ISO>.geojson.zip files here
   AFG.geojson.zip                  (8 countries already included)
   ...
@@ -136,7 +156,7 @@ assets/
   logo.png / logo.svg              Hi-res logo
 style/visual.less                  Visual styles
 releases/
-  admChoroplethBubbleMap.pbiviz    Built visual, ready to import
+  AdminCartograph.pbiviz           Built visual, ready to import
 ```
 
 ## Build prerequisites
@@ -162,10 +182,10 @@ npm run release              # sync country-geojson/ -> bundle -> .pbiviz
    `assets/geometry/world.topojson.json`. Auto-writes
    `src/generated/countries.ts` so the country dropdown reflects the
    bundle.
-3. `pbiviz package` — produces `dist/admChoroplethBubbleMap1A2B3C.1.0.0.0.pbiviz`.
+3. `pbiviz package` — produces `dist/adminCartograph2026A1Pbi.1.0.0.0.pbiviz`.
 
-Copy that file (or the latest `releases/admChoroplethBubbleMap.pbiviz`)
-into Power BI: **Visualizations → ⋯ → Import a visual file**.
+Copy that file (or the latest `releases/AdminCartograph.pbiviz`) into
+Power BI: **Visualizations → ⋯ → Import a visual file**.
 
 ## Adding more countries
 
@@ -176,7 +196,7 @@ cp ~/Downloads/KEN.geojson.zip country-geojson/
 # 2. Rebuild
 npm run release
 
-# 3. Import the new releases/admChoroplethBubbleMap.pbiviz
+# 3. Import the new releases/AdminCartograph.pbiviz
 ```
 
 The bundle scales: typical countries add 50–500 KB after simplification.
@@ -234,9 +254,9 @@ Practical limit ~5 MB per upload.
   clicks no longer drill or filter (tooltips still work).
 - Some countries in the workbook only ship ADM1. The visual detects
   this and stays in Admin1 mode for those countries.
-- Copy-to-clipboard depends on host permissions: works in Power BI
-  Desktop, sometimes blocked in Power BI Service / Embed (falls back
-  to PNG download in those cases).
+- PNG export depends on the host allowing canvas serialisation; falls
+  back to a download in environments where the clipboard / canvas API
+  is restricted.
 
 ## License
 

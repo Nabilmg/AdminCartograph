@@ -1,36 +1,40 @@
-# LinkedIn post — ADM Choropleth + Bubble Map
+# LinkedIn post — AdminCartograph
 
-A short, professional post you can paste into LinkedIn. Includes
-suggested screenshots and a longer "carousel" variant.
+A short, professional post you can paste into LinkedIn. Includes a
+single-image variant, a longer carousel variant, screenshot
+suggestions, and a Shape Map differentiator table you can drop in
+as a slide.
 
 ---
 
 ## Short version (single image)
 
-> **I built a Power BI custom visual for ADM1 / ADM2 choropleth
-> mapping — and it ships with the boundaries already inside.**
+> **Power BI's built-in Shape Map can't show labels.**
 >
-> Most map visuals ask you to bring your own GeoJSON or shapefile
-> every time. For humanitarian, public-health, and development
-> reporting that's a real friction point: every report needs the same
-> OCHA boundaries re-uploaded, every country re-modelled.
+> No state names. No values. Nothing.
 >
-> So the visual I built embeds the geometry. You bind the **PCODE**
-> column in your data and the right country renders automatically.
-> Today it ships with 8 countries (AFG, COD, HTI, IRN, LBN, SDN, SYR,
-> YEM) — 165 Admin1 + 1,772 Admin2 features in a 630 KB .pbiviz —
-> with a runtime upload for any other country.
+> So I built **AdminCartograph** — a custom visual for multi-layer
+> subnational mapping that does. And while I was at it, I also embedded
+> the OCHA / fieldmaps.io boundaries so you don't have to upload
+> TopoJSON to every report, added bubble + pie/donut/column overlays,
+> click-to-drill from Admin1 to Admin2, a scale bar, PNG/SVG export,
+> and PCODE-native binding so you bind one column and the right country
+> renders.
 >
-> What's inside:
+> What's inside (and what Shape Map can't do):
 >
-> 🗺  Choropleth fills with quantile / equal-interval / manual breaks
+> 🏷  Area labels — name + value, halo, rotation, fit-to-shape
+> 🗺  Choropleth fill (quantile / equal-interval / manual breaks)
 > ⚪ Bubble overlay (size by measure)
 > 🥧 Pie / Donut / Column overlay (one slice per measure)
-> ↘ Click-to-drill from Admin1 to Admin2 + prev/next state nav
+> ↘  Click-to-drill Admin1 → Admin2, with filter-driven auto-drill
 > 🔗 Cross-filtering with the rest of the report
-> 🧭 Scale bar (km / miles)
-> 🧰 Pan, zoom, and "Copy to clipboard" as A5-landscape PNG for
->     PowerPoint
+> 🧭 Latitude-aware scale bar (km / miles)
+> 🧰 Pan, zoom, and PNG / SVG export
+>
+> 8 countries today (AFG, COD, HTI, IRN, LBN, SDN, SYR, YEM) — 165
+> Admin1 + 1,772 Admin2 features in a 632 KB .pbiviz. Custom upload
+> for any other country.
 >
 > The whole pipeline is open-source — drop fieldmaps.io zips into a
 > folder, run `npm run release`, the dropdown auto-updates.
@@ -41,76 +45,90 @@ suggested screenshots and a longer "carousel" variant.
 
 **Image to attach:** the full-canvas screenshot you took of Sudan or
 Yemen showing choropleth + bubbles + the value legend. Make sure the
-country is recognisable (not zoomed in too far).
+country is recognisable (not zoomed in too far) and that **labels are
+visible** — that's the whole point of the post.
 
 ---
 
-## Longer version (LinkedIn carousel, 4–6 slides)
+## Longer version (LinkedIn carousel, 5–7 slides)
 
 If LinkedIn lets you upload multiple images / a PDF carousel, this
 version reads better.
 
 ### Slide 1 — Hook
-> **Open-source Power BI custom visual for OCHA-PCODE choropleth maps.**
+
+> **Power BI's built-in Shape Map doesn't show labels.**
 >
-> Built it so humanitarian / development teams can stop re-uploading
-> the same boundary files into every report.
+> No state names. No values. Nothing.
 
-(Image: hero shot — Sudan choropleth + bubbles, full canvas)
+(Image: a Shape Map screenshot of any country — unlabeled blobs of
+color. Shock value.)
 
-### Slide 2 — The problem
-> Most Power BI map visuals make you bring your own boundaries. For
-> ADM1 / ADM2 reporting that means:
-> - Upload TopoJSON to every report
-> - Match feature properties to your data manually
-> - Repeat for every country, every report
+### Slide 2 — The full Shape Map gap
+
+> Built-in Shape Map limitations:
+> - ✗ No labels (name / value)
+> - ✗ No bubble overlay
+> - ✗ No pie / column / donut overlay
+> - ✗ No drill between Admin1 and Admin2
+> - ✗ No scale bar
+> - ✗ No image export
+> - ✗ Boundaries must be uploaded as TopoJSON every time
+
+(Image: a clear table — Shape Map vs AdminCartograph, ✓/✗ in two
+columns. The differentiator table from the README works perfectly.)
+
+### Slide 3 — AdminCartograph
+
+> A custom Power BI visual for **multi-layer subnational mapping**.
 >
-> Friction every step of the way.
+> Choropleth + bubbles + pie/column on top of admin boundaries —
+> with the boundaries already inside.
 
-(Image: screenshot of any common GIS-import error, OR a blank "bind
-shapefile" prompt from another visual)
+(Image: hero shot — Sudan or Yemen full canvas, choropleth + bubbles
++ labels visible.)
 
-### Slide 3 — What this visual does differently
-> The geometry lives **inside** the .pbiviz.
-> You bind your PCODE column — the right country renders.
->
-> 8 countries today (AFG, COD, HTI, IRN, LBN, SDN, SYR, YEM).
-> ~50 fit comfortably in one bundle. Or upload your own (TopoJSON or
-> GeoJSON) at runtime — the visual auto-maps the field names and
-> asks you to confirm.
+### Slide 4 — Multiple visualization layers
 
-(Image: format pane showing the Country dropdown expanded with the
-8 countries + Custom option visible)
-
-### Slide 4 — Layers
-> Three composable visualization layers, all driven by your data:
+> Three composable layers, all driven by your data:
 > - Choropleth fill (quantile, equal-interval, or manual breaks)
 > - Bubble overlay (size by measure)
 > - Pie / Donut / Column overlay (multi-measure)
 >
-> Plus borders, halos, scale bar, two legends per layer.
+> Plus borders, halos, scale bar, three legends.
 
 (Image: a screenshot showing all three layers active simultaneously —
-e.g. choropleth + bubbles + small pies on a few states)
+e.g. choropleth + bubbles + small donuts on a few states.)
 
 ### Slide 5 — Drill + cross-filter
+
 > Click an Admin1 → drill into its Admin2 children.
 > Click any Admin2 → cross-filter the rest of the report.
 > External slicer narrows to one state → visual auto-drills.
 > "Country View" button + prev/next arrows for navigation.
 
 (Image: drill view of one state with the title pill in the top-left,
-prev/next arrows, and the localities visible)
+prev/next arrows, and the localities visible.)
 
-### Slide 6 — Outputs
-> Copy-to-clipboard exports the map as **A5 landscape PNG (300 DPI)**
-> ready for PowerPoint. Scale bar in km or miles. Latitude-aware.
+### Slide 6 — Bring your own country
+
+> 8 countries bundled today: AFG, COD, HTI, IRN, LBN, SDN, SYR, YEM.
 >
-> The whole thing is open-source. Repo:
+> Need another? Upload your own GeoJSON or TopoJSON — the visual
+> auto-detects the property names (ADM1_PCODE, ADM1_EN, ...) and
+> asks you to confirm the mapping in 4 dropdowns.
+
+(Image: the upload card UI with the field-mapping dropdowns visible.)
+
+### Slide 7 — Outputs
+
+> Export the map as **A5 landscape PNG (300 DPI)** for PowerPoint,
+> or **portable SVG** for Illustrator / Inkscape / vector tools.
+> Open-source repo:
 > <https://github.com/Nabilmg/MapVisual>
 
 (Image: PowerPoint slide with the exported PNG embedded — proves the
-end-to-end story)
+end-to-end story.)
 
 ---
 
@@ -119,9 +137,10 @@ end-to-end story)
 For best LinkedIn engagement, take these in order, on a clean
 report background:
 
-1. **Hero — choropleth + bubbles (full canvas)**
+1. **Hero — choropleth + bubbles + labels (full canvas)**
    - Bind Admin1 PCODE + Color Value + Bubble Size to a country
      with bold geography (Sudan / Yemen work great).
+   - Turn on Admin1 labels, set placement = horizontal, with halo.
    - Turn on the bubble label placement = above. Show legends in
      the bottom-right.
    - Crop the screenshot to just the visual (no Power BI chrome).
@@ -129,11 +148,11 @@ report background:
 2. **Format pane**
    - Open the format pane.
    - Expand "1. Map setup" so the country dropdown is visible.
-   - Show the numbered cards 1–14 above/below it.
+   - Scroll so the numbered cards 1–14 are visible.
    - Crop to just the format pane.
 
 3. **All-three-layers**
-   - Same data, but enable Glyph chart with 2–3 measures.
+   - Same data, but enable Pie / Column overlay with 2–3 measures.
    - Set type = donut, position labels above the donuts.
    - Crop to just the visual.
 
@@ -143,11 +162,20 @@ report background:
      arrows beside it, the focused state's Admin2 polygons, and
      dimmed neighbouring Admin1 borders.
 
-5. **PowerPoint paste**
+5. **Custom upload card**
+   - Switch Country to "Custom (upload TopoJSON)".
+   - Upload an Admin1 file so the field-mapping dropdowns appear.
+   - Screenshot the card with the mapping panel populated.
+
+6. **Shape Map vs AdminCartograph side-by-side**
+   - Render the same country in built-in Shape Map (no labels, no
+     overlays) and AdminCartograph (full labels + layers).
+   - Side-by-side screenshot. This is the most viral image possible.
+
+7. **PowerPoint paste**
    - Take a fresh PowerPoint slide.
-   - Click the clipboard button on the visual.
-   - Paste into PowerPoint — the A5 landscape image fits the slide
-     beautifully.
+   - Click the **PNG** button on the visual.
+   - Insert the downloaded `map-A5.png` into the slide.
    - Screenshot the PowerPoint slide.
 
 ## Suggested hashtags
@@ -157,8 +185,9 @@ Pick 5–8 from:
 `#PowerBI` `#DataViz` `#GIS` `#Cartography` `#OCHA` `#Humanitarian`
 `#PublicHealth` `#OpenSource` `#PCODE` `#AdminBoundaries` `#Choropleth`
 `#FieldMaps` `#TypeScript` `#DataAnalytics` `#BusinessIntelligence`
+`#SubnationalData`
 
 ## Tag suggestions
 
-If relevant to your audience: `OCHA`, `UN OCHA`, `HumanitarianData
+If relevant to your audience: `OCHA`, `UN OCHA`, `Humanitarian Data
 Exchange (HDX)`, `Microsoft Power BI`, `fieldmaps.io`.

@@ -1,11 +1,11 @@
 {
   "visual": {
-    "name": "admChoroplethBubbleMap",
-    "displayName": "ADM Choropleth + Bubble Map",
-    "guid": "admChoroplethBubbleMap1A2B3C",
+    "name": "adminCartograph",
+    "displayName": "AdminCartograph",
+    "guid": "adminCartograph2026A1Pbi",
     "visualClassName": "Visual",
     "version": "1.0.0.0",
-    "description": "Choropleth and bubble map for administrative boundaries (ADM1/ADM2) with PCODE matching. Geometry is embedded; no shapefile upload required.",
+    "description": "Multi-layer subnational map for Power BI: choropleth + bubbles + pie/donut/column overlays + drill (Admin1 → Admin2), with administrative boundaries embedded so you bind a PCODE column and the right country renders. Built on OCHA / fieldmaps.io COD geometry; supports custom GeoJSON / TopoJSON upload.",
     "supportUrl": "https://github.com/Nabilmg/MapVisual",
     "gitHubUrl": "https://github.com/Nabilmg/MapVisual"
   },
