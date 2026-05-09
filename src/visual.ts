@@ -1081,7 +1081,7 @@ export class Visual implements IVisual {
     const valueClasses = breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : [];
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
-    renderLegends(this.legendLayer, {
+    const legendFootprints = renderLegends(this.legendLayer, {
       width,
       height,
       value: valueLegend.show.value && valueClasses.length ? {
@@ -1137,14 +1137,17 @@ export class Visual implements IVisual {
 
     // Scale bar (optional). Rendered after legends so it sits on top in
     // the same screen-space layer (outside mapGroup, so it's not zoomed).
+    // When a legend already occupies the same corner, the scale bar is
+    // pushed past the legend's footprint so the two don't overlap.
     const sb = this.settings.scaleBar;
+    const sbPosition = (sb.position.value as any).value;
     renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
       show: sb.show.value,
       units: (sb.units.value as any).value,
-      position: (sb.position.value as any).value,
+      position: sbPosition,
       color: sb.color.value.value,
       fontSize: sb.fontSize.value
-    });
+    }, legendFootprints[sbPosition as keyof typeof legendFootprints]);
 
     // Wire interactivity (tooltips). Click handling is delegated through
     // handleMapClick attached once in the constructor.

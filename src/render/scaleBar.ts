@@ -24,6 +24,14 @@ export interface ScaleBarStyle {
   fontSize: number;
 }
 
+/** Existing legend footprint at the same corner, used to push the scale bar
+ * out of the way so the two don't overlap. Width / height are the outer
+ * dimensions of the legend container as rendered. */
+export interface CornerFootprint {
+  width: number;
+  height: number;
+}
+
 const KM_TO_MI = 0.621371;
 
 /**
@@ -39,7 +47,8 @@ export function renderScaleBar(
   viewportW: number,
   viewportH: number,
   zoomLevel: number,
-  style: ScaleBarStyle
+  style: ScaleBarStyle,
+  cornerFootprint?: CornerFootprint
 ): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -82,16 +91,21 @@ export function renderScaleBar(
   const bbox = { width: barPx + 2, height: tickHeight + labelGap + fontSize + 4 };
 
   // Position the bar inside the viewport with a 12 px margin from the
-  // chosen corner.
+  // chosen corner. When a legend already occupies the same corner, push
+  // the scale bar past the legend's footprint with an 8 px gap so the
+  // two don't overlap. The bar moves vertically: legends in top corners
+  // push it down, legends in bottom corners push it up.
   const margin = 12;
+  const gap = 8;
+  const legendOffset = cornerFootprint ? cornerFootprint.height + gap : 0;
   let x: number;
   let y: number;
   switch (style.position) {
-    case "topLeft":     x = margin;                              y = margin; break;
-    case "topRight":    x = viewportW - margin - bbox.width;     y = margin; break;
-    case "bottomRight": x = viewportW - margin - bbox.width;     y = viewportH - margin - bbox.height; break;
+    case "topLeft":     x = margin;                              y = margin + legendOffset; break;
+    case "topRight":    x = viewportW - margin - bbox.width;     y = margin + legendOffset; break;
+    case "bottomRight": x = viewportW - margin - bbox.width;     y = viewportH - margin - bbox.height - legendOffset; break;
     case "bottomLeft":
-    default:            x = margin;                              y = viewportH - margin - bbox.height; break;
+    default:            x = margin;                              y = viewportH - margin - bbox.height - legendOffset; break;
   }
 
   const root = sel.append("g").attr("class", "scale-bar").attr("transform", `translate(${x},${y})`);

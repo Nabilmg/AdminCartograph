@@ -57,9 +57,17 @@ export interface LegendInputs {
 
 const SIZE_SCALE: Record<LegendSize, number> = { small: 0.8, medium: 1.0, large: 1.2 };
 
-export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
+/** Outer footprint of the rendered legend container at a given corner,
+ * including padding but excluding the corner margin. Returned so callers
+ * (e.g. the scale bar) can offset themselves to avoid overlap when they
+ * share a corner. */
+export type LegendFootprint = { width: number; height: number };
+export type LegendFootprints = Partial<Record<Position, LegendFootprint>>;
+
+export function renderLegends(parent: SVGGElement, inputs: LegendInputs): LegendFootprints {
   const root = d3.select(parent);
   root.selectAll("*").remove();
+  const footprints: LegendFootprints = {};
 
   // Group legends by position so we can combine when they share a corner.
   const groups: Record<string, {
@@ -145,7 +153,9 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): void {
     else if (position === "bottomLeft") { dx = margin - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
     else { dx = inputs.width - margin - totalW - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
     group.attr("transform", `translate(${dx},${dy})`);
+    footprints[position as Position] = { width: totalW, height: totalH };
   }
+  return footprints;
 }
 
 function approxTextWidth(text: string, fontSize: number): number {
