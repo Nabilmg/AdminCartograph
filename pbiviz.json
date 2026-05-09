@@ -6,8 +6,8 @@
     "visualClassName": "Visual",
     "version": "1.0.0.0",
     "description": "Multi-layer subnational map for Power BI: choropleth + bubbles + pie/donut/column overlays + drill (Admin1 → Admin2), with administrative boundaries embedded so you bind a PCODE column and the right country renders. Built on OCHA / fieldmaps.io COD geometry; supports custom GeoJSON / TopoJSON upload.",
-    "supportUrl": "https://github.com/Nabilmg/MapVisual",
-    "gitHubUrl": "https://github.com/Nabilmg/MapVisual"
+    "supportUrl": "https://github.com/nabilaljarmozi/AdminCartograph",
+    "gitHubUrl": "https://github.com/nabilaljarmozi/AdminCartograph"
   },
   "apiVersion": "5.11.0",
   "author": {
