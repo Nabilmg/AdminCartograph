@@ -98,26 +98,30 @@ without binding and you get an explicit no-op.
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#222222` |
 
-The colour for **Name** lines.
+The colour for **Name** lines. Click the **fx** icon next to the
+swatch to bind it to a measure rule (gradient, rules, or field
+value); rules resolve per Admin1 area in country view and per
+Admin2 area in drill view. See [Conditional formatting](#conditional-formatting-fx)
+below.
 
 ### Value color
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#444444` |
 
-The colour for **Value** lines (when the value comes from the
-choropleth measure).
+The colour for **Value** lines that come from the choropleth
+measure (any Value source containing "Choropleth").
 
 ### Bubble value color
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#e6550d` (orange) |
 
 The colour for **Value** lines that come from the bubble-size
@@ -127,7 +131,7 @@ measure (any Value source containing "Bubble").
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#0f766e` (teal) |
 
 The colour for **Value** lines that come from the `Label Value 2`
@@ -186,7 +190,7 @@ Where the label is placed inside the polygon.
 
 | Option | Behaviour |
 |---|---|
-| Horizontal | Text horizontal, anchor at the polygon's interior centroid (computed via `polylabel`). |
+| Horizontal | Text horizontal, anchor at the polygon's area-weighted centroid (with a polylabel fallback for concave shapes — see [Anchor placement](#anchor-placement)). |
 | Straight | Text rotated to align with the polygon's principal axis (PCA on the projected outer ring). Tilted polygons get tilted text. Normalised to ±90° so text never appears upside down. |
 | Curved | Same axis rotation as Straight, *plus* the name line flows along a quadratic Bezier so the line bends. Distinct from Straight: Straight has zero curvature, Curved bends. |
 | Boundary | Anchor nudged toward the polygon's upper edge, leaving the centre clear. |
@@ -268,8 +272,8 @@ characters cleanly.
 | Default | On |
 
 When picking the polygon's interior anchor, ignore inner holes
-(the donut hole of an enclave). `polylabel` is given only the
-outer ring.
+(the donut hole of an enclave). The geometric centroid /
+polylabel fallback is given only the outer ring.
 
 ### Label largest polygon part
 
@@ -291,6 +295,48 @@ only the largest part instead of trying to label every component.
 Reserved for a future external-callout implementation. Currently
 unused.
 
+### Constant size on zoom
+
+| | |
+|---|---|
+| Type | Toggle |
+| Default | Off |
+
+When **on**, each label is wrapped with a `scale(1/zoom)` transform
+so it keeps its original on-screen size as the user zooms in. When
+**off** (default) labels grow with the map — the existing behaviour.
+
+Useful when you want labels to read at the same point size at every
+zoom level (e.g. a small Admin2 label that would otherwise become
+huge at 4×). Live-updated on every zoom step without re-running
+layout / fitting, so it stays snappy when the user holds the +/−
+buttons or scroll-wheels through the zoom range.
+
+Note: the toggle lives on each labels card (cards 6 / 7 / 8)
+independently, so you can keep state labels growing while pinning
+locality labels at a constant size.
+
+## Anchor placement
+
+By default each label's anchor is the polygon's **area-weighted
+geometric centroid** (`d3.polygonCentroid`) — the point most users
+intuit as "the centre of the polygon". For genuinely concave
+polygons where the centroid would land outside the outer ring (an
+L-shape, a U-shape, a polygon with a deep bay) the engine falls
+back to **polylabel** (pole of inaccessibility), which guarantees a
+point inside the polygon at the cost of biasing toward the
+polygon's widest section.
+
+For most polygons (mostly convex states / districts) the two methods
+agree to within a few pixels. The hybrid keeps elongated or
+irregular shapes — North Darfur in Sudan was the original case —
+visually centred without breaking labels for L-shaped polygons.
+
+Bubbles use the same anchor function, so each bubble sits where its
+own label would sit if no bubble were drawn. The "Avoid holes" and
+"Label largest polygon part" toggles described above feed into this
+same routine.
+
 ## Drill view: neighbour labels
 
 In Admin2 drill view, the focused state's label is promoted to a
@@ -298,10 +344,10 @@ header pill anchored top-left (using the `Admin1 labels` card's
 formatting). The other Admin1 areas around it still get on-polygon
 labels, but with two adjustments:
 
-1. Anchored 70% of the way from the polygon's interior centroid
-   toward the boundary closest to the focused state — so the label
-   sits near the shared border instead of the polygon's centroid
-   (which is often off-canvas).
+1. Anchored 70% of the way from the polygon's centroid toward the
+   boundary closest to the focused state — so the label sits near
+   the shared border instead of the polygon's centre (which is
+   often off-canvas).
 2. Rendered with `hideOnOverflow: true` and `allowOverrun: false`,
    so a label that can't fit at any size disappears entirely
    rather than spilling onto the focused state.
@@ -321,6 +367,37 @@ top-left corner of the canvas, not on the polygon. Sizing:
 
 Plus a drop shadow so the pill reads as a screen header against
 any choropleth.
+
+## Conditional formatting (fx)
+
+Four colour pickers on each labels card support per-area
+conditional formatting via the **fx** button next to the swatch:
+
+- **Color** (Name)
+- **Value color** (Choropleth value)
+- **Bubble value color**
+- **Custom value color** (Label Value 2)
+
+Click **fx** to open the standard Power BI conditional-formatting
+dialog and pick one of:
+
+| Mode | What it does |
+|---|---|
+| Format style: Gradient | Linear ramp between two or three colours, driven by a measure (e.g. lighter for low values, darker for high). |
+| Format style: Rules | Threshold-based: "if cases > 1000 then red, else if > 500 then yellow, else green". |
+| Format style: Field value | Read the colour from a column directly — your dataset stores `#ff0000` per area. |
+
+Rules resolve per row of whichever PCODE category is bound:
+**Admin1 PCODE** in country view, **Admin2 PCODE** in drill view.
+The Admin2 category wins for level-2 rows when both are bound, so
+a single rule "just works" at both levels.
+
+When the **fx** toggle is off (the default) the static value on the
+card applies to every label, identical to the pre-fx behaviour.
+
+The same fx mechanism is available on **Bubble fill color** and
+**Bubble stroke color** in card 5 (Bubbles) — see
+[Bubble Settings](Bubble-Settings.md#fill-color).
 
 ## See also
 

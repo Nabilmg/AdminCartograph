@@ -140,11 +140,16 @@ bundle). Reduce by:
 ### Labels jump around when zooming
 
 Labels recompute their anchor and fit each time the projection
-changes. With many polygons + `reduceFontSize: true`, every zoom
-triggers a fit-loop. Either:
+changes (typically driven by host resizes, not the in-canvas zoom
+buttons). With many polygons + `reduceFontSize: true`, the fit
+loop can produce small visible shifts. Remedies:
 
 - Set a fixed font size.
 - Turn off `reduceFontSize`.
+- Turn on **Constant size on zoom** in the relevant labels card —
+  the in-canvas zoom buttons then update transforms without
+  re-running the fit loop, so labels stay rock-steady at every
+  zoom level.
 
 ## Drill issues
 
