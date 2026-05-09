@@ -40,20 +40,21 @@ When on, a 3-row directional pad appears:
 Each click pans by a viewport-proportional step that **tightens at
 higher zoom levels** so you keep fine control while magnified.
 
-### Show export buttons (PNG / SVG)
+### Show export button (SVG)
 
 | | |
 |---|---|
 | Type | Toggle |
 | Default | Off |
 
-When on, two buttons appear:
+When on, an **SVG** button appears in the controls panel. Clicking
+it opens a modal with the visual's full SVG source in a textarea —
+select-all and press Ctrl/Cmd + C to copy. There is no PNG button
+and no automatic download: Power BI's iframe blocks both reliably,
+so the manual-copy modal is the only path that always works.
 
-- **PNG** — A5 landscape PNG (1748 × 1240, ~300 DPI), letterboxed
-  in white, downloaded as `map-A5.png`.
-- **SVG** — Portable SVG with inlined CSS, downloaded as `map.svg`.
-
-See [PNG and SVG Export](PNG-and-SVG-Export.md) for details.
+See [SVG Export](PNG-and-SVG-Export.md) for the full flow and
+saving-to-a-file tips.
 
 ### Position
 
@@ -133,6 +134,6 @@ Enter or Space activates them. When focused, an outline appears.
 
 ## See also
 
-- [PNG and SVG Export](PNG-and-SVG-Export.md)
+- [SVG Export](PNG-and-SVG-Export.md)
 - [Scale Bar](Scale-Bar.md)
 - [View Modes and Drill](View-Modes-and-Drill.md)
