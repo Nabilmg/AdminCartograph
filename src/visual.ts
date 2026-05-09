@@ -12,7 +12,7 @@ import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles } from "./render/bubbles";
 import { renderGlyphs, GlyphType } from "./render/glyphs";
-import { renderLabels, LabelDatum, LabelAnchorOverride } from "./render/labels";
+import { renderLabels, updateLabelTransforms, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
 import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
@@ -1063,7 +1063,7 @@ export class Visual implements IVisual {
         if (isDrill) {
           neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
         }
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides);
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel);
       }
 
       if (isDrill) {
@@ -1095,7 +1095,7 @@ export class Visual implements IVisual {
           bubbleValue: datum?.bubbleSize ?? null
         };
       });
-      renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard), localityOverrides);
+      renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard), localityOverrides, this.zoomLevel);
     } else {
       while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     }
@@ -1733,6 +1733,11 @@ export class Visual implements IVisual {
     );
     // Visible cursor cue: grab when zoomed in, default otherwise.
     this.svg.style.cursor = z > 1 ? (this.dragState ? "grabbing" : "grab") : "";
+    // Live-update labels marked "Constant size on zoom" so they keep
+    // their on-screen size as the user zooms. Walks data attributes and
+    // rewrites the per-label transform — no layout / fitting re-runs.
+    updateLabelTransforms(this.adm1LabelLayer, z);
+    updateLabelTransforms(this.adm2LabelLayer, z);
     // Re-render the scale bar so the displayed distance reflects the
     // current zoom level (the bar shrinks when zoomed in physical units
     // would, since we display "nice round" values that fit the same on-
@@ -1938,7 +1943,8 @@ export class Visual implements IVisual {
       spreadCharacters: card.spreadCharacters?.value || false,
       avoidHoles: card.avoidHoles?.value || false,
       labelLargestPart: card.labelLargestPart?.value || true,
-      allowCallout: card.allowCallout?.value || false
+      allowCallout: card.allowCallout?.value || false,
+      constantSize: card.constantSize?.value || false
     };
   }
 }
