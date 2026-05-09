@@ -64,6 +64,13 @@ export class Visual implements IVisual {
    *  immediately for snappy feedback, but the next render confirms or
    *  overrides it from whatever filter the host has applied. */
   private drilledStatePcode: string | null = null;
+  /** Pcode of an Admin1 the user explicitly drilled into via click /
+   *  prev / next. Distinct from drilledStatePcode so updates that have
+   *  nothing to do with the filter (format-pane edits, viewport resize)
+   *  don't collapse the user's manual drill. Cleared by the back button,
+   *  switching view mode away from Auto, or being overridden by a
+   *  contradictory filter. */
+  private manualDrillPcode: string | null = null;
   /** When the user hits the back button while a filter-implied drill is
    *  active, we record the pcode so the same filter context doesn't
    *  immediately re-drill back in. Cleared the moment the filter changes
@@ -267,6 +274,7 @@ export class Visual implements IVisual {
       const canDrill = !!this.cached.country.adm2 && this.cached.prepared.hasLocalityBinding;
       if (canDrill) {
         this.drilledStatePcode = pcode;
+        this.manualDrillPcode = pcode;
         this.suppressedFilterDrill = null;
       }
       this.rerender();
@@ -329,6 +337,7 @@ export class Visual implements IVisual {
       this.applyFilterDrill(prepared, country);
     } else {
       this.drilledStatePcode = null;
+      this.manualDrillPcode = null;
       this.suppressedFilterDrill = null;
     }
     const view = this.resolveViewMode(prepared, country);
@@ -351,8 +360,23 @@ export class Visual implements IVisual {
    */
   private applyFilterDrill(prepared: PreparedDataView, country: CountryGeometry): void {
     const inferred = this.inferDrillFromFilter(prepared, country);
+    // Filter context wins outright when present and not the suppressed
+    // pcode: a slicer in another visual moves the drill, regardless of
+    // whether the user's last action was a manual click. A manual drill
+    // is also overridden if the filter narrowed to a *different* Admin1.
     if (inferred && inferred !== this.suppressedFilterDrill) {
+      if (this.manualDrillPcode && this.manualDrillPcode !== inferred) {
+        this.manualDrillPcode = null;
+      }
       this.drilledStatePcode = inferred;
+      return;
+    }
+    // No filter-implied drill. Manual drills (set by click / prev / next)
+    // persist across update() calls that have nothing to do with the
+    // filter (format-pane edits, resize) — clearing them on every update
+    // was the bug that collapsed drill view when users tweaked formatting.
+    if (this.manualDrillPcode) {
+      this.drilledStatePcode = this.manualDrillPcode;
       return;
     }
     if (inferred === null) {
@@ -1537,6 +1561,7 @@ export class Visual implements IVisual {
           this.suppressedFilterDrill = this.drilledStatePcode;
         }
         this.drilledStatePcode = null;
+        this.manualDrillPcode = null;
         // Also clear any active host selection so other visuals stop
         // filtering by the state we just left.
         this.selectionManager.clear();
@@ -1571,6 +1596,7 @@ export class Visual implements IVisual {
           // will move us along too.
           this.applyAdmin1Selection(target, false);
           this.drilledStatePcode = target;
+          this.manualDrillPcode = target;
           this.suppressedFilterDrill = null;
           this.rerender();
         });
