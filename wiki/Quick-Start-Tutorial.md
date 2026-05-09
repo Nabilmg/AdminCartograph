@@ -45,8 +45,10 @@ Drag from the Fields panel:
 - `Sudan[Population]` → **Color Value** role (the Sigma sum aggregation
   is fine)
 - `Sudan[CasesReported]` → **Bubble Size** role
-- `Sudan[StateName]` → **Label Text 1** role (so labels show your
-  preferred names instead of the geometry's `ADM1_EN`)
+- `Sudan[StateName]` → **Label Text 1** role (a per-area name
+  override). To actually display it, open **6. Admin1 labels** in the
+  format pane and set **Name source = Label Text 1 (override)** —
+  otherwise labels keep using the geometry's `ADM1_EN`.
 
 The map should render: ten Sudan states coloured by population, with
 proportional bubbles sized by cases.

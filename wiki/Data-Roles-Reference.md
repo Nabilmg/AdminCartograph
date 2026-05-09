@@ -99,8 +99,13 @@ measure with the measure's display name as the label.
 |---|---|
 | **Kind** | Measure |
 | **Multiplicity** | At most 1 |
-| **What it does** | Overrides the auto-displayed number in labels. Without it, label content "Name + Value" shows the **Color Value**. With it bound, "Name + Value" shows this measure instead. |
-| **Use it when** | You want the label to show a different number than the choropleth colour. E.g. choropleth by population, label by GDP per capita. |
+| **What it does** | Provides a third numeric value for labels, on top of (or instead of) the choropleth and bubble values. Pick one of the "+ Label Value 2" / "Label Value 2 (only)" / "All three" entries in the labels card's **Value source** dropdown to actually display it. The line renders in **Custom value color** (default `#0f766e`). |
+| **Use it when** | You want the label to show a different number than the choropleth colour, or to stack 2-3 numbers per area. E.g. choropleth by population, bubble by confirmed cases, label adds GDP per capita as a third line. |
+
+> **Behaviour change.** Earlier builds silently overrode the choropleth
+> value once `Label Value 2` was bound. After AdminCartograph 1.0.x the
+> override is gone — pick the source you want explicitly via the labels
+> card's Value source dropdown.
 
 ### Tooltips
 
@@ -119,12 +124,18 @@ measure with the measure's display name as the label.
 |---|---|
 | **Kind** | Grouping |
 | **Multiplicity** | At most 1 |
-| **What it does** | Replaces the geometry's `ADM1_EN` / `ADM2_EN` name with whatever's in this column. |
-| **Use it when** | Your data has a different naming convention — e.g. "St. Petersburg" instead of the geometry's "Saint Petersburg". |
+| **What it does** | Provides a per-area name override for labels. Pick **Label Text 1 (override)** in the labels card's **Name source** dropdown to actually use it; the default ("Geometry name") keeps the bundled name. |
+| **Use it when** | Your data uses a different naming convention than the geometry — e.g. "St. Petersburg" instead of "Saint Petersburg", Arabic / Cyrillic / local-script names, or your organisation's preferred spelling. |
 
-If unbound, the visual falls back to the embedded geometry's
-`ADM1_EN` / `ADM2_EN` properties (or the PCODE itself if no name
-property is found).
+When **Name source = Label Text 1** but no override is bound, the
+visual safely falls back to the embedded geometry's `ADM1_EN` /
+`ADM2_EN` (or the PCODE if no name property exists). Picking the
+option without the binding is a safe no-op.
+
+> **Behaviour change.** Earlier builds silently overrode the geometry
+> name once `Label Text 1` was bound. After AdminCartograph 1.0.x the
+> override is gone — switch **Name source** to *Label Text 1
+> (override)* in the labels card to use it.
 
 ## Worked example
 
