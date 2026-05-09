@@ -237,18 +237,33 @@
             ]
           }
         },
+        "nameSource": {
+          "displayName": "Name source",
+          "description": "Pick which name to show. Geometry name uses ADM*_EN from the bundled geometry; Label Text 1 uses the bound override column.",
+          "type": {
+            "enumeration": [
+              { "value": "geometry", "displayName": "Geometry name" },
+              { "value": "labelText1", "displayName": "Label Text 1 (override)" }
+            ]
+          }
+        },
         "valueSource": {
           "displayName": "Value source",
-          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "description": "Which numeric values to show. Combinations including 'Label Value 2' require that role to be bound.",
           "type": {
             "enumeration": [
               { "value": "choropleth", "displayName": "Choropleth value" },
               { "value": "bubble", "displayName": "Bubble value" },
-              { "value": "both", "displayName": "Both (different colors)" }
+              { "value": "both", "displayName": "Choropleth + Bubble" },
+              { "value": "custom", "displayName": "Label Value 2 (only)" },
+              { "value": "choropleth_custom", "displayName": "Choropleth + Label Value 2" },
+              { "value": "bubble_custom", "displayName": "Bubble + Label Value 2" },
+              { "value": "all", "displayName": "All three (Choropleth + Bubble + Label Value 2)" }
             ]
           }
         },
         "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
+        "customValueColor": { "displayName": "Custom value color (Label Value 2)", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {
@@ -306,18 +321,33 @@
             ]
           }
         },
+        "nameSource": {
+          "displayName": "Name source",
+          "description": "Pick which name to show. Geometry name uses ADM*_EN from the bundled geometry; Label Text 1 uses the bound override column.",
+          "type": {
+            "enumeration": [
+              { "value": "geometry", "displayName": "Geometry name" },
+              { "value": "labelText1", "displayName": "Label Text 1 (override)" }
+            ]
+          }
+        },
         "valueSource": {
           "displayName": "Value source",
-          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "description": "Which numeric values to show. Combinations including 'Label Value 2' require that role to be bound.",
           "type": {
             "enumeration": [
               { "value": "choropleth", "displayName": "Choropleth value" },
               { "value": "bubble", "displayName": "Bubble value" },
-              { "value": "both", "displayName": "Both (different colors)" }
+              { "value": "both", "displayName": "Choropleth + Bubble" },
+              { "value": "custom", "displayName": "Label Value 2 (only)" },
+              { "value": "choropleth_custom", "displayName": "Choropleth + Label Value 2" },
+              { "value": "bubble_custom", "displayName": "Bubble + Label Value 2" },
+              { "value": "all", "displayName": "All three (Choropleth + Bubble + Label Value 2)" }
             ]
           }
         },
         "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
+        "customValueColor": { "displayName": "Custom value color (Label Value 2)", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {
@@ -375,18 +405,33 @@
             ]
           }
         },
+        "nameSource": {
+          "displayName": "Name source",
+          "description": "Pick which name to show. Geometry name uses ADM*_EN from the bundled geometry; Label Text 1 uses the bound override column.",
+          "type": {
+            "enumeration": [
+              { "value": "geometry", "displayName": "Geometry name" },
+              { "value": "labelText1", "displayName": "Label Text 1 (override)" }
+            ]
+          }
+        },
         "valueSource": {
           "displayName": "Value source",
-          "description": "Which numeric value to show. Overridden by Label Value 2 when bound.",
+          "description": "Which numeric values to show. Combinations including 'Label Value 2' require that role to be bound.",
           "type": {
             "enumeration": [
               { "value": "choropleth", "displayName": "Choropleth value" },
               { "value": "bubble", "displayName": "Bubble value" },
-              { "value": "both", "displayName": "Both (different colors)" }
+              { "value": "both", "displayName": "Choropleth + Bubble" },
+              { "value": "custom", "displayName": "Label Value 2 (only)" },
+              { "value": "choropleth_custom", "displayName": "Choropleth + Label Value 2" },
+              { "value": "bubble_custom", "displayName": "Bubble + Label Value 2" },
+              { "value": "all", "displayName": "All three (Choropleth + Bubble + Label Value 2)" }
             ]
           }
         },
         "bubbleValueColor": { "displayName": "Bubble value color", "type": { "fill": { "solid": { "color": true } } } },
+        "customValueColor": { "displayName": "Custom value color (Label Value 2)", "type": { "fill": { "solid": { "color": true } } } },
         "placement": {
           "displayName": "Placement",
           "type": {

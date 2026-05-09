@@ -1042,7 +1042,8 @@ export class Visual implements IVisual {
           return {
             feature: f,
             pcode: f.properties.ADM1_PCODE,
-            name: (datum?.labelText1 || datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            name: (datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            nameOverride: datum?.labelText1 ?? null,
             value: datum?.colorValue ?? null,
             value2: datum?.labelValue2 ?? null,
             bubbleValue: datum?.bubbleSize ?? null
@@ -1087,7 +1088,8 @@ export class Visual implements IVisual {
         return {
           feature: f,
           pcode: f.properties.ADM2_PCODE,
-          name: (datum?.labelText1 || datum?.name || f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
+          name: (datum?.name || f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
+          nameOverride: datum?.labelText1 ?? null,
           value: datum?.colorValue ?? null,
           value2: datum?.labelValue2 ?? null,
           bubbleValue: datum?.bubbleSize ?? null
@@ -1252,28 +1254,32 @@ export class Visual implements IVisual {
     const fmtCard = this.styleFromCard(card);
     const lines: { text: string; kind: "name" | "value" }[] = [];
 
-    const name = (datum?.labelText1 || datum?.name || feature.properties.ADM1_EN || feature.properties.ADM1_PCODE) as string;
-    // Same priority as the on-polygon labels:
-    //   value2 (Label Value 2)      -> single line, valueColor
-    //   else choropleth -> single line, valueColor
-    //   else bubble     -> single line, bubbleValueColor
-    //   else both       -> two lines (color value, then bubble value)
+    // Pick the area name. nameSource = "labelText1" uses the bound
+    // override when present and falls back to the geometry name when not.
+    const nameSource: string = (card.nameSource?.value as any)?.value || "geometry";
+    const name = (
+      nameSource === "labelText1" && datum?.labelText1
+        ? datum.labelText1
+        : (datum?.name || feature.properties.ADM1_EN || feature.properties.ADM1_PCODE)
+    ) as string;
+
+    // Decode value source the same way as on-polygon labels: each source
+    // contributes its own line in display order (choropleth → bubble →
+    // custom). Custom only renders when Label Value 2 is bound.
     const valueColor = card.valueColor.value.value;
     const bubbleValueColor = card.bubbleValueColor?.value?.value || "#e6550d";
+    const customValueColor = card.customValueColor?.value?.value || "#0f766e";
     const source: string = (card.valueSource?.value as any)?.value || "choropleth";
-    const numericLines: { text: string; kind: "value" }[] = [];
+    const wants = {
+      choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
+      bubble: source === "bubble" || source === "both" || source === "bubble_custom" || source === "all",
+      custom: source === "custom" || source === "choropleth_custom" || source === "bubble_custom" || source === "all"
+    };
     type NumericPair = { text: string; color: string };
     const numericRows: NumericPair[] = [];
-    if (datum?.labelValue2 != null) {
-      numericRows.push({ text: this.fmt(datum.labelValue2, fmtCard), color: valueColor });
-    } else if (source === "bubble") {
-      if (datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
-    } else if (source === "both") {
-      if (datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
-      if (datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
-    } else {
-      if (datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
-    }
+    if (wants.choropleth && datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
+    if (wants.bubble && datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
+    if (wants.custom && datum?.labelValue2 != null) numericRows.push({ text: this.fmt(datum.labelValue2, fmtCard), color: customValueColor });
 
     type HeaderLine = { text: string; kind: "name" | "value"; color: string };
     const headerLines: HeaderLine[] = [];
@@ -1914,7 +1920,9 @@ export class Visual implements IVisual {
       color: card.color.value.value,
       valueColor: card.valueColor.value.value,
       bubbleValueColor: card.bubbleValueColor?.value?.value || "#e6550d",
+      customValueColor: card.customValueColor?.value?.value || "#0f766e",
       valueSource: (card.valueSource?.value as any)?.value || "choropleth",
+      nameSource: (card.nameSource?.value as any)?.value || "geometry",
       bold: card.bold.value,
       italic: card.italic.value,
       haloColor: card.haloColor.value.value,

@@ -132,15 +132,29 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
     color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color", value: { value: defaults.color ?? "#222222" } });
     valueColor = new formattingSettings.ColorPicker({ name: "valueColor", displayName: "Value color", value: { value: "#444444" } });
     bubbleValueColor = new formattingSettings.ColorPicker({ name: "bubbleValueColor", displayName: "Bubble value color", value: { value: "#e6550d" } });
+    customValueColor = new formattingSettings.ColorPicker({ name: "customValueColor", displayName: "Custom value color (Label Value 2)", value: { value: "#0f766e" } });
     valueSource = new formattingSettings.ItemDropdown({
       name: "valueSource",
       displayName: "Value source",
       items: [
         { value: "choropleth", displayName: "Choropleth value" },
         { value: "bubble", displayName: "Bubble value" },
-        { value: "both", displayName: "Both (different colors)" }
+        { value: "both", displayName: "Choropleth + Bubble" },
+        { value: "custom", displayName: "Label Value 2 (only)" },
+        { value: "choropleth_custom", displayName: "Choropleth + Label Value 2" },
+        { value: "bubble_custom", displayName: "Bubble + Label Value 2" },
+        { value: "all", displayName: "All three (Choropleth + Bubble + Label Value 2)" }
       ],
       value: { value: "choropleth", displayName: "Choropleth value" }
+    });
+    nameSource = new formattingSettings.ItemDropdown({
+      name: "nameSource",
+      displayName: "Name source",
+      items: [
+        { value: "geometry", displayName: "Geometry name" },
+        { value: "labelText1", displayName: "Label Text 1 (override)" }
+      ],
+      value: { value: "geometry", displayName: "Geometry name" }
     });
     bold = new formattingSettings.ToggleSwitch({ name: "bold", displayName: "Bold", value: defaults.bold ?? false });
     italic = new formattingSettings.ToggleSwitch({ name: "italic", displayName: "Italic", value: false });
@@ -181,7 +195,7 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
 
     name = cardName;
     displayName = cardDisplayName;
-    slices = [this.show, this.content, this.valueSource, this.fontFamily, this.fontSize, this.color, this.valueColor, this.bubbleValueColor, this.bold, this.italic, this.haloColor, this.haloWidth, this.decimals, this.format, this.placement, this.wordsOnSeparateLines, this.stackWhenNeeded, this.reduceFontSize, this.allowOverrun, this.abbreviate, this.spreadCharacters, this.avoidHoles, this.labelLargestPart, this.allowCallout];
+    slices = [this.show, this.content, this.nameSource, this.valueSource, this.fontFamily, this.fontSize, this.color, this.valueColor, this.bubbleValueColor, this.customValueColor, this.bold, this.italic, this.haloColor, this.haloWidth, this.decimals, this.format, this.placement, this.wordsOnSeparateLines, this.stackWhenNeeded, this.reduceFontSize, this.allowOverrun, this.abbreviate, this.spreadCharacters, this.avoidHoles, this.labelLargestPart, this.allowCallout];
   };
 }
 
