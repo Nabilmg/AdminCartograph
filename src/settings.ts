@@ -192,10 +192,11 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
     avoidHoles = new formattingSettings.ToggleSwitch({ name: "avoidHoles", displayName: "Avoid holes", value: true });
     labelLargestPart = new formattingSettings.ToggleSwitch({ name: "labelLargestPart", displayName: "Label largest polygon part", value: true });
     allowCallout = new formattingSettings.ToggleSwitch({ name: "allowCallout", displayName: "Allow callout if outside", value: true });
+    constantSize = new formattingSettings.ToggleSwitch({ name: "constantSize", displayName: "Constant size on zoom", value: false });
 
     name = cardName;
     displayName = cardDisplayName;
-    slices = [this.show, this.content, this.nameSource, this.valueSource, this.fontFamily, this.fontSize, this.color, this.valueColor, this.bubbleValueColor, this.customValueColor, this.bold, this.italic, this.haloColor, this.haloWidth, this.decimals, this.format, this.placement, this.wordsOnSeparateLines, this.stackWhenNeeded, this.reduceFontSize, this.allowOverrun, this.abbreviate, this.spreadCharacters, this.avoidHoles, this.labelLargestPart, this.allowCallout];
+    slices = [this.show, this.content, this.nameSource, this.valueSource, this.fontFamily, this.fontSize, this.color, this.valueColor, this.bubbleValueColor, this.customValueColor, this.bold, this.italic, this.haloColor, this.haloWidth, this.decimals, this.format, this.placement, this.wordsOnSeparateLines, this.stackWhenNeeded, this.reduceFontSize, this.allowOverrun, this.abbreviate, this.spreadCharacters, this.avoidHoles, this.labelLargestPart, this.allowCallout, this.constantSize];
   };
 }
 

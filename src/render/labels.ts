@@ -49,6 +49,10 @@ export interface LabelStyle {
   avoidHoles: boolean;
   labelLargestPart: boolean;
   allowCallout: boolean;
+  /** When on, each label is wrapped with a `scale(1/zoom)` transform so
+   *  it keeps its original on-screen size as the user zooms in. Default
+   *  off — labels grow with the map. */
+  constantSize: boolean;
   /**
    * If true, drop the label entirely when it cannot be made to fit inside
    * its polygon's bounding box (after stack / abbreviate / reduce-font).
@@ -95,7 +99,8 @@ export function renderLabels(
   path: GeoPath,
   labels: LabelDatum[],
   style: LabelStyle,
-  anchorOverrides?: Map<string, LabelAnchorOverride>
+  anchorOverrides?: Map<string, LabelAnchorOverride>,
+  currentZoom: number = 1
 ): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -123,7 +128,16 @@ export function renderLabels(
     const fontStyle = style.italic ? "italic" : "normal";
     const fontWeight = style.bold ? "600" : "400";
 
-    const g = sel.append("g").attr("class", "map-label").attr("transform", `translate(${px},${py})`);
+    const g = sel.append("g").attr("class", "map-label");
+    // Stash the placement params so a later zoom step can rebuild the
+    // transform without re-running the (expensive) layout / fitting
+    // pipeline. updateLabelTransforms reads these.
+    g.attr("data-anchor-x", String(px));
+    g.attr("data-anchor-y", String(py));
+    g.attr("data-anchor-dy", "0");
+    g.attr("data-rotation", "0");
+    if (style.constantSize) g.attr("data-constant-size", "1");
+    applyLabelTransform(g.node() as SVGGElement, currentZoom);
 
     let baseFontSize = style.fontSize;
     let renderedLines = lines.slice();
@@ -199,7 +213,9 @@ export function renderLabels(
       dy = -(h / 2) * 0.55;
     }
     if (rotation || dy) {
-      g.attr("transform", `translate(${px},${py + dy}) rotate(${rotation})`);
+      g.attr("data-anchor-dy", String(dy));
+      g.attr("data-rotation", String(rotation));
+      applyLabelTransform(g.node() as SVGGElement, currentZoom);
     }
 
     const useCurvedPath = style.placement === "curved" && !!bbox && renderedLines.some((l) => l.kind === "name");
@@ -277,6 +293,31 @@ interface ComposedLine {
    *  uses bubbleValueColor; "custom_value" uses customValueColor (Label
    *  Value 2 binding). */
   kind: "name" | "value" | "bubble_value" | "custom_value";
+}
+
+/** Build a per-label transform from data-* attributes. Embeds a
+ *  scale(1/zoom) when constantSize is on so the label stays at its
+ *  original on-screen size as the user zooms in. */
+function applyLabelTransform(g: SVGGElement, zoom: number): void {
+  const x = parseFloat(g.getAttribute("data-anchor-x") || "0");
+  const y = parseFloat(g.getAttribute("data-anchor-y") || "0");
+  const dy = parseFloat(g.getAttribute("data-anchor-dy") || "0");
+  const rot = parseFloat(g.getAttribute("data-rotation") || "0");
+  const constant = g.getAttribute("data-constant-size") === "1";
+  const s = constant && zoom > 0 ? 1 / zoom : 1;
+  const parts: string[] = [`translate(${x},${y + dy})`];
+  if (s !== 1) parts.push(`scale(${s})`);
+  if (rot) parts.push(`rotate(${rot})`);
+  g.setAttribute("transform", parts.join(" "));
+}
+
+/** Walk a label layer and re-apply the per-label transform with the
+ *  given zoom level. Used so label-size updates feel snappy without
+ *  re-running the layout / fitting pipeline. */
+export function updateLabelTransforms(parent: SVGGElement, zoom: number): void {
+  if (!parent) return;
+  const groups = parent.querySelectorAll<SVGGElement>(":scope > g.map-label, :scope g.map-label");
+  groups.forEach((g) => applyLabelTransform(g, zoom));
 }
 
 /** Decode the valueSource enum into a per-source on/off flag set. */

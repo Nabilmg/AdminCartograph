@@ -283,7 +283,8 @@
         "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
         "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
         "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
-        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } },
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, labels keep their on-screen size as the user zooms in. Default off — labels grow with the map.", "type": { "bool": true } }
       }
     },
 
@@ -367,7 +368,8 @@
         "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
         "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
         "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
-        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } },
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, labels keep their on-screen size as the user zooms in. Default off — labels grow with the map.", "type": { "bool": true } }
       }
     },
 
@@ -451,7 +453,8 @@
         "spreadCharacters": { "displayName": "Spread characters", "type": { "bool": true } },
         "avoidHoles": { "displayName": "Avoid holes", "type": { "bool": true } },
         "labelLargestPart": { "displayName": "Label largest polygon part", "type": { "bool": true } },
-        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } }
+        "allowCallout": { "displayName": "Allow callout if outside", "type": { "bool": true } },
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, labels keep their on-screen size as the user zooms in. Default off — labels grow with the map.", "type": { "bool": true } }
       }
     },
 
