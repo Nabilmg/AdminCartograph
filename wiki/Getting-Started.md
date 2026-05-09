@@ -7,7 +7,7 @@ in Power BI Desktop with my data".
 
 | Thing | Why |
 |---|---|
-| `releases/AdminCartograph.pbiviz` | The visual itself. Get it from the [releases folder on GitHub](https://github.com/Nabilmg/AdminCartograph/tree/base/releases) or build it yourself (see [Build Pipeline](Build-Pipeline.md)). |
+| `releases/AdminCartograph.pbiviz` | The visual itself. Get it from the [releases folder on GitHub](https://github.com/nabilaljarmozi/AdminCartograph/tree/base/releases) or build it yourself (see [Build Pipeline](Build-Pipeline.md)). |
 | Power BI Desktop *or* a Power BI Service workspace | Either works. Desktop is the easiest place to test. |
 | A table with at least one **PCODE** column | The visual joins your data to geometry by PCODE. If you have OCHA Common Operational Datasets data already, you have PCODEs. |
 

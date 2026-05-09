@@ -79,4 +79,4 @@ manual.
 ---
 
 If you hit something this wiki doesn't answer, open an issue on
-[github.com/Nabilmg/AdminCartograph](https://github.com/Nabilmg/AdminCartograph).
+[github.com/nabilaljarmozi/AdminCartograph](https://github.com/nabilaljarmozi/AdminCartograph).

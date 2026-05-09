@@ -159,7 +159,7 @@ order in `cards = [...]` in `src/settings.ts`, then rebuild. See
 
 ## Where can I file bugs?
 
-[github.com/Nabilmg/AdminCartograph/issues](https://github.com/Nabilmg/AdminCartograph/issues).
+[github.com/nabilaljarmozi/AdminCartograph/issues](https://github.com/nabilaljarmozi/AdminCartograph/issues).
 Include browser / Power BI version, repro steps, and console output
 if relevant.
 
@@ -172,7 +172,7 @@ licence per country.
 ## Who built it?
 
 Built by the AdminCartograph contributors. See the
-[GitHub repo](https://github.com/Nabilmg/AdminCartograph) for the
+[GitHub repo](https://github.com/nabilaljarmozi/AdminCartograph) for the
 full history.
 
 ## See also

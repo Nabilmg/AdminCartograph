@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Symptoms, causes, and fixes for the most common issues. Open an
-issue at [github.com/Nabilmg/AdminCartograph](https://github.com/Nabilmg/AdminCartograph)
+issue at [github.com/nabilaljarmozi/AdminCartograph](https://github.com/nabilaljarmozi/AdminCartograph)
 if you hit something this page doesn't cover.
 
 ## The visual won't render
@@ -258,7 +258,7 @@ Right-click the visual → Inspect → Console to see them.
 Open a GitHub issue at:
 
 ```
-https://github.com/Nabilmg/AdminCartograph/issues
+https://github.com/nabilaljarmozi/AdminCartograph/issues
 ```
 
 Include:
