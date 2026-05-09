@@ -1665,23 +1665,11 @@ export class Visual implements IVisual {
     }
 
     if (cs.showExport.value) {
-      const png = document.createElement("button");
-      png.className = "adm-zoom-button adm-export-button";
-      png.type = "button";
-      png.setAttribute("aria-label", "Copy PNG to clipboard (A5 landscape)");
-      png.title = "Copy PNG to clipboard (A5)";
-      png.innerHTML = "PNG";
-      png.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.exportPng(png);
-      });
-      panel.appendChild(png);
-
       const svg = document.createElement("button");
       svg.className = "adm-zoom-button adm-export-button";
       svg.type = "button";
-      svg.setAttribute("aria-label", "Copy SVG to clipboard (vector)");
-      svg.title = "Copy SVG to clipboard";
+      svg.setAttribute("aria-label", "Show SVG source for manual copy");
+      svg.title = "Show SVG source — select all and copy";
       svg.innerHTML = "SVG";
       svg.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1764,117 +1752,23 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Export the current map as a PNG copied to the clipboard.
-   * A5 landscape (1748 x 1240 ≈ 300 DPI), source visual letterboxed
-   * in white. Falls back to the SVG-code modal when the host blocks
-   * navigator.clipboard.write([ClipboardItem]) (most Power BI hosts
-   * actually do block image clipboard writes).
+   * Export the current map by showing its SVG source in a modal so the
+   * user can select-all and copy with Ctrl/Cmd+C. Clipboard APIs are
+   * unreliable inside the Power BI iframe, so we skip them entirely
+   * and rely on manual copy. Paste into a text file with a .svg
+   * extension or directly into Inkscape / Illustrator / a browser.
    */
-  private async exportPng(btn: HTMLButtonElement): Promise<void> {
-    const A5_WIDTH = 1748;
-    const A5_HEIGHT = 1240;
+  private exportSvg(btn: HTMLButtonElement): void {
     const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = "…";
     try {
       const built = this.buildExportSvg();
       if (!built) throw new Error("could not build export SVG");
-      const svgBlob = new Blob([built.xml], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
-      let img: HTMLImageElement;
-      try {
-        img = await loadImage(url, 6000);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = A5_WIDTH;
-      canvas.height = A5_HEIGHT;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, A5_WIDTH, A5_HEIGHT);
-      const scale = Math.min(A5_WIDTH / built.width, A5_HEIGHT / built.height);
-      const drawW = built.width * scale;
-      const drawH = built.height * scale;
-      const dx = (A5_WIDTH - drawW) / 2;
-      const dy = (A5_HEIGHT - drawH) / 2;
-      ctx.drawImage(img, dx, dy, drawW, drawH);
-      const blob: Blob = await new Promise((res, rej) =>
-        canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas.toBlob returned null"))), "image/png")
-      );
-
-      // Try Async Clipboard write of the PNG. ClipboardItem with
-      // image/png is restricted: requires a secure context, a user
-      // gesture (we have one — the click), AND host permission. Power
-      // BI Service often refuses; we fall back to the SVG modal so
-      // the user always has SOMETHING to copy.
-      const navAny = navigator as any;
-      const ClipboardItemCtor = (window as any).ClipboardItem;
-      let copied = false;
-      if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof ClipboardItemCtor === "function") {
-        try {
-          await navAny.clipboard.write([new ClipboardItemCtor({ "image/png": blob })]);
-          copied = true;
-        } catch (err) {
-          console.warn("[ADM Map export] PNG clipboard write blocked:", err);
-        }
-      }
-
-      if (copied) {
-        btn.innerHTML = checkIconSvg();
-        btn.title = "PNG copied to clipboard. Paste into PowerPoint / Word / chat.";
-        console.info("[ADM Map export] PNG copied to clipboard.");
-        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy PNG to clipboard (A5)"; }, 1800);
-      } else {
-        // Show the SVG modal so the user has a manual copy path. PNG
-        // can't be shown as text, but the same image is encoded in the
-        // SVG (with all CSS inlined) and can be pasted into anything
-        // that accepts SVG (PowerPoint Insert SVG, Inkscape, etc.).
-        this.showCopyCodeModal(built.xml, "PNG clipboard blocked by Power BI — copy this SVG instead", btn, original);
-      }
-    } catch (e) {
-      console.error("[ADM Map export] PNG export failed:", e);
-      btn.innerHTML = errorIconSvg();
-      btn.title = `PNG export failed: ${describeError(e)}`;
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy PNG to clipboard (A5)"; }, 2500);
-    }
-  }
-
-  /**
-   * Export the current map as an SVG copied to the clipboard.
-   * navigator.clipboard.writeText is more permissive than the PNG
-   * path — most hosts allow text writes from a user gesture. If even
-   * that is blocked, fall back to the modal.
-   */
-  private async exportSvg(btn: HTMLButtonElement): Promise<void> {
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    try {
-      const built = this.buildExportSvg();
-      if (!built) throw new Error("could not build export SVG");
-      const navAny = navigator as any;
-      let copied = false;
-      if (navAny.clipboard && typeof navAny.clipboard.writeText === "function") {
-        try {
-          await navAny.clipboard.writeText(built.xml);
-          copied = true;
-        } catch (err) {
-          console.warn("[ADM Map export] SVG clipboard write blocked:", err);
-        }
-      }
-      if (copied) {
-        btn.innerHTML = checkIconSvg();
-        btn.title = "SVG copied to clipboard. Paste into a text file with .svg extension or directly into Inkscape / Illustrator.";
-        console.info("[ADM Map export] SVG copied to clipboard.");
-        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy SVG to clipboard"; }, 1800);
-      } else {
-        this.showCopyCodeModal(built.xml, "SVG clipboard blocked by Power BI — copy the code manually", btn, original);
-      }
+      this.showCopyCodeModal(built.xml, "Select all, then press Ctrl/Cmd+C to copy.", btn, original);
     } catch (e) {
       console.error("[ADM Map export] SVG export failed:", e);
       btn.innerHTML = errorIconSvg();
       btn.title = `SVG export failed: ${describeError(e)}`;
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy SVG to clipboard"; }, 2500);
+      setTimeout(() => { btn.innerHTML = original; btn.title = "Show SVG source — select all and copy"; }, 2500);
     }
   }
 
@@ -2075,31 +1969,6 @@ function collectVisualCss(): string {
   return out.join("\n");
 }
 
-function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    let done = false;
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      reject(new Error(`SVG image load timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-    img.onload = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      resolve(img);
-    };
-    img.onerror = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      reject(new Error("SVG image failed to load (rasteriser rejected the SVG)"));
-    };
-    img.src = src;
-  });
-}
-
 function describeError(err: any): string {
   if (!err) return "unknown error";
   if (err instanceof Error) return err.message || err.name || "error";
@@ -2227,15 +2096,6 @@ function formatTooltipNumber(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function clipboardIconSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="4" rx="1"></rect><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"></path></svg>`;
-}
-function checkIconSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-}
-function downloadIconSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-}
 function errorIconSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
 }
