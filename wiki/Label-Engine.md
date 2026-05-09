@@ -28,9 +28,27 @@ What the label shows.
 
 | Option | What it draws |
 |---|---|
-| **Name only** | The polygon's name. Sources, in priority order: `Label Text 1` (if bound) → polygon's `ADM1_EN` / `ADM2_EN` → polygon's PCODE. |
-| **Value only** | The polygon's number — see "Value source" below. |
-| **Name + value** | Two lines: name on top, value beneath. |
+| **Name only** | The polygon's name — see *Name source* below. |
+| **Value only** | The polygon's number — see *Value source* below. |
+| **Name + value** | Name lines on top, value lines beneath. |
+
+### Name source
+
+| | |
+|---|---|
+| Type | Dropdown |
+| Default | Geometry name |
+| Options | Geometry name, Label Text 1 (override) |
+
+Picks where the area name comes from.
+
+| Option | Draws |
+|---|---|
+| Geometry name (default) | The polygon's bundled `ADM1_EN` / `ADM2_EN`, or its PCODE when neither exists. |
+| Label Text 1 (override) | The string from the `Label Text 1` data role. Falls back to the geometry name when nothing is bound, so picking this option without binding the role is a safe no-op. |
+
+This is explicit: nothing happens silently. Bind `Label Text 1` for
+localised names, then flip the dropdown to use them.
 
 ### Value source
 
@@ -38,17 +56,29 @@ What the label shows.
 |---|---|
 | Type | Dropdown |
 | Default | Choropleth value |
-| Options | Choropleth value, Bubble value, Both (different colors) |
+| Options | Choropleth value, Bubble value, Choropleth + Bubble, Label Value 2 (only), Choropleth + Label Value 2, Bubble + Label Value 2, All three |
 
-Which numeric value the label shows when *Label Value 2* is **not**
-bound. (When `Label Value 2` IS bound, that single number is shown
-regardless of this setting — the explicit user binding wins.)
+Picks which numeric line(s) the label shows. Each chosen source
+contributes its own line in display order: choropleth → bubble →
+custom (Label Value 2). Sources that include "Label Value 2" only
+contribute a line when the role is actually bound — pick the option
+without binding and you get an explicit no-op.
 
 | Option | Draws |
 |---|---|
-| Choropleth value (default) | The colour-driving measure |
-| Bubble value | The bubble-size-driving measure |
-| Both (different colors) | Two value lines: choropleth value in **Value color**, bubble value in **Bubble value color** |
+| Choropleth value (default) | The colour-driving measure, painted in **Value color**. |
+| Bubble value | The bubble-size-driving measure, painted in **Bubble value color**. |
+| Choropleth + Bubble | Two lines: choropleth in **Value color**, bubble in **Bubble value color**. |
+| Label Value 2 (only) | Just the bound `Label Value 2`, painted in **Custom value color**. |
+| Choropleth + Label Value 2 | Two lines: choropleth + custom value, in their respective colours. |
+| Bubble + Label Value 2 | Two lines: bubble + custom value. |
+| All three | Three lines: choropleth, bubble, custom — each in its own colour. |
+
+> **Heads-up if you upgrade an existing report.** Previous builds
+> silently overrode the value source when `Label Value 2` was bound.
+> After this change the override is gone — pick a "+ Label Value 2"
+> combination explicitly to keep showing it. Same for `Label Text 1`
+> (now requires *Name source = Label Text 1*).
 
 ### Font family
 
@@ -91,7 +121,18 @@ choropleth measure).
 | Default | `#e6550d` (orange) |
 
 The colour for **Value** lines that come from the bubble-size
-measure (when Value source is `bubble` or `both`).
+measure (any Value source containing "Bubble").
+
+### Custom value color (Label Value 2)
+
+| | |
+|---|---|
+| Type | Colour picker |
+| Default | `#0f766e` (teal) |
+
+The colour for **Value** lines that come from the `Label Value 2`
+data role (any Value source containing "Label Value 2"). Defaults
+to teal to read distinctly from the choropleth and bubble lines.
 
 ### Bold / Italic
 
