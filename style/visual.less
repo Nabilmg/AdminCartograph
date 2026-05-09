@@ -138,6 +138,121 @@
     letter-spacing: 0.4px;
   }
 
+  // Modal that appears when clipboard write is blocked. The user
+  // selects the SVG text manually and presses Ctrl/Cmd+C.
+  .adm-copy-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    z-index: 100;
+
+    .adm-copy-modal-card {
+      width: min(640px, 90%);
+      max-height: 80%;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+      padding: 18px 20px;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: #1f2933;
+    }
+
+    .adm-copy-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+
+      strong { font-size: 14px; }
+      .adm-copy-modal-close {
+        background: none;
+        border: 0;
+        cursor: pointer;
+        font-size: 22px;
+        line-height: 1;
+        color: #64748b;
+        padding: 0 4px;
+        &:hover { color: #1f2933; }
+      }
+    }
+
+    .adm-copy-modal-subtitle {
+      margin: 0 0 8px;
+      font-size: 11px;
+      color: #c0392b;
+    }
+
+    .adm-copy-modal-instructions {
+      margin: 0 0 10px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #4a5568;
+      kbd {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-family: "Segoe UI", monospace;
+        font-size: 11px;
+      }
+      code {
+        background: #f1f5f9;
+        padding: 0 4px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+    }
+
+    .adm-copy-modal-textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 220px;
+      font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      resize: vertical;
+      background: #f8fafc;
+      color: #1f2933;
+      &:focus { outline: 2px solid #0078d4; outline-offset: 1px; }
+    }
+
+    .adm-copy-modal-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+
+      button {
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .adm-copy-modal-select { background: #f1f5f9; border: 1px solid #cbd5e1; color: #1f2933; }
+      .adm-copy-modal-select:hover { background: #e2e8f0; }
+      .adm-copy-modal-copy { background: #0078d4; border: 1px solid #0067b8; color: #fff; }
+      .adm-copy-modal-copy:hover { background: #0067b8; }
+      .adm-copy-modal-close-btn { background: #f1f5f9; border: 1px solid #cbd5e1; color: #1f2933; }
+      .adm-copy-modal-close-btn:hover { background: #e2e8f0; }
+
+      .adm-copy-modal-status {
+        font-size: 11px;
+        color: #16a34a;
+      }
+      .adm-copy-modal-spacer { flex: 1; }
+    }
+  }
+
   .adm-nav-button {
     width: 28px;
     height: 28px;

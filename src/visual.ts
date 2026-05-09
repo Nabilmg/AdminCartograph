@@ -1668,8 +1668,8 @@ export class Visual implements IVisual {
       const png = document.createElement("button");
       png.className = "adm-zoom-button adm-export-button";
       png.type = "button";
-      png.setAttribute("aria-label", "Export as PNG (A5 landscape)");
-      png.title = "Export as PNG (A5 landscape, ~300 DPI)";
+      png.setAttribute("aria-label", "Copy PNG to clipboard (A5 landscape)");
+      png.title = "Copy PNG to clipboard (A5)";
       png.innerHTML = "PNG";
       png.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1680,8 +1680,8 @@ export class Visual implements IVisual {
       const svg = document.createElement("button");
       svg.className = "adm-zoom-button adm-export-button";
       svg.type = "button";
-      svg.setAttribute("aria-label", "Export as SVG (vector)");
-      svg.title = "Export as SVG (vector, opens in a browser / Illustrator)";
+      svg.setAttribute("aria-label", "Copy SVG to clipboard (vector)");
+      svg.title = "Copy SVG to clipboard";
       svg.innerHTML = "SVG";
       svg.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1764,9 +1764,11 @@ export class Visual implements IVisual {
   }
 
   /**
-   * Export the current map as a PNG. A5 landscape (1748 x 1240 ≈ 300 DPI),
-   * source visual letterboxed in white. Triggers a browser download —
-   * no clipboard call, so it works on every Power BI host.
+   * Export the current map as a PNG copied to the clipboard.
+   * A5 landscape (1748 x 1240 ≈ 300 DPI), source visual letterboxed
+   * in white. Falls back to the SVG-code modal when the host blocks
+   * navigator.clipboard.write([ClipboardItem]) (most Power BI hosts
+   * actually do block image clipboard writes).
    */
   private async exportPng(btn: HTMLButtonElement): Promise<void> {
     const A5_WIDTH = 1748;
@@ -1800,41 +1802,168 @@ export class Visual implements IVisual {
       const blob: Blob = await new Promise((res, rej) =>
         canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas.toBlob returned null"))), "image/png")
       );
-      triggerDownload(blob, "map-A5.png");
-      btn.innerHTML = checkIconSvg();
-      console.info("[ADM Map export] PNG downloaded.");
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
+
+      // Try Async Clipboard write of the PNG. ClipboardItem with
+      // image/png is restricted: requires a secure context, a user
+      // gesture (we have one — the click), AND host permission. Power
+      // BI Service often refuses; we fall back to the SVG modal so
+      // the user always has SOMETHING to copy.
+      const navAny = navigator as any;
+      const ClipboardItemCtor = (window as any).ClipboardItem;
+      let copied = false;
+      if (navAny.clipboard && typeof navAny.clipboard.write === "function" && typeof ClipboardItemCtor === "function") {
+        try {
+          await navAny.clipboard.write([new ClipboardItemCtor({ "image/png": blob })]);
+          copied = true;
+        } catch (err) {
+          console.warn("[ADM Map export] PNG clipboard write blocked:", err);
+        }
+      }
+
+      if (copied) {
+        btn.innerHTML = checkIconSvg();
+        btn.title = "PNG copied to clipboard. Paste into PowerPoint / Word / chat.";
+        console.info("[ADM Map export] PNG copied to clipboard.");
+        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy PNG to clipboard (A5)"; }, 1800);
+      } else {
+        // Show the SVG modal so the user has a manual copy path. PNG
+        // can't be shown as text, but the same image is encoded in the
+        // SVG (with all CSS inlined) and can be pasted into anything
+        // that accepts SVG (PowerPoint Insert SVG, Inkscape, etc.).
+        this.showCopyCodeModal(built.xml, "PNG clipboard blocked by Power BI — copy this SVG instead", btn, original);
+      }
     } catch (e) {
       console.error("[ADM Map export] PNG export failed:", e);
       btn.innerHTML = errorIconSvg();
       btn.title = `PNG export failed: ${describeError(e)}`;
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Export as PNG (A5 landscape, ~300 DPI)"; }, 2500);
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy PNG to clipboard (A5)"; }, 2500);
     }
   }
 
   /**
-   * Export the current map as an SVG. The cloned SVG with inlined CSS
-   * is downloaded directly, so the file opens in any vector tool
-   * (Illustrator, Inkscape, browsers, PowerPoint Insert SVG) and
-   * stays editable.
+   * Export the current map as an SVG copied to the clipboard.
+   * navigator.clipboard.writeText is more permissive than the PNG
+   * path — most hosts allow text writes from a user gesture. If even
+   * that is blocked, fall back to the modal.
    */
-  private exportSvg(btn: HTMLButtonElement): void {
+  private async exportSvg(btn: HTMLButtonElement): Promise<void> {
     const original = btn.innerHTML;
     btn.disabled = true;
     try {
       const built = this.buildExportSvg();
       if (!built) throw new Error("could not build export SVG");
-      const svgBlob = new Blob([built.xml], { type: "image/svg+xml;charset=utf-8" });
-      triggerDownload(svgBlob, "map.svg");
-      btn.innerHTML = checkIconSvg();
-      console.info("[ADM Map export] SVG downloaded.");
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
+      const navAny = navigator as any;
+      let copied = false;
+      if (navAny.clipboard && typeof navAny.clipboard.writeText === "function") {
+        try {
+          await navAny.clipboard.writeText(built.xml);
+          copied = true;
+        } catch (err) {
+          console.warn("[ADM Map export] SVG clipboard write blocked:", err);
+        }
+      }
+      if (copied) {
+        btn.innerHTML = checkIconSvg();
+        btn.title = "SVG copied to clipboard. Paste into a text file with .svg extension or directly into Inkscape / Illustrator.";
+        console.info("[ADM Map export] SVG copied to clipboard.");
+        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy SVG to clipboard"; }, 1800);
+      } else {
+        this.showCopyCodeModal(built.xml, "SVG clipboard blocked by Power BI — copy the code manually", btn, original);
+      }
     } catch (e) {
       console.error("[ADM Map export] SVG export failed:", e);
       btn.innerHTML = errorIconSvg();
       btn.title = `SVG export failed: ${describeError(e)}`;
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Export as SVG (vector)"; }, 2500);
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; btn.title = "Copy SVG to clipboard"; }, 2500);
     }
+  }
+
+  /**
+   * Last-resort export path: shows a modal containing the full SVG
+   * source in a textarea. The user can select-all + copy manually,
+   * then close the modal.
+   *
+   * Used when both PNG-to-clipboard and SVG-text-to-clipboard are
+   * blocked by the host iframe (Power BI Service in particular).
+   * The visual's textarea is read-only but selectable, with a "Select
+   * all" helper button that triggers select() + copy() — which
+   * sometimes succeeds where the async clipboard API didn't.
+   */
+  private showCopyCodeModal(xml: string, subtitle: string, btn: HTMLButtonElement, originalBtnLabel: string): void {
+    // Reset the button while the modal is open.
+    btn.innerHTML = originalBtnLabel;
+    btn.disabled = false;
+
+    const modal = document.createElement("div");
+    modal.className = "adm-copy-modal";
+    modal.innerHTML = `
+      <div class="adm-copy-modal-card">
+        <div class="adm-copy-modal-header">
+          <strong>Copy SVG manually</strong>
+          <button class="adm-copy-modal-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <p class="adm-copy-modal-subtitle">${escapeHtml(subtitle)}</p>
+        <p class="adm-copy-modal-instructions">
+          Click <strong>Select all</strong>, then press
+          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>C</kbd>. Paste into a
+          text file (save as <code>map.svg</code>) or directly into
+          Inkscape / Illustrator / a browser address bar.
+        </p>
+        <textarea class="adm-copy-modal-textarea" readonly spellcheck="false"></textarea>
+        <div class="adm-copy-modal-footer">
+          <button class="adm-copy-modal-select" type="button">Select all</button>
+          <button class="adm-copy-modal-copy" type="button">Try copy</button>
+          <span class="adm-copy-modal-status"></span>
+          <span class="adm-copy-modal-spacer"></span>
+          <button class="adm-copy-modal-close-btn" type="button">Close</button>
+        </div>
+      </div>
+    `;
+    this.overlay.appendChild(modal);
+
+    const ta = modal.querySelector(".adm-copy-modal-textarea") as HTMLTextAreaElement;
+    ta.value = xml;
+
+    const selectAll = () => {
+      ta.focus();
+      ta.select();
+      // Older browsers / hosts: setSelectionRange ensures full range.
+      ta.setSelectionRange(0, ta.value.length);
+    };
+
+    const status = modal.querySelector(".adm-copy-modal-status") as HTMLElement;
+    const setStatus = (msg: string) => { if (status) status.textContent = msg; };
+
+    const close = () => modal.remove();
+
+    modal.querySelector(".adm-copy-modal-select")!.addEventListener("click", () => {
+      selectAll();
+      setStatus("Selected. Press Ctrl/Cmd+C to copy.");
+    });
+    modal.querySelector(".adm-copy-modal-copy")!.addEventListener("click", async () => {
+      selectAll();
+      let ok = false;
+      // Try the synchronous execCommand path first — this works
+      // inside a user gesture even when the async Clipboard API is
+      // blocked by host CSP.
+      try { ok = document.execCommand("copy"); } catch { ok = false; }
+      if (!ok && (navigator as any).clipboard?.writeText) {
+        try {
+          await (navigator as any).clipboard.writeText(xml);
+          ok = true;
+        } catch { /* fall through */ }
+      }
+      setStatus(ok ? "Copied. Paste anywhere." : "Copy still blocked. Use Ctrl/Cmd+C while the text is selected.");
+    });
+    modal.querySelector(".adm-copy-modal-close")!.addEventListener("click", close);
+    modal.querySelector(".adm-copy-modal-close-btn")!.addEventListener("click", close);
+    // Close on background click (not the card).
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close();
+    });
+
+    // Auto-select on open so Ctrl/Cmd+C works immediately.
+    setTimeout(selectAll, 50);
   }
 
   private refreshSelectionStyles(): void {
