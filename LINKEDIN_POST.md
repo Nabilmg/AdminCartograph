@@ -39,7 +39,7 @@ as a slide.
 > The whole pipeline is open-source — drop fieldmaps.io zips into a
 > folder, run `npm run release`, the dropdown auto-updates.
 >
-> Repo: <https://github.com/Nabilmg/MapVisual>
+> Repo: <https://github.com/Nabilmg/AdminCartograph>
 >
 > #PowerBI #DataViz #Humanitarian #GIS #OCHA #Cartography
 
@@ -125,7 +125,7 @@ prev/next arrows, and the localities visible.)
 > Export the map as **A5 landscape PNG (300 DPI)** for PowerPoint,
 > or **portable SVG** for Illustrator / Inkscape / vector tools.
 > Open-source repo:
-> <https://github.com/Nabilmg/MapVisual>
+> <https://github.com/Nabilmg/AdminCartograph>
 
 (Image: PowerPoint slide with the exported PNG embedded — proves the
 end-to-end story.)
