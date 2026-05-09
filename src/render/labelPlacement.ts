@@ -1,9 +1,17 @@
 /**
- * Pick a "pole of inaccessibility" inside each polygon as the label anchor.
- * polylabel handles concave shapes better than raw centroids and lets us
- * implement spec features like "label largest polygon part" and "avoid holes".
+ * Pick a centred anchor inside each polygon for labels and bubbles.
+ *
+ * Strategy: use the area-weighted geometric centroid first — it matches
+ * what users expect by "the centre" for most shapes. For genuinely
+ * concave polygons where the centroid lands outside the outer ring we
+ * fall back to polylabel (pole of inaccessibility), which guarantees a
+ * point inside the polygon at the cost of biasing toward the polygon's
+ * widest section. This hybrid keeps elongated / irregular states like
+ * North Darfur visually centred without breaking concave / L-shaped
+ * polygons.
  */
 import polylabel from "polylabel";
+import * as d3 from "d3";
 
 export interface AnchorOptions {
   largestPartOnly: boolean;
@@ -19,13 +27,30 @@ export function pickAnchor(geometry: any, options: AnchorOptions): [number, numb
   if (!geometry) return null;
   const rings = collectRings(geometry, options.largestPartOnly, options.avoidHoles);
   if (!rings.length) return null;
+  const outer = rings[0];
+
+  // Try the area-weighted centroid first — most polygons are mostly
+  // convex and the centroid is what users intuit as "the centre". Only
+  // accept it when it actually sits inside the polygon (point-in-poly
+  // against the outer ring is good enough — holes don't matter for
+  // labels).
+  if (outer && outer.length >= 3) {
+    const centroid = d3.polygonCentroid(outer as [number, number][]);
+    if (
+      Number.isFinite(centroid[0]) && Number.isFinite(centroid[1]) &&
+      d3.polygonContains(outer as [number, number][], centroid)
+    ) {
+      return [centroid[0], centroid[1]];
+    }
+  }
+
+  // Concave / weird shapes: polylabel guarantees an interior point.
   try {
     const [x, y] = polylabel(rings, 1.0);
     if (Number.isFinite(x) && Number.isFinite(y)) return [x, y];
   } catch {
     // fall through
   }
-  const outer = rings[0];
   if (!outer) return null;
   let sx = 0, sy = 0;
   for (const [x, y] of outer) { sx += x; sy += y; }
