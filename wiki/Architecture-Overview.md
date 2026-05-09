@@ -61,7 +61,7 @@ src/
     ├── bubbles.ts               Bubble layer
     ├── glyphs.ts                Pie / donut / column overlay
     ├── labels.ts                Label engine (rotation, halo, fit)
-    ├── labelPlacement.ts        polylabel + biased-toward-target anchors
+    ├── labelPlacement.ts        centroid (+ polylabel fallback) + biased-toward-target anchors
     ├── legend.ts                Three legends + combined container
     ├── scaleBar.ts              Latitude-aware scale bar
     └── format.ts                Number formatter
@@ -103,6 +103,14 @@ type AreaDatum = {
 Locality-level rows take precedence over state-level when both are
 bound — so an Admin1 entry only stays in the map if there's no
 Admin2 row claiming the same parent.
+
+In the same pass, `prepareDataView` also collects per-row colour
+overrides from each PCODE column's `.objects` map (populated by
+Power BI when the user binds a ColorPicker via **fx** /
+conditional formatting) into
+`PreparedDataView.ruleColorsByPcode: Map<pcode, Map<objectName, Map<propertyName, hex>>>`.
+Bubble and label renderers consult this map per row before falling
+back to the static formatting-card value.
 
 ### 3. Resolve country
 

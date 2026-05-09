@@ -188,6 +188,42 @@ Note the double `.value` on dropdowns and colour pickers: the outer
 `.value` returns the structured object, the inner `.value` returns
 the actual string.
 
+## Conditional formatting (fx) on a ColorPicker
+
+A `ColorPicker` shows the **fx** button when it carries an
+`instanceKind` and a `selector`. The bubble fill / stroke and the
+four label colour pickers do this:
+
+```ts
+new formattingSettings.ColorPicker({
+  name: "fillColor",
+  displayName: "Fill color",
+  value: { value: "#e6550d" },
+  instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule,
+  selector: {
+    data: [{ dataViewWildcard: { matchingOption: 0 } }] // InstancesAndTotals
+  }
+});
+```
+
+`ConstantOrRule` lets the user toggle between a static colour and a
+measure rule. The wildcard selector tells Power BI to evaluate that
+rule against every row of every categorical column in the dataView
+— for us, the Admin1 PCODE and Admin2 PCODE columns. The resolved
+per-row colour is written into
+
+```
+dataView.categorical.categories[i].objects[rowIdx]
+   .<objectName>.<propertyName>.solid.color
+```
+
+`dataConverter.ts` walks both PCODE columns and stores per-row hex
+colours in a `Map<pcode, Map<objectName, Map<propertyName, hex>>>`
+on `PreparedDataView.ruleColorsByPcode`. Renderers look up by
+pcode and fall back to the static card value when no rule
+resolves. See `pickAnchor` and `composeLines` callers for the
+exact path.
+
 ## See also
 
 - [Custom Properties Persistence](Custom-Properties-Persistence.md)

@@ -18,21 +18,29 @@ is bound.
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#e6550d` (orange) |
 
-The interior colour of every bubble. Bubbles are intentionally
-mono-coloured — the choropleth handles per-area colour variation.
+The interior colour of every bubble. Click the small **fx** button
+next to the swatch to bind the colour to a measure rule (gradient,
+rules, or field value) — the rule resolves per Admin1 area in country
+view and per Admin2 area in drill view, so e.g. *red if cases > 1000,
+green otherwise* "just works" at both levels.
+
+When fx is off, the static colour applies to every bubble; the
+choropleth still handles per-area colour variation underneath.
 
 ## Stroke color
 
 | | |
 |---|---|
-| Type | Colour picker |
+| Type | Colour picker (with **fx** conditional formatting) |
 | Default | `#ffffff` (white) |
 
 The outline colour. White stroke against an orange fill is the
-default for visibility against any choropleth ramp.
+default for visibility against any choropleth ramp. Also accepts a
+conditional rule via **fx** if you want to highlight outliers per
+area without changing the fill.
 
 ## Stroke width
 
@@ -97,8 +105,10 @@ a small gap.
 
 This setting only affects labels for polygons whose bubble is
 visible. Polygons without a bubble (because they have no data, or
-because **Bubble Size** is not bound) use the polygon's interior
-centroid as the label anchor.
+because **Bubble Size** is not bound) use the polygon's
+area-weighted centroid as the label anchor (with a polylabel
+fallback for genuinely concave shapes — see
+[Label-Engine](Label-Engine.md#anchor-placement)).
 
 ## How bubble sizing works
 
