@@ -996,7 +996,8 @@ export class Visual implements IVisual {
         opacity: bubbleStyle.opacity.value,
         minRadius: bubbleStyle.minRadius.value,
         maxRadius: bubbleStyle.maxRadius.value
-      }
+      },
+      prepared.ruleColorsByPcode
     );
 
     // Labels — state labels always (when shown); locality labels depend on view.
@@ -1063,7 +1064,7 @@ export class Visual implements IVisual {
         if (isDrill) {
           neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
         }
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel);
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"));
       }
 
       if (isDrill) {
@@ -1095,7 +1096,17 @@ export class Visual implements IVisual {
           bubbleValue: datum?.bubbleSize ?? null
         };
       });
-      renderLabels(this.adm2LabelLayer, projection, path, labels, this.styleFromCard(localityCard), localityOverrides, this.zoomLevel);
+      const localityCardName = drilled ? "drillLocalityLabels" : "localityLabels";
+      renderLabels(
+        this.adm2LabelLayer,
+        projection,
+        path,
+        labels,
+        this.styleFromCard(localityCard),
+        localityOverrides,
+        this.zoomLevel,
+        this.ruleColorsForCard(prepared, localityCardName)
+      );
     } else {
       while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     }
@@ -1946,6 +1957,21 @@ export class Visual implements IVisual {
       allowCallout: card.allowCallout?.value || false,
       constantSize: card.constantSize?.value || false
     };
+  }
+
+  /**
+   * Project the prepared dataView's per-pcode rule map for a single
+   * formatting object (one labels card). Returns a flat
+   * pcode → propertyName → colour map so renderLabels doesn't need to
+   * know about the outer object-name layer.
+   */
+  private ruleColorsForCard(prepared: PreparedDataView, objectName: string): Map<string, Map<string, string>> {
+    const out = new Map<string, Map<string, string>>();
+    prepared.ruleColorsByPcode.forEach((byObject, pcode) => {
+      const props = byObject.get(objectName);
+      if (props && props.size) out.set(pcode, props);
+    });
+    return out;
   }
 }
 

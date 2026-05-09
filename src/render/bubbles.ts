@@ -33,7 +33,15 @@ export interface BubbleResult {
   anchors: Map<string, BubbleAnchor>;
 }
 
-export function renderBubbles(parent: SVGGElement, projection: GeoProjection, features: any[], areaByPcode: Map<string, AreaDatum>, pcodeKey: "ADM1_PCODE" | "ADM2_PCODE", style: BubbleStyle): BubbleResult | null {
+export function renderBubbles(
+  parent: SVGGElement,
+  projection: GeoProjection,
+  features: any[],
+  areaByPcode: Map<string, AreaDatum>,
+  pcodeKey: "ADM1_PCODE" | "ADM2_PCODE",
+  style: BubbleStyle,
+  ruleColorsByPcode?: Map<string, Map<string, Map<string, string>>>
+): BubbleResult | null {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
   if (!style.show) return null;
@@ -74,13 +82,17 @@ export function renderBubbles(parent: SVGGElement, projection: GeoProjection, fe
   const anchors = new Map<string, BubbleAnchor>();
   for (const v of valued) {
     const r = scale(v.datum.bubbleSize as number);
+    // Per-bubble fx overrides: rule wins over the static card value.
+    const rule = ruleColorsByPcode?.get(v.datum.pcode)?.get("bubbles");
+    const fillColor = rule?.get("fillColor") || style.fillColor;
+    const strokeColor = rule?.get("strokeColor") || style.strokeColor;
     sel.append("circle")
       .attr("cx", v.anchor[0])
       .attr("cy", v.anchor[1])
       .attr("r", r)
-      .attr("fill", style.fillColor)
+      .attr("fill", fillColor)
       .attr("fill-opacity", style.opacity)
-      .attr("stroke", style.strokeColor)
+      .attr("stroke", strokeColor)
       .attr("stroke-width", style.strokeWidth)
       .attr("data-pcode", v.datum.pcode);
     anchors.set(v.datum.pcode, { x: v.anchor[0], y: v.anchor[1], r });
