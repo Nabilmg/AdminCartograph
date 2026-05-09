@@ -1,38 +1,74 @@
 # AdminCartograph
 
-A Power BI custom visual for **multi-layer subnational mapping**:
-choropleth fills, proportional bubbles, and pie / donut / column overlays
-on top of administrative boundaries (Admin1 + Admin2), with **boundaries
-embedded inside the visual** so report users don't have to upload TopoJSON
-or shapefiles. Boundaries source: <https://fieldmaps.io/data/cod/>.
+A Power BI custom visual for **multi-layer subnational mapping**.
+Choropleth fills, proportional bubbles, and pie / donut / column overlays
+on top of administrative boundaries (Admin1 + Admin2). Bring your own
+geometry — any GeoJSON or TopoJSON, with the property names mapped via
+on-canvas dropdowns — or use one of the eight countries that ship inside
+the visual for convenience.
 
 ![logo](assets/logo.png)
 
-## Why not just use Shape Map?
+## What it looks like
 
-Power BI's built-in **Shape Map** visual has real gaps for serious admin-
-boundary reporting. AdminCartograph closes them:
+A typical render: choropleth fills, a few proportional bubbles, one
+pie overlay, and a category legend.
 
-| Feature | Built-in Shape Map | AdminCartograph |
-|---|---|---|
-| **Area labels** (name / value) | ✗ — none at all | ✓ full halo, font, color, rotation, fit-to-shape |
-| **Embedded boundaries** | ✗ — must upload TopoJSON | ✓ 8 countries bundled |
-| **PCODE-native binding** | ✗ — manual property mapping | ✓ |
-| **Bubble overlay** | ✗ | ✓ size by measure |
-| **Pie / donut / column overlay** | ✗ | ✓ multi-measure glyphs per area |
-| **Drill Admin1 → Admin2** | ✗ | ✓ click + filter-driven + prev/next nav |
-| **Scale bar** (km / miles) | ✗ | ✓ |
-| **PNG / SVG export** | ✗ | ✓ A5 landscape + portable SVG |
-| **Mouse / button zoom + pan** | ✗ | ✓ |
-| **Custom upload** | ✓ TopoJSON | ✓ TopoJSON or GeoJSON, with auto field mapping |
+![Layered visualisation example](assets/preview-layers.svg)
 
-Same data binding, dramatically more capability.
+After clicking an Admin1, the visual drills into that area's Admin2
+children. The focused state's name and value are pulled to a top-left
+title pill, neighbours dim, and prev / next arrows let you cycle through
+states without going back to the country view.
 
-## Bundled countries
+![Drill view example](assets/preview-drill.svg)
 
-The shipping `.pbiviz` embeds the following 8 countries' Admin1 + Admin2
-boundaries (165 Admin1 + 1,772 Admin2 features). The dropdown auto-detects
-the correct country from your bound PCODEs, or you can pick one explicitly:
+Real screenshots from your own data go a long way — drop them into
+`assets/screenshots/` and the README will pick them up:
+
+| Suggested screenshot | Filename |
+|---|---|
+| Hero — choropleth + bubbles + labels (full canvas) | `assets/screenshots/01-hero.png` |
+| Format pane with the 14 numbered cards | `assets/screenshots/02-format-pane.png` |
+| All three layers active (choropleth + bubbles + donuts) | `assets/screenshots/03-three-layers.png` |
+| Drill view — title pill + prev/next arrows | `assets/screenshots/04-drill.png` |
+| Custom upload card with field-mapping dropdowns | `assets/screenshots/05-custom-upload.png` |
+| PowerPoint slide with the exported A5 PNG inserted | `assets/screenshots/06-powerpoint.png` |
+
+## Bring your own geometry
+
+The headline feature: **upload any country's boundaries at runtime**.
+The visual accepts both TopoJSON and GeoJSON, supports separate Admin1
+and Admin2 files, and uses a friendly four-dropdown mapping flow so
+you don't have to rename properties in your source data:
+
+1. Set **Country** to *Custom (upload TopoJSON)* in the format pane.
+2. The map canvas shows an upload card. Pick the Admin1 file (required)
+   and the Admin2 file (optional). Both accept `.json`, `.topojson` and
+   `.geojson`.
+3. The visual reads every distinct property name from your features
+   and pre-fills four dropdowns — Admin1 PCODE, Admin1 Name, Admin2
+   PCODE, Admin2 Name — using fuzzy matches against common patterns
+   (`ADM1_PCODE` / `pcode_1` / `gid_1` / `state_id` / etc.).
+4. Confirm or override the field mapping, then click **Load map**.
+
+The uploaded geometry is saved into the report's metadata via
+`host.persistProperties` so it survives report save / reload. Each
+MB of geometry adds about that much to the .pbix; ~5 MB total is a
+comfortable practical ceiling.
+
+This is the path most users should take — your country's boundaries
+are exactly the version you want, your property names are honoured,
+and nothing has to be rebuilt.
+
+## Bundled countries (convenience only)
+
+For quick starts and demos, the shipping `.pbiviz` also embeds eight
+countries' Admin1 + Admin2 boundaries (165 + 1,772 features). The
+country dropdown auto-detects from your bound PCODEs, or you can pick
+one explicitly. None of this is required — Custom upload covers any
+country, and you can build your own bundle from
+`country-geojson/<ISO3>.geojson.zip` files.
 
 | ISO | Country | Admin1 | Admin2 |
 |-----|---------|-------|--------|
@@ -45,44 +81,42 @@ the correct country from your bound PCODEs, or you can pick one explicitly:
 | SYR | Syria | governorates | districts |
 | YEM | Yemen | 21 governorates | 333 districts |
 
-The ninth dropdown option is **Custom (upload TopoJSON)** — see
-[Using a custom country](#using-a-custom-country) below.
-
 ## Capabilities
 
-- **Choropleth fill** with quantile / equal-interval / manual classification,
+- **Choropleth fill** — quantile / equal-interval / manual classification,
   automatic ramp from a base color or 5 user-defined class colors,
-  optional "Treat 0 as no-data" mode.
-- **Bubble overlay** (square-root scaling) with min/max radius, opacity,
-  stroke and per-position label placement (above / below / left / right /
+  optional "Treat 0 as no-data" mode, opacity slider.
+- **Bubble overlay** — square-root scaling, min/max radius, opacity,
+  stroke, per-position label placement (above / below / left / right /
   center of the bubble).
-- **Pie / Donut / Column overlay** driven by 2+ measures bound to a
+- **Pie / Donut / Column overlay** — driven by 2+ measures bound to a
   single role. Each measure becomes one slice / column. Independent
   category color palette and label placement.
-- **Drill** from Admin1 to Admin2: click an Admin1 area to focus its
-  children. Prev / next arrows navigate alphabetically through Admin1
-  areas in drill view. "Country View" button returns to the all-Admin1
-  view.
-- **Cross-filter** through `selectionManager.select` so other visuals
-  (tables, charts, slicers) respond to clicks on the map.
-- **Filter-driven drill** in Auto mode: when an external slicer narrows
-  the dataset to one Admin1 (or several Admin2 areas under one parent),
-  the visual auto-drills into that focus.
-- **Tooltips** on every layer with Admin1 + Admin2 names, color value,
-  bubble value and any user-bound Tooltip fields.
-- **Legends**: choropleth (vertical / horizontal), bubble size
+- **Drill** — click an Admin1 to focus its Admin2 children. Prev / next
+  arrows navigate alphabetically through Admin1 areas. "Country View"
+  button returns to all-Admin1.
+- **Cross-filter** — clicks submit selection through the host's
+  `selectionManager`, so other visuals (tables, charts, slicers)
+  respond to map clicks.
+- **Filter-driven drill** — in Auto mode, when a slicer narrows the
+  data to one Admin1 (or several Admin2 in one parent), the visual
+  auto-drills into that focus.
+- **Tooltips** — Admin1 + Admin2 names, color value, bubble value,
+  any user-bound Tooltip fields, on every layer.
+- **Three legends** — choropleth (vertical / horizontal), bubble size
   (vertical / horizontal / compact min-max), pie / column categories
-  (vertical / horizontal). All three stack into a single rounded
-  container when they share a corner.
-- **Scale bar** (km or miles), latitude-aware, "nice round" distances,
+  (vertical / horizontal). Stack into one rounded container when they
+  share a corner.
+- **Scale bar** — km or miles, latitude-aware, "nice round" distances,
   follows zoom.
-- **Zoom + pan** with on-canvas controls (off by default). Mouse drag
-  pans, mouse wheel zooms, directional buttons step the map.
+- **Zoom + pan** — on-canvas zoom buttons, directional pad, mouse drag,
+  mouse wheel. Off by default; enable in Map controls.
 - **PNG / SVG export** — A5-landscape PNG (1748 × 1240 @ ~300 DPI) for
-  PowerPoint paste, or portable SVG with inlined CSS for vector tools.
-- **Custom geometry upload** (separate Admin1 / Admin2 files, GeoJSON
-  or TopoJSON, with auto-detected field mapping that the user confirms
-  via dropdowns).
+  PowerPoint paste, or portable SVG with inlined CSS for vector tools
+  like Illustrator / Inkscape.
+- **Rich label engine** — halo, italic, bold, decimals, K/M format,
+  curved / straight / boundary placement, fit-to-shape, abbreviation,
+  hide-on-overflow.
 
 ## Format pane (top-down flow)
 
@@ -115,45 +149,45 @@ The ninth dropdown option is **Custom (upload TopoJSON)** — see
 | **Tooltips** | optional | extra fields appended to every tooltip |
 
 Bind at least one PCODE field to render. If only Admin1 PCODE is bound
-(or the country has no Admin2 geometry), the visual stays in Admin1
-mode and clicks just cross-filter without drilling.
+(or your geometry has no Admin2), the visual stays in Admin1 mode and
+clicks just cross-filter without drilling.
 
 ## Project layout
 
 ```
 capabilities.json                  Power BI data role + objects schema
-pbiviz.json                        Visual metadata (name = adminCartograph)
-country-geojson/                   Drop fieldmaps.io <ISO>.geojson.zip files here
-  AFG.geojson.zip                  (8 countries already included)
-  ...
+pbiviz.json                        Visual metadata
+country-geojson/                   Drop fieldmaps.io <ISO>.geojson.zip files here for the bundle
 src/
   visual.ts                        Entry point, lifecycle, layer composition
   settings.ts                      Strongly-typed formatting model
   data/dataConverter.ts            DataView -> AreaDatum map
-  geo/geometryLoader.ts            Decodes embedded TopoJSON, exposes per-country FCs
-  generated/countries.ts           AUTO-GENERATED — bundled country dropdown options
+  geo/geometryLoader.ts            Decodes embedded TopoJSON
+  generated/countries.ts           AUTO-GENERATED dropdown options
   render/
     classification.ts              Quantile / equal / manual breaks + ramp
     choropleth.ts                  Polygon fills + borders
     bubbles.ts                     Bubble layer
     glyphs.ts                      Pie / donut / column overlay
-    labels.ts                      Label engine (anchor, halo, fit, curved/straight)
-    labelPlacement.ts              polylabel + boundary-toward-target helpers
-    legend.ts                      Choropleth + bubble + glyph legends, combined container
+    labels.ts                      Label engine
+    labelPlacement.ts              Anchor helpers
+    legend.ts                      Three legends + combined container
     scaleBar.ts                    Latitude-aware scale bar
     projection.ts                  d3.geoMercator + fitExtent
     format.ts                      Number formatter
 scripts/
-  sync-countries-from-geojson.js   Extracts country-geojson/*.zip -> raw + countries.json
-  build-topojson.js                Merges into single simplified TopoJSON; writes generated/countries.ts
-  release-all.js                   Optional: produce one .pbiviz per country
-  parse-countries-excel.js         Helper for fieldmaps.io workbook (no longer required)
-  fetch-geometry.js                Helper that fetches every fieldmaps.io zip if you want all 154 countries
+  sync-countries-from-geojson.js   Extracts country-geojson/*.zip -> countries.json
+  build-topojson.js                Bundle builder + dropdown writer
+  release-all.js                   Optional per-country builds
+  fetch-geometry.js                Bulk fetch from fieldmaps.io
 assets/
   geometry/world.topojson.json     Embedded geometry bundle (built artifact)
-  geometry/country-index.json      Per-country bbox + counts (built artifact)
+  geometry/country-index.json      Per-country bbox + counts
   icon.png                         Visual icon
   logo.png / logo.svg              Hi-res logo
+  preview-layers.svg               Illustrative layer-stack diagram
+  preview-drill.svg                Illustrative drill-view diagram
+  screenshots/                     Drop your own report screenshots here
 style/visual.less                  Visual styles
 releases/
   AdminCartograph.pbiviz           Built visual, ready to import
@@ -168,29 +202,19 @@ releases/
 ## Build the visual
 
 ```bash
-npm install                  # one time
-npm run release              # sync country-geojson/ -> bundle -> .pbiviz
+npm install
+npm run release
 ```
 
-`npm run release` runs three steps in sequence:
+This runs the sync + topojson build + pbiviz package in one step.
 
-1. `node scripts/sync-countries-from-geojson.js` — extract every
-   `country-geojson/<ISO3>.geojson.zip` into `scripts/data/raw/<ISO3>/`
-   and rewrite `scripts/data/countries.json`.
-2. `node scripts/build-topojson.js` — merge ADM1 + ADM2 across every
-   country into a single simplified, quantized TopoJSON at
-   `assets/geometry/world.topojson.json`. Auto-writes
-   `src/generated/countries.ts` so the country dropdown reflects the
-   bundle.
-3. `pbiviz package` — produces `dist/adminCartograph2026A1Pbi.1.0.0.0.pbiviz`.
+## Adding bundled countries (optional)
 
-Copy that file (or the latest `releases/AdminCartograph.pbiviz`) into
-Power BI: **Visualizations → ⋯ → Import a visual file**.
-
-## Adding more countries
+The Custom upload flow handles any country at runtime. If you'd rather
+bake a country into the bundle so report users don't have to upload:
 
 ```bash
-# 1. Drop fieldmaps.io zips into the folder, named <ISO3>.geojson.zip
+# 1. Drop a fieldmaps.io zip into the folder, named <ISO3>.geojson.zip
 cp ~/Downloads/KEN.geojson.zip country-geojson/
 
 # 2. Rebuild
@@ -199,67 +223,38 @@ npm run release
 # 3. Import the new releases/AdminCartograph.pbiviz
 ```
 
-The bundle scales: typical countries add 50–500 KB after simplification.
-With Power BI's ~50 MB visual cap you can comfortably bundle 50+ countries
-at the default simplification, more if you crank up `--simplify`:
+Power BI's ~50 MB visual cap fits 50+ countries at the default
+simplification. If you need more:
 
 ```bash
 node scripts/build-topojson.js --simplify 0.001 --quantize 5000
 ```
 
-## Using a custom country
-
-If you don't want to rebuild the bundle, the visual also supports
-**runtime upload** of geometry (handy for one-off countries or non-OCHA
-data sources):
-
-1. In the format pane → **1. Map setup** → set **Country** to
-   *Custom (upload TopoJSON)*.
-2. The map canvas shows an upload card. Pick the Admin1 file (required)
-   and Admin2 file (optional). Both accept TopoJSON (`type: "Topology"`)
-   and GeoJSON (`type: "FeatureCollection"`).
-3. The visual lists every property name found in the file's features
-   and pre-fills four mapping dropdowns (Admin1 PCODE, Admin1 Name,
-   Admin2 PCODE, Admin2 Name) using fuzzy matches against common
-   patterns (`ADM1_PCODE` / `ADM1PCODE` / `pcode_1` / `gid_1` / etc.).
-4. Confirm or override the mapping, then click **Load map**. The
-   uploaded geometry is saved into the report's metadata via
-   `host.persistProperties` so it survives report save / reload.
-
-The uploaded TopoJSON / GeoJSON content is stored inside the `.pbix`,
-so each MB of geometry adds about that much to the report file.
-Practical limit ~5 MB per upload.
-
 ## Using the visual in a report
 
 1. Add the visual to the report.
 2. Bind any of:
-   - **Admin1 PCODE** — required for an Admin1-only choropleth
+   - **Admin1 PCODE** — required for an Admin1 choropleth
    - **Admin2 PCODE** — adds drill / locality view
-3. Optional bindings: **Color Value**, **Bubble Size**,
-   **Glyph Values** (multiple measures for pie / column),
-   **Label Value 2**, **Label Text 1**, **Tooltips**.
-4. In the format pane:
-   - **1. Map setup** → **Country** auto-detects from PCODE prefix; pick
-     a specific country to override or **Custom** to upload.
-   - **1. Map setup** → **View mode**: Auto / Admin1 / Admin2.
-   - Tweak any of the 14 cards.
+3. Optional bindings: **Color Value**, **Bubble Size**, **Glyph Values**
+   (multiple measures), **Label Value 2**, **Label Text 1**, **Tooltips**.
+4. In the format pane → **1. Map setup**:
+   - **Country**: pick a bundled country, leave on Auto-detect (uses
+     PCODE prefix), or pick **Custom** to upload your own geometry.
+   - **View mode**: Auto / Admin1 / Admin2.
 
 ## Notes / limitations
 
-- Curved label placement is approximated with a quadratic Bezier; full
-  text-on-arc-along-medial-axis is left for a future revision.
+- Curved label placement uses a quadratic Bezier approximation; full
+  text-on-medial-axis is on the roadmap.
 - Cross-filter on click submits selection through the host's
-  `selectionManager`. If interaction is disabled in the format pane,
-  clicks no longer drill or filter (tooltips still work).
-- Some countries in the workbook only ship ADM1. The visual detects
-  this and stays in Admin1 mode for those countries.
+  `selectionManager`. If interaction is disabled, clicks no longer
+  drill or filter (tooltips still work).
 - PNG export depends on the host allowing canvas serialisation; falls
-  back to a download in environments where the clipboard / canvas API
-  is restricted.
+  back to a download in environments where canvas is restricted.
 
 ## License
 
-ISC, but the bundled OCHA Common Operational Datasets carry their own
-licensing terms. See <https://fieldmaps.io/data/cod/> and the OCHA HDX
-licence for each country.
+ISC. The bundled OCHA Common Operational Datasets carry their own
+licensing terms — see <https://fieldmaps.io/data/cod/> and the OCHA HDX
+licence per country.
