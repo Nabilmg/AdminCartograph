@@ -131,12 +131,29 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
 
     const highlighted = !!(colorCol && colorCol.highlights && colorCol.highlights[i] != null);
 
-    // Conditional-formatting (fx) results land on the category column's
-    // .objects array. Prefer the locality row's objects for a level-2
-    // pcode (covers drill view) and fall back to the state row's
-    // objects for level-1.
+    // Conditional-formatting (fx) results land on each category
+    // column's .objects array. Power BI typically populates per-row
+    // objects on every category column, so we read both and store
+    // entries keyed by both the locality and the state pcode — the
+    // bubble / label renderer then finds the rule whichever level
+    // the visual is showing (Admin1 in country view, Admin2 in
+    // drill).
     const ruleObjectsForLoc = readRuleObjectsAt(locCat, i);
     const ruleObjectsForState = readRuleObjectsAt(stateCat, i);
+
+    if (locPcode) {
+      const objs = ruleObjectsForLoc || ruleObjectsForState;
+      if (objs && !ruleColorsByPcode.has(locPcode)) ruleColorsByPcode.set(locPcode, objs);
+    }
+    if (statePcode) {
+      // First-write-wins so country-view bubbles get a stable colour
+      // when a state has many Admin2 children with possibly differing
+      // per-row rule outputs. Users wanting predictable per-state
+      // behaviour should bind only Admin1 PCODE; with both bound, we
+      // pick the rule colour from the first row of each state.
+      const objs = ruleObjectsForState || ruleObjectsForLoc;
+      if (objs && !ruleColorsByPcode.has(statePcode)) ruleColorsByPcode.set(statePcode, objs);
+    }
 
     // Build a stable selection id so cross-filter / drill works correctly.
     const builder = host.createSelectionIdBuilder();
@@ -149,8 +166,6 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     const selectionId = builder.createSelectionId();
 
     if (locPcode) {
-      const ruleObjs = ruleObjectsForLoc || ruleObjectsForState;
-      if (ruleObjs) ruleColorsByPcode.set(locPcode, ruleObjs);
       areas.set(locPcode, {
         pcode: locPcode,
         name: labelText || undefined,
@@ -168,7 +183,6 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     } else if (statePcode) {
       const existing = areas.get(statePcode);
       if (!existing || existing.level === 2) continue;
-      if (ruleObjectsForState) ruleColorsByPcode.set(statePcode, ruleObjectsForState);
       areas.set(statePcode, {
         pcode: statePcode,
         name: labelText || undefined,

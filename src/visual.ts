@@ -51,6 +51,9 @@ export class Visual implements IVisual {
   private adm2LabelLayer: SVGGElement;
   private legendLayer: SVGGElement;
   private scaleBarLayer: SVGGElement;
+  /** Set by renderMap; called from applyZoom so the scale bar updates
+   *  live as the user zooms without re-running renderMap. */
+  private rerenderScaleBar: (() => void) | null = null;
   private overlay: HTMLElement;
 
   private settingsService: FormattingSettingsService;
@@ -1178,13 +1181,23 @@ export class Visual implements IVisual {
     // pushed past the legend's footprint so the two don't overlap.
     const sb = this.settings.scaleBar;
     const sbPosition = (sb.position.value as any).value;
-    renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
-      show: sb.show.value,
-      units: (sb.units.value as any).value,
-      position: sbPosition,
-      color: sb.color.value.value,
-      fontSize: sb.fontSize.value
-    }, legendFootprints[sbPosition as keyof typeof legendFootprints]);
+    // Stash a closure so applyZoom can re-render the bar with the
+    // current zoomLevel without a full renderMap pass. The closure
+    // captures the live projection / footprints; settings are read
+    // freshly so format-pane edits made between full renders still
+    // apply.
+    this.rerenderScaleBar = () => {
+      const cardSb = this.settings.scaleBar;
+      const cardPos = (cardSb.position.value as any).value;
+      renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
+        show: cardSb.show.value,
+        units: (cardSb.units.value as any).value,
+        position: cardPos,
+        color: cardSb.color.value.value,
+        fontSize: cardSb.fontSize.value
+      }, legendFootprints[cardPos as keyof typeof legendFootprints]);
+    };
+    this.rerenderScaleBar();
 
     // Wire interactivity (tooltips). Click handling is delegated through
     // handleMapClick attached once in the constructor.
@@ -1749,16 +1762,11 @@ export class Visual implements IVisual {
     // rewrites the per-label transform — no layout / fitting re-runs.
     updateLabelTransforms(this.adm1LabelLayer, z);
     updateLabelTransforms(this.adm2LabelLayer, z);
-    // Re-render the scale bar so the displayed distance reflects the
-    // current zoom level (the bar shrinks when zoomed in physical units
-    // would, since we display "nice round" values that fit the same on-
-    // screen target length).
-    if (this.cached && this.lastUpdateOptions) {
-      // Re-using the cached projection here would be ideal but renderMap
-      // builds a fresh one each call; the next host-driven update will
-      // re-render the bar with the latest projection. For zoom-only
-      // changes this is fine because the projection is unchanged.
-    }
+    // Re-run the scale bar so its labelled distance reflects the
+    // current zoom (a "100 km" bar at zoom 1 spans a smaller geographic
+    // distance at zoom 4 — renderScaleBar consumes zoomLevel and
+    // shrinks / grows accordingly).
+    this.rerenderScaleBar?.();
   }
 
   /**
