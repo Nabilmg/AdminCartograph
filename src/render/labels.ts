@@ -19,16 +19,20 @@ export interface LabelStyle {
   fontFamily: string;
   fontSize: number;
   color: string;
-  /** Color used for the choropleth measure value (or the only displayed
-   *  numeric value when "Label Value 2" is bound). */
+  /** Color for the choropleth measure value line. */
   valueColor: string;
-  /** Color used for the bubble-size value when valueSource is "bubble"
-   *  alone, or as the second line when valueSource is "both". */
+  /** Color for the bubble-size value line. */
   bubbleValueColor: string;
-  /** Choose which numeric value the label shows when "Label Value 2" is
-   *  not bound. "both" renders the choropleth value and bubble value as
-   *  two separate lines using their respective colors. */
-  valueSource: "choropleth" | "bubble" | "both";
+  /** Color for the Label Value 2 (custom) line. */
+  customValueColor: string;
+  /** Which numeric value lines to show. Each string lists the sources to
+   *  draw, in display order: choropleth → bubble → custom. The "_custom"
+   *  / "all" / "custom" variants only contribute a custom line when
+   *  Label Value 2 is actually bound (label.value2 != null). */
+  valueSource: "choropleth" | "bubble" | "both" | "custom" | "choropleth_custom" | "bubble_custom" | "all";
+  /** Where to source the area name from. "geometry" uses the polygon's
+   *  ADM*_EN; "labelText1" uses the bound Label Text 1 override. */
+  nameSource: "geometry" | "labelText1";
   bold: boolean;
   italic: boolean;
   haloColor: string;
@@ -59,9 +63,12 @@ export interface LabelDatum {
   name: string;
   /** Choropleth color value. */
   value: number | null;
-  /** Optional explicit override (Label Value 2 binding). When non-null,
-   *  this is the only numeric line rendered, regardless of valueSource. */
+  /** Optional Label Value 2 binding. Rendered only when valueSource
+   *  includes the "custom" source. Null otherwise. */
   value2?: number | null;
+  /** Optional Label Text 1 override. Used as the area name when
+   *  nameSource is "labelText1". Null when not bound. */
+  nameOverride?: string | null;
   /** Bubble size value (used when valueSource is "bubble" or "both"). */
   bubbleValue?: number | null;
   /** PCODE used for cross-referencing with bubble anchors. */
@@ -203,7 +210,9 @@ export function renderLabels(
         ? style.valueColor
         : line.kind === "bubble_value"
           ? style.bubbleValueColor
-          : style.color;
+          : line.kind === "custom_value"
+            ? style.customValueColor
+            : style.color;
       const yOffset = startY + i * lineHeight + baseFontSize * 0.35;
 
       // Curved rendering applies only to NAME lines. Value lines keep
@@ -265,45 +274,50 @@ export function renderLabels(
 interface ComposedLine {
   text: string;
   /** "name" uses the label color; "value" uses valueColor; "bubble_value"
-   *  uses bubbleValueColor (only when the user picked "Both" for the
-   *  Value source setting). */
-  kind: "name" | "value" | "bubble_value";
+   *  uses bubbleValueColor; "custom_value" uses customValueColor (Label
+   *  Value 2 binding). */
+  kind: "name" | "value" | "bubble_value" | "custom_value";
+}
+
+/** Decode the valueSource enum into a per-source on/off flag set. */
+function sourcesFor(s: LabelStyle["valueSource"]): { choropleth: boolean; bubble: boolean; custom: boolean } {
+  switch (s) {
+    case "choropleth":         return { choropleth: true,  bubble: false, custom: false };
+    case "bubble":             return { choropleth: false, bubble: true,  custom: false };
+    case "both":               return { choropleth: true,  bubble: true,  custom: false };
+    case "custom":             return { choropleth: false, bubble: false, custom: true  };
+    case "choropleth_custom":  return { choropleth: true,  bubble: false, custom: true  };
+    case "bubble_custom":      return { choropleth: false, bubble: true,  custom: true  };
+    case "all":                return { choropleth: true,  bubble: true,  custom: true  };
+    default:                   return { choropleth: true,  bubble: false, custom: false };
+  }
 }
 
 function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
-  // Decide which numeric line(s) to draw. Priority:
-  //   1. label.value2 (Label Value 2 binding) wins outright — always one
-  //      line, painted in valueColor.
-  //   2. Otherwise consult valueSource:
-  //        choropleth -> show label.value (color value), valueColor
-  //        bubble     -> show label.bubbleValue, bubbleValueColor
-  //        both       -> show both as two lines with their own colors
+  // Decode which sources the dropdown selected. Each "_custom" / "all" /
+  // "custom" variant only contributes a custom line when Label Value 2
+  // is actually bound; binding-less reports get the base behaviour.
+  const sources = sourcesFor(style.valueSource);
+  const colorTxt = label.value != null ? formatNumber(label.value, style.decimals, style.format) : "";
+  const bubbleTxt = label.bubbleValue != null ? formatNumber(label.bubbleValue, style.decimals, style.format) : "";
+  const customTxt = label.value2 != null ? formatNumber(label.value2, style.decimals, style.format) : "";
+
   const valueLines: ComposedLine[] = [];
-  if (label.value2 != null) {
-    valueLines.push({ text: formatNumber(label.value2, style.decimals, style.format), kind: "value" });
-  } else {
-    const colorTxt = label.value != null ? formatNumber(label.value, style.decimals, style.format) : "";
-    const bubbleTxt = label.bubbleValue != null ? formatNumber(label.bubbleValue, style.decimals, style.format) : "";
-    switch (style.valueSource) {
-      case "bubble":
-        if (bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
-        break;
-      case "both":
-        if (colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
-        if (bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
-        break;
-      case "choropleth":
-      default:
-        if (colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
-        break;
-    }
-  }
+  if (sources.choropleth && colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
+  if (sources.bubble && bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
+  if (sources.custom && customTxt) valueLines.push({ text: customTxt, kind: "custom_value" });
+
+  // Pick the area name. Falls back to the geometry name if "labelText1"
+  // is requested but no override is bound.
+  const rawName = (style.nameSource === "labelText1" && label.nameOverride)
+    ? label.nameOverride
+    : (label.name || "");
 
   // Words on separate lines is the only thing that splits a name into
   // multiple lines up front. stack-when-needed is a fitting strategy that
   // only kicks in inside renderLabels when a label doesn't fit at its
   // placed size, and it never runs unless the user enables it.
-  let nameLines: string[] = [label.name || ""];
+  let nameLines: string[] = [rawName];
   if (style.wordsOnSeparateLines && nameLines[0]) {
     nameLines = nameLines[0].split(/\s+/);
   }
