@@ -100,7 +100,13 @@ export function renderLabels(
   labels: LabelDatum[],
   style: LabelStyle,
   anchorOverrides?: Map<string, LabelAnchorOverride>,
-  currentZoom: number = 1
+  currentZoom: number = 1,
+  /** Per-pcode → property name → resolved colour from conditional
+   *  formatting (fx) on this label card. Caller has already filtered
+   *  to the right card (stateLabels / localityLabels /
+   *  drillLocalityLabels) so the inner key is just the property name
+   *  ("color", "valueColor", "bubbleValueColor", "customValueColor"). */
+  ruleColorsByPcode?: Map<string, Map<string, string>>
 ): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -220,15 +226,19 @@ export function renderLabels(
 
     const useCurvedPath = style.placement === "curved" && !!bbox && renderedLines.some((l) => l.kind === "name");
 
+    // Resolve fx overrides for this label's pcode once per label so each
+    // line falls back to the same per-row rule colour when bound.
+    const labelRules = label.pcode ? ruleColorsByPcode?.get(label.pcode) : undefined;
+    const colorForKind = {
+      name: labelRules?.get("color") || style.color,
+      value: labelRules?.get("valueColor") || style.valueColor,
+      bubble_value: labelRules?.get("bubbleValueColor") || style.bubbleValueColor,
+      custom_value: labelRules?.get("customValueColor") || style.customValueColor
+    };
+
     for (let i = 0; i < renderedLines.length; i++) {
       const line = renderedLines[i];
-      const textColor = line.kind === "value"
-        ? style.valueColor
-        : line.kind === "bubble_value"
-          ? style.bubbleValueColor
-          : line.kind === "custom_value"
-            ? style.customValueColor
-            : style.color;
+      const textColor = colorForKind[line.kind];
       const yOffset = startY + i * lineHeight + baseFontSize * 0.35;
 
       // Curved rendering applies only to NAME lines. Value lines keep

@@ -33,6 +33,10 @@ export interface PreparedDataView {
   /** PCODEs that the report's slicers/filters keep in scope. */
   filteredStatePcodes: Set<string> | null;
   filteredLocalityPcodes: Set<string> | null;
+  /** Per-pcode → object name → property name → resolved colour from
+   *  conditional formatting rules (fx). Used by the bubble and label
+   *  renderers to override the constant from the formatting card. */
+  ruleColorsByPcode: Map<string, Map<string, Map<string, string>>>;
 }
 
 export interface CountryGeometry {

@@ -35,6 +35,35 @@ function valuesFor(values: powerbi.DataViewValueColumn[] | undefined, role: stri
   return values.filter((v) => roleOf(v.source, role));
 }
 
+/**
+ * Per-pcode → object → property → resolved colour. Populated when the
+ * user binds a ColorPicker with conditional formatting (fx) — Power BI
+ * evaluates the rule per row and writes the resulting fill into the
+ * category column's `.objects[rowIdx].<object>.<property>` map. We
+ * collect those and the renderers look up by pcode.
+ */
+export type RuleColorMap = Map<string, Map<string, Map<string, string>>>;
+
+function readRuleObjectsAt(cat: powerbi.DataViewCategoryColumn | null, i: number): Map<string, Map<string, string>> | null {
+  if (!cat) return null;
+  const objs = (cat as any).objects as any[] | undefined;
+  const obj = objs?.[i];
+  if (!obj) return null;
+  const out = new Map<string, Map<string, string>>();
+  for (const objectName of Object.keys(obj)) {
+    const props = obj[objectName];
+    if (!props) continue;
+    const propMap = new Map<string, string>();
+    for (const propName of Object.keys(props)) {
+      const v = props[propName];
+      const colour = v?.solid?.color;
+      if (typeof colour === "string") propMap.set(propName, colour);
+    }
+    if (propMap.size) out.set(objectName, propMap);
+  }
+  return out.size ? out : null;
+}
+
 export function prepareDataView(dv: powerbi.DataView | undefined, host: any): PreparedDataView {
   const empty: PreparedDataView = {
     areas: new Map(),
@@ -44,7 +73,8 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     bubbleSizeColumn: null,
     glyphColumns: [],
     filteredStatePcodes: null,
-    filteredLocalityPcodes: null
+    filteredLocalityPcodes: null,
+    ruleColorsByPcode: new Map()
   };
   if (!dv || !dv.categorical) return empty;
 
@@ -77,6 +107,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
   if (filteredLocs && locCat) for (const v of locCat.values) if (v != null) filteredLocs.add(String(v));
 
   const areas = new Map<string, AreaDatum>();
+  const ruleColorsByPcode: RuleColorMap = new Map();
 
   for (let i = 0; i < rowCount; i++) {
     const statePcode = stateCat ? stringOrNull(stateCat.values[i]) : null;
@@ -100,6 +131,13 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
 
     const highlighted = !!(colorCol && colorCol.highlights && colorCol.highlights[i] != null);
 
+    // Conditional-formatting (fx) results land on the category column's
+    // .objects array. Prefer the locality row's objects for a level-2
+    // pcode (covers drill view) and fall back to the state row's
+    // objects for level-1.
+    const ruleObjectsForLoc = readRuleObjectsAt(locCat, i);
+    const ruleObjectsForState = readRuleObjectsAt(stateCat, i);
+
     // Build a stable selection id so cross-filter / drill works correctly.
     const builder = host.createSelectionIdBuilder();
     if (locCat && locPcode) {
@@ -111,6 +149,8 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     const selectionId = builder.createSelectionId();
 
     if (locPcode) {
+      const ruleObjs = ruleObjectsForLoc || ruleObjectsForState;
+      if (ruleObjs) ruleColorsByPcode.set(locPcode, ruleObjs);
       areas.set(locPcode, {
         pcode: locPcode,
         name: labelText || undefined,
@@ -128,6 +168,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     } else if (statePcode) {
       const existing = areas.get(statePcode);
       if (!existing || existing.level === 2) continue;
+      if (ruleObjectsForState) ruleColorsByPcode.set(statePcode, ruleObjectsForState);
       areas.set(statePcode, {
         pcode: statePcode,
         name: labelText || undefined,
@@ -153,7 +194,8 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     bubbleSizeColumn: bubbleCol ? bubbleCol.source : null,
     glyphColumns: glyphCols.map((c) => c.source),
     filteredStatePcodes: filteredStates,
-    filteredLocalityPcodes: filteredLocs
+    filteredLocalityPcodes: filteredLocs,
+    ruleColorsByPcode
   };
 }
 
