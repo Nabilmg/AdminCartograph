@@ -1,125 +1,137 @@
-# PNG and SVG Export
+# SVG Export
 
-Two export buttons in the controls panel let you save the visual
-as either a raster PNG (for PowerPoint paste, Word documents, web
-images) or a vector SVG (for Illustrator, Inkscape, web embeds,
-print).
+A single export button in the controls panel lets you grab the
+visual as a self-contained SVG. No PNG button, no clipboard write,
+no automatic download — Power BI's iframe blocks all three reliably
+in practice. Instead, clicking **SVG** opens a modal showing the
+full SVG source; you select-all and copy with Ctrl/Cmd + C.
 
-Enable them in **Map controls → Show export buttons (PNG / SVG)**.
-Both default to off.
+Enable it in **Map controls → Show export button (SVG)**. Defaults
+to off.
 
-## PNG export
+## Why the manual-copy flow
 
-### Output
+Earlier builds tried, in order:
 
-- Filename: `map-A5.png`
-- Dimensions: **1748 × 1240 px** (A5 landscape at ~300 DPI)
-- Background: white (or your configured background colour)
-- Aspect ratio of the source visual is preserved; if the source is
-  squarer than A5, the result is letterboxed in white.
+1. `<a download="map.png">` — blocked by Power BI Service in many
+   tenants.
+2. `navigator.clipboard.write([new ClipboardItem({"image/png": …})])`
+   — blocked almost everywhere inside the Power BI iframe (image
+   clipboard writes need both a user gesture and host permission;
+   Service refuses).
+3. `navigator.clipboard.writeText(svgXml)` — sometimes worked, often
+   silently failed without throwing, leaving users wondering why
+   nothing was on the clipboard.
 
-### How it's built
+The current build skips all three and goes straight to a modal so
+the result is predictable: the SVG source is in front of you, you
+copy it manually, you know it worked.
 
-1. Clone the live SVG (it already has every layer, label, and
-   legend rendered).
-2. Set explicit `width`, `height`, and `viewBox` attributes on the
-   clone.
-3. Inline a coloured background `<rect>` at the start so the PNG
-   renders opaque.
-4. Inline `document.styleSheets` into a `<style>` tag inside the
-   SVG. Critical: SVG-as-image rendering is sandboxed and can't
-   read the parent document's CSSOM, so without inlining you'd
-   lose halos, fonts, opacity, etc.
-5. Serialise the SVG with `XMLSerializer`.
-6. Wrap as a `Blob` with type `image/svg+xml;charset=utf-8`.
-7. Load via `<img src="blob:...">` (with a 6-second timeout so a
-   bad SVG doesn't hang).
-8. Draw onto a 1748×1240 canvas, fitted with `Math.min(scaleX,
-   scaleY)`, centred in white.
-9. Export the canvas via `canvas.toBlob("image/png")`.
-10. Trigger a download via a synthetic `<a download>` anchor.
+## What clicking the button does
 
-### Why A5 landscape?
+1. Clones the live `<svg>` (every layer, label, legend, scale bar
+   already rendered).
+2. Sets explicit `width`, `height`, and `viewBox` on the clone.
+3. Inlines a coloured background `<rect>` so the export is opaque.
+4. Inlines `document.styleSheets` into a `<style>` tag at the top
+   so halos, fonts, opacity, and stroke widths survive when opened
+   outside Power BI.
+5. Serialises with `XMLSerializer`.
+6. Drops the result into a textarea inside a centred modal.
 
-A standard PowerPoint slide is 13.33 × 7.5 inches (≈ 1280 × 720 px
-at 96 DPI). A5 landscape (8.27 × 5.83 inches) is large enough to
-fit cleanly with margins on a standard slide, but small enough that
-the file size is manageable (~150-300 KB per export).
+## The copy modal
 
-If you need a different size, edit `A5_WIDTH` / `A5_HEIGHT` in
-`exportPng()` and rebuild.
+```
+┌─ Copy SVG manually ───────────────────────── × ─┐
+│ Select all, then press Ctrl/Cmd+C to copy.       │
+│                                                  │
+│ Click "Select all", then press Ctrl/Cmd + C…     │
+│                                                  │
+│ ┌────────────────────────────────────────────┐   │
+│ │ <svg xmlns="http://www.w3.org/2000/svg" …  │   │
+│ │   <style>…inlined CSS…</style>             │   │
+│ │   <rect …/>                                │   │
+│ │   <g class="adm1-layer">…</g>              │   │
+│ │   …                                        │   │
+│ │ </svg>                                     │   │
+│ └────────────────────────────────────────────┘   │
+│                                                  │
+│ [Select all] [Try copy]            [Close]       │
+└──────────────────────────────────────────────────┘
+```
 
-### What it captures
+- The textarea auto-selects on open, so Ctrl/Cmd + C works
+  immediately if your focus is on it.
+- **Select all** re-selects the textarea contents (useful if you
+  clicked outside).
+- **Try copy** attempts `document.execCommand("copy")` and falls
+  back to `navigator.clipboard.writeText`. When the host allows it,
+  you get a "Copied. Paste anywhere." status; when it doesn't, you
+  get a hint to use Ctrl/Cmd + C manually.
+- **Close**, the × button, or clicking the dimmed backdrop dismisses
+  the modal.
 
-Whatever the visual currently shows on screen — choropleth, bubbles,
-glyphs, labels, legends, scale bar, drill-state title pill if
-present. Zoom and pan transforms are baked in. The controls panel
-itself (zoom buttons, export buttons) is **not** in the output —
-it lives in the HTML overlay, not the SVG.
+## Saving the SVG to a file
 
-## SVG export
+Paste the copied text into:
 
-### Output
+- **A new file in any text editor**, save with a `.svg` extension.
+  Double-click to open in your browser, Inkscape, Illustrator.
+- **Inkscape / Illustrator** directly via File → New → paste, or
+  via "Open clipboard" in some tools.
+- **A browser address bar** prefixed with `data:image/svg+xml,` to
+  preview without saving (URL-encode the angle brackets / hash
+  signs first).
 
-- Filename: `map.svg`
-- Format: SVG with all CSS rules from `document.styleSheets` inlined
-  in a `<style>` tag at the top.
-- Self-contained: no external font references, no external image
-  references. Opens in any vector tool.
+## Use cases
 
-### How it's built
-
-Steps 1-6 of the PNG path. Then the SVG `Blob` is downloaded
-directly — no canvas rasterisation.
-
-### Use cases
-
-- **Illustrator / Inkscape**: open the SVG, ungroup, and edit
-  individual labels / paths / colours for one-off custom outputs.
-- **PowerPoint**: Insert → Pictures → "From a file" → `map.svg`.
-  PowerPoint can ungroup the SVG and let you click-edit individual
+- **Illustrator / Inkscape** — open the saved SVG, ungroup
+  repeatedly (Ctrl/Cmd + Shift + G) until each Admin polygon,
+  bubble, and label becomes a separately selectable object. Layers
+  in the cloned SVG are named `adm1-layer`, `adm2-layer`,
+  `bubble-layer`, `glyph-layer`, etc.
+- **PowerPoint** — Insert → Pictures → "From a file" → your saved
+  `.svg`. PowerPoint will let you ungroup and click-edit individual
   elements.
-- **Web embed**: include directly via `<img src="map.svg">` for
+- **Web embed** — include directly via `<img src="map.svg">` for
   vector quality at any zoom level.
-- **Print**: send to a printing house at any DPI without quality
+- **Print** — send to a printing house at any DPI without quality
   loss.
 
-### Editability tips
+## Need a PNG?
 
-After opening in Illustrator:
+The PNG button is intentionally gone — Power BI hosts blocked it
+too aggressively to be worth keeping. To get a raster image:
 
-1. Ungroup repeatedly (Ctrl/Cmd + Shift + G) until you see
-   individual paths.
-2. Each Admin1 polygon, each bubble, each label is now a separate
-   editable object.
-3. Layers are named `adm1-layer`, `adm2-layer`, `bubble-layer`,
-   `glyph-layer`, etc. in the cloned SVG, matching the source
-   structure.
+1. Save the copied SVG to a `.svg` file as above.
+2. Open it in your browser, Inkscape, Illustrator, or use an online
+   SVG-to-PNG converter.
+3. Export at whatever resolution you need.
 
-## Both formats: opt-in white background
+This is one extra step, but it works in 100% of host environments,
+which is more than the in-visual PNG export ever did.
 
-If you've enabled **Transparent background** in Map setup, the
-on-screen visual is transparent. The PNG / SVG exports still
-render with a white background (since transparency in PowerPoint
-paste creates the wrong impression that the user can see through
-to the slide).
+## Transparent vs white background
 
-To get a transparent PNG: open the exported SVG in an editor and
-remove the first `<rect>` (the background), then re-rasterise.
-Or use the SVG directly — vector tools give you control over the
-background.
+The export inlines whatever background colour the visual uses. If
+you've turned on **Transparent background** in Map setup, the
+exported SVG is also transparent — the inlined `<rect>` is omitted
+or uses a transparent fill. To swap a transparent background for
+white, edit the first `<rect>` in the saved SVG, or set a fill on
+the canvas in your vector editor.
 
 ## What can go wrong
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Click PNG, nothing happens | Browser blocking programmatic download | Look for the file in your Downloads folder anyway — Power BI sometimes downloads silently. |
-| PNG is mostly blank | Inline CSS step failed (cross-origin stylesheet) | Open DevTools console, look for `[ADM Map export]` warnings. The visual does fall back gracefully. |
-| Labels missing in PNG but present on screen | Same root cause as above | Same diagnosis. If reproducible, file an issue with the console output. |
-| SVG file is huge (multi-MB) | Inlined CSS includes the entire host stylesheet | Use the PNG export for distribution; SVG is only worth it for editing. |
+| Modal opens but textarea is empty | `buildExportSvg()` failed | Open DevTools console; look for `[ADM Map export]` errors. Most likely a cross-origin stylesheet threw on `cssRules` access. |
+| Pasted SVG renders blank in editor | Inline CSS step skipped a cross-origin sheet | Edit `style/visual.less` to put critical rules under classes the visual sets explicitly, then rebuild. |
+| Labels missing | Same root cause as blank render | Same fix. |
+| File is huge (multi-MB) | Inlined CSS includes the entire host stylesheet | Strip unused rules from the `<style>` block in your editor before saving, or accept it — modern editors handle large SVGs fine. |
+| "Try copy" status says blocked | Host CSP refuses both `execCommand` and `writeText` | Use Ctrl/Cmd + C while the textarea is selected. |
 
-For diagnostics, the visual logs every successful and failed
-export to the browser console under the `[ADM Map export]` prefix.
+The visual logs export attempts to the browser console under the
+`[ADM Map export]` prefix.
 
 ## See also
 

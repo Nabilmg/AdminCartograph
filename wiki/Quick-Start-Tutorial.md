@@ -99,16 +99,17 @@ Open the format pane (paint-roller icon) and try:
 
 ## 8. Export
 
-Open **14. Map controls** and turn on **Show export buttons (PNG /
-SVG)**. Two new buttons appear in the controls panel:
+Open **14. Map controls** and turn on **Show export button (SVG)**.
+A single **SVG** button appears in the controls panel. Click it to
+open a modal showing the visual's full SVG source — select all,
+press Ctrl/Cmd + C, paste into a new file with a `.svg` extension.
 
-- **PNG** — produces an A5 landscape PNG (1748 × 1240 @ 300 DPI)
-  letterboxed in white. Perfect for **Insert into PowerPoint**.
-- **SVG** — produces a vector file with inlined CSS that opens
-  cleanly in Illustrator / Inkscape / browsers. Good for editorial
-  print work.
+The exported SVG inlines all CSS and opens cleanly in Illustrator /
+Inkscape / browsers. To get a PNG, save the SVG and convert with
+your favourite tool — Power BI's iframe blocks in-visual PNG export
+in too many tenants to be worth keeping.
 
-See [PNG and SVG Export](PNG-and-SVG-Export.md) for details.
+See [SVG Export](PNG-and-SVG-Export.md) for details.
 
 ## 9. Save
 

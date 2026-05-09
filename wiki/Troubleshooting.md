@@ -180,19 +180,33 @@ In Admin1 / Admin2 locked modes, auto-drill is disabled.
 
 ## Export issues
 
-### PNG button does nothing visibly
+### Where did the PNG button go?
 
-The file may have downloaded silently to your Downloads folder.
-Check there. If it's not there:
+It was removed. Power BI's iframe blocked PNG export reliably
+(both `<a download>` and `clipboard.write([ClipboardItem])`), so
+the button was misleading more than useful. Use the **SVG** button
+instead and convert to PNG outside Power BI — see
+[SVG Export → Need a PNG?](PNG-and-SVG-Export.md#need-a-png).
+
+### Clicking SVG opens a modal — is that expected?
+
+Yes. The current build skips the clipboard API entirely and shows
+the SVG source in a textarea. Select all, press Ctrl/Cmd + C, paste
+into a new file with a `.svg` extension. The modal also has
+**Select all** and **Try copy** helper buttons.
+
+### Modal opens but textarea is empty
+
+`buildExportSvg()` failed before it could fill the textarea.
 
 1. Open DevTools console.
-2. Click PNG.
-3. Look for `[ADM Map export]` log lines.
+2. Click SVG again.
+3. Look for `[ADM Map export]` errors.
 
-The button cycles through ✓ (success) / ⬇ (download fallback) /
-⚠ (error) icons after the click — wait 2 seconds.
+Most likely the SVG clone failed earlier in the path, before the
+inline-CSS step ran.
 
-### PNG renders blank / missing labels
+### Pasted SVG renders blank / missing labels in Inkscape / browser
 
 CSS not inlined into the cloned SVG. Console will show
 `[ADM Map export]` with the cause. The visual does inline
@@ -202,17 +216,21 @@ stylesheet, it won't reach the export.
 
 Workaround: edit `style/visual.less` to put critical visual styles
 under classes the visual sets explicitly (instead of relying on
-host CSS).
+host CSS), then rebuild.
 
-### SVG button works, PNG doesn't
+### "Try copy" button in the modal says blocked
 
-Canvas serialisation is being blocked (typically by a strict CSP).
-SVG export skips canvas entirely, so it works in more places.
+Host CSP refuses both `document.execCommand("copy")` and
+`navigator.clipboard.writeText`. Use Ctrl/Cmd + C while the
+textarea is selected — the keyboard shortcut bypasses the API
+restrictions.
 
-### Power BI Service blocks both buttons
+### SVG file is huge (multi-MB)
 
-Try Power BI Desktop. Some tenant CSPs block both `<a download>`
-and clipboard / canvas. Desktop has looser policies.
+The inlined `<style>` block includes every CSS rule from
+`document.styleSheets` — most of which the export doesn't need.
+Strip unused rules in your editor before saving, or just accept
+it. Modern vector editors handle large SVGs fine.
 
 ## Tooltips show only the value
 

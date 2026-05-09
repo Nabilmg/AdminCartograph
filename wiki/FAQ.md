@@ -24,7 +24,7 @@ The big-three differences:
    prev/next arrows step alphabetically through Admin1s; "Country
    View" returns.
 
-Plus PCODE-native binding, scale bar, PNG/SVG export, zoom + pan,
+Plus PCODE-native binding, scale bar, SVG export, zoom + pan,
 and 8 countries pre-bundled for convenience.
 
 ## Do I have to upload geometry?
@@ -128,28 +128,31 @@ your own bundle) to avoid this.
 
 ## Can I export the map?
 
-Yes. **14. Map controls → Show export buttons (PNG / SVG)**:
+Yes — **14. Map controls → Show export button (SVG)**. Clicking the
+**SVG** button opens a modal with the visual's full SVG source in
+a textarea: select all, press Ctrl/Cmd + C, paste into a new file
+with a `.svg` extension.
 
-- **PNG** → A5 landscape (1748×1240, ~300 DPI) for PowerPoint
-  paste / Insert.
-- **SVG** → portable vector for Illustrator / Inkscape / browsers.
-
-See [PNG and SVG Export](PNG-and-SVG-Export.md).
+There's no PNG button — Power BI's iframe blocked PNG export in too
+many tenants to keep it. To get a PNG, save the SVG and convert
+with Inkscape, Illustrator, a browser, or any online SVG-to-PNG
+tool. See [SVG Export](PNG-and-SVG-Export.md).
 
 ## Does it work in Power BI Service?
 
-Yes. Most features work identically. The two host-dependent ones:
+Yes. Most features work identically. The one host-dependent area:
 
 - **Custom upload persistence** sometimes truncates very large
   payloads in Service. Stick to <2 MB if you publish.
-- **PNG export to clipboard** is blocked by some tenants in
-  Service. The visual falls back to a download.
+
+The SVG-export modal works in Service the same as in Desktop.
 
 ## Does it work in Power BI Mobile?
 
-Mostly. Touch interaction + drill should work. Mouse-drag pan,
-mouse wheel zoom obviously don't apply. Export buttons fall back
-to download (no clipboard) on mobile.
+Mostly. Touch interaction + drill should work. Mouse-drag pan and
+mouse wheel zoom obviously don't apply. The SVG export modal opens
+and the textarea is selectable, but copy-paste UX on mobile depends
+on the OS keyboard.
 
 ## Can I customise the format pane (rename / reorder)?
 

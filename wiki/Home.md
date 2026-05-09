@@ -3,7 +3,7 @@
 A Power BI custom visual for **multi-layer subnational maps**. Upload
 your country's GeoJSON or TopoJSON, bind a PCODE column, and get
 choropleth fills, bubbles, pie / donut / column overlays, drill-down
-between Admin1 and Admin2, scale bar, PNG / SVG export, and a rich
+between Admin1 and Admin2, scale bar, SVG export, and a rich
 label engine — all driven by your data.
 
 This wiki is the exhaustive reference. The repo's
@@ -58,8 +58,9 @@ manual.
   Admin2, click to drill, prev/next, "Country View" return
 - [**Map Controls and Navigation**](Map-Controls-and-Navigation.md) —
   zoom, pan, mouse drag, mouse wheel, directional pad
-- [**PNG and SVG Export**](PNG-and-SVG-Export.md) — A5 landscape PNG
-  for PowerPoint, portable SVG for vector tools
+- [**SVG Export**](PNG-and-SVG-Export.md) — copy the visual's full
+  SVG source via a manual-copy modal (Power BI blocks downloads
+  and the clipboard API, so this is the path that always works)
 
 ## Under the hood
 
