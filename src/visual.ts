@@ -356,7 +356,20 @@ export class Visual implements IVisual {
 
     const iso3 = this.resolveCountry(prepared);
     if (!iso3) {
-      this.renderLandingPage("Bind State PCODE (ADM1) or Locality PCODE (ADM2), then optionally set the Country in the format pane (or it will be auto-detected from PCODE prefixes).");
+      // Two distinct failure modes share this branch — pick the
+      // message that matches what the user actually did. If they
+      // have something bound but auto-detection still failed, the
+      // PCODEs don't start with one of the bundled ISO3 prefixes
+      // (AFG, COD, HTI, IRN, LBN, SDN, SYR, YEM); they need to set
+      // the country explicitly or upload custom geometry.
+      const adm1Alias = (this.settings?.general?.admin1Alias?.value || "").trim() || "Admin1";
+      const adm2Alias = (this.settings?.general?.admin2Alias?.value || "").trim() || "Admin2";
+      const hasBinding = prepared.hasStateBinding || prepared.hasLocalityBinding;
+      this.renderLandingPage(
+        hasBinding
+          ? `Couldn't auto-detect a country from your PCODE prefix. Open the format pane → 1. Map setup → Country and pick the right country, or choose Custom (upload TopoJSON) to bring your own geometry.`
+          : `Drag a PCODE column into ${adm1Alias} PCODE (or ${adm2Alias} PCODE). The Country dropdown in 1. Map setup defaults to Auto and infers the right country from the PCODE prefix.`
+      );
       return;
     }
     let country: CountryGeometry | null = null;
