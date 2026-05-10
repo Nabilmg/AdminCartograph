@@ -59,6 +59,12 @@ export interface LegendInputs {
     headerColor: string;
     headerBold: boolean;
     headerFontSize: number;
+    /** "vertical" stacks combined legends top-to-bottom (default).
+     *  "horizontal" arranges them left-to-right so the container reads
+     *  wide rather than tall — useful when many legends share a corner
+     *  and the user wants a single horizontal strip instead of a tall
+     *  column. */
+    orientation: "vertical" | "horizontal";
   };
 }
 
@@ -133,18 +139,26 @@ export function renderLegends(
       drawValueLegend(sub, contents.value as any, 0, headerStyle);
       stack.push(sub.node() as SVGGElement);
     }
-    // Stack the sub-groups vertically with an 8px gap. The first item
-    // (value) keeps its content at its native y; subsequent items get
-    // translated downward so they sit BELOW everything before them.
+    // Stack the sub-groups with an 8px gap. Vertical mode (default)
+    // stacks them top-to-bottom; horizontal mode arranges them
+    // left-to-right side by side. Each sub-group keeps its own
+    // internal layout — the orientation toggle only changes how the
+    // sub-groups themselves are positioned relative to each other.
+    const horizontal = inputs.container.orientation === "horizontal";
     let cursor = 0;
     for (const sub of stack) {
       const subBox = sub.getBBox();
-      const targetTop = cursor;
-      // We want subBox.y to land at targetTop, so translate by
-      // (targetTop - subBox.y). This handles negative bbox.y correctly.
-      const ty = targetTop - subBox.y;
-      sub.setAttribute("transform", `translate(0,${ty})`);
-      cursor = targetTop + subBox.height + 8;
+      if (horizontal) {
+        const targetLeft = cursor;
+        const tx = targetLeft - subBox.x;
+        sub.setAttribute("transform", `translate(${tx},0)`);
+        cursor = targetLeft + subBox.width + 8;
+      } else {
+        const targetTop = cursor;
+        const ty = targetTop - subBox.y;
+        sub.setAttribute("transform", `translate(0,${ty})`);
+        cursor = targetTop + subBox.height + 8;
+      }
     }
 
     // Measure and frame.
