@@ -43,6 +43,9 @@ export class Visual implements IVisual {
   private root: HTMLElement;
   private svg: SVGSVGElement;
   private mapGroup: SVGGElement;
+  /** Soft halo behind every other map layer. Toggled via the borders
+   *  card's "Country outer glow" setting. */
+  private glowLayer: SVGGElement;
   private adm1Layer: SVGGElement;
   private adm2Layer: SVGGElement;
   private bubbleLayer: SVGGElement;
@@ -151,6 +154,7 @@ export class Visual implements IVisual {
     this.adm1LabelLayer = svgEl("g", { class: "adm1-label-layer" });
     this.legendLayer = svgEl("g", { class: "legend-layer" });
     this.scaleBarLayer = svgEl("g", { class: "scale-bar-layer" });
+    this.glowLayer = svgEl("g", { class: "country-glow-layer" });
     // Order (bottom -> top):
     //   adm2 (locality fills + borders)
     //   adm1 (Admin1 fills in Admin1 view, or just borders in drill view)
@@ -158,6 +162,8 @@ export class Visual implements IVisual {
     //   glyphs (pie / donut / column charts on top of bubbles)
     //   adm2 labels
     //   adm1 labels (always on top)
+    // Glow first so it sits behind everything else inside mapGroup.
+    this.mapGroup.appendChild(this.glowLayer);
     this.mapGroup.appendChild(this.adm2Layer);
     this.mapGroup.appendChild(this.adm1Layer);
     this.mapGroup.appendChild(this.bubbleLayer);
@@ -265,7 +271,18 @@ export class Visual implements IVisual {
       return;
     }
     const node = (e.target as Element)?.closest?.("[data-pcode]") as SVGElement | null;
-    if (!node) return;
+    if (!node) {
+      // Click on the map background (no polygon under cursor): clear
+      // any cross-filter the user previously triggered. Matches the
+      // standard PBI "click outside to deselect" pattern.
+      e.stopPropagation();
+      const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+      if (current && current.length) {
+        this.selectionManager.clear();
+        this.refreshSelectionStyles();
+      }
+      return;
+    }
     const pcode = node.getAttribute("data-pcode");
     if (!pcode) return;
     e.stopPropagation();
@@ -296,7 +313,21 @@ export class Visual implements IVisual {
     if (view === "localities" && isAdm2) {
       const datum = this.cached.prepared.areas.get(pcode);
       if (datum) {
-        this.selectionManager.select(datum.selectionId, (e as any).ctrlKey || (e as any).metaKey);
+        const multi = (e as any).ctrlKey || (e as any).metaKey;
+        const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+        // Re-clicking the same Admin2 with no modifier toggles the
+        // selection off (PBI's select() without multiSelect is a
+        // replace, so a re-click would otherwise leave the filter
+        // stuck).
+        const isOnlySelected = !multi
+          && current && current.length === 1
+          && typeof (current[0] as any).equals === "function"
+          && (current[0] as any).equals(datum.selectionId);
+        if (isOnlySelected) {
+          this.selectionManager.clear();
+        } else {
+          this.selectionManager.select(datum.selectionId, multi);
+        }
       }
       this.refreshSelectionStyles();
     }
@@ -936,6 +967,36 @@ export class Visual implements IVisual {
         }));
     const adm2Rows = view === "localities" ? rows : [];
 
+    // Country outer glow (optional). A blurred copy of the country
+    // outline behind every other map layer creates a soft halo that
+    // extends slightly outside the country border. The choropleth
+    // fills sit on top so the interior isn't tinted.
+    while (this.glowLayer.firstChild) this.glowLayer.removeChild(this.glowLayer.firstChild);
+    const glow = this.settings.borders;
+    if (glow.countryGlowShow.value) {
+      const radius = Math.max(0, glow.countryGlowRadius.value);
+      const stdDev = Math.max(0.5, radius / 2);
+      const filterId = `country-glow-${Math.random().toString(36).slice(2, 8)}`;
+      const svgNS = "http://www.w3.org/2000/svg";
+      const defs = document.createElementNS(svgNS, "defs");
+      defs.innerHTML =
+        `<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">` +
+        `<feGaussianBlur stdDeviation="${stdDev}"/>` +
+        `</filter>`;
+      this.glowLayer.appendChild(defs);
+      const fc = { type: "FeatureCollection", features: adm1Visible } as any;
+      const d = path(fc) || "";
+      const pth = document.createElementNS(svgNS, "path");
+      pth.setAttribute("d", d);
+      pth.setAttribute("fill", glow.countryGlowColor.value.value);
+      pth.setAttribute("stroke", glow.countryGlowColor.value.value);
+      pth.setAttribute("stroke-width", String(Math.max(2, radius / 2)));
+      pth.setAttribute("filter", `url(#${filterId})`);
+      pth.setAttribute("opacity", String(glow.countryGlowOpacity.value));
+      pth.setAttribute("pointer-events", "none");
+      this.glowLayer.appendChild(pth);
+    }
+
     const adm1Selection = renderChoropleth(this.adm1Layer, path, adm1Rows, "adm1");
     const adm2Selection = renderChoropleth(this.adm2Layer, path, adm2Rows, "adm2");
 
@@ -952,13 +1013,34 @@ export class Visual implements IVisual {
       localityOpacity: this.settings.borders.localityOpacity.value
     });
 
-    // In drill view, dim the neighbour Admin1 borders so the focused state
-    // reads as the foreground. The drilled state's border keeps the user's
-    // configured opacity; everyone else drops to 0.35.
-    if (this.drilledStatePcode && view === "localities") {
+    // Dim out-of-focus Admin1 borders so the in-focus states read as
+    // foreground. Two trigger conditions in localities view:
+    //   1. Drill view — focus = the drilled state.
+    //   2. Partial filter — focus = the set of state PCODEs whose
+    //      Admin2 children remain visible (works whether Admin1 was
+    //      bound directly or derived from the Admin2 column).
+    // Outside drill, the partial-filter case lights up only when at
+    // least one but not all states remain — avoids flicker at the
+    // initial unfiltered render.
+    let focusedStatePcodes: Set<string> | null = null;
+    if (view === "localities") {
+      if (this.drilledStatePcode) {
+        focusedStatePcodes = new Set([this.drilledStatePcode]);
+      } else {
+        const inFilter = new Set(
+          (adm2Visible as any[])
+            .map((f) => f.properties && f.properties.ADM1_PCODE)
+            .filter(Boolean) as string[]
+        );
+        if (inFilter.size && inFilter.size < adm1Features.length) {
+          focusedStatePcodes = inFilter;
+        }
+      }
+    }
+    if (focusedStatePcodes) {
       d3.select(this.adm1Layer).selectAll<SVGPathElement, any>("path")
         .attr("stroke-opacity", (d: any) => {
-          if (!d || d.pcode === this.drilledStatePcode) return this.settings.borders.stateOpacity.value;
+          if (!d || focusedStatePcodes!.has(d.pcode)) return this.settings.borders.stateOpacity.value;
           return Math.min(this.settings.borders.stateOpacity.value, 0.35);
         });
     }
@@ -1038,19 +1120,34 @@ export class Visual implements IVisual {
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     if (this.settings.stateLabels.show.value) {
       const isDrill = !!this.drilledStatePcode && view === "localities";
+      // Partial-filter mode reuses the drill dim treatment but keeps
+      // the in-filter states' labels rendered (no title pill).
+      const partialFilter = !isDrill && !!focusedStatePcodes;
 
-      // Neighbour labels go into a sub-group so we can dim them as a unit
-      // in drill view (30% opacity) without dimming the title pill, which
-      // is rendered into adm1LabelLayer directly afterward.
+      // Out-of-focus labels go into a sub-group so we can dim them as
+      // a unit (drill: neighbour states; partial filter: out-of-filter
+      // states) without dimming the in-focus labels next to them.
       const neighborGroup = svgEl("g", { class: "adm1-neighbor-labels" });
       this.adm1LabelLayer.appendChild(neighborGroup);
-      // Neighbour labels in drill view dim to 0.55 — readable enough as
-      // context, but clearly subordinate to the focused state's labels.
-      if (isDrill) neighborGroup.setAttribute("opacity", "0.55");
+      if (isDrill || partialFilter) neighborGroup.setAttribute("opacity", "0.55");
+
+      // In partial filter mode, focused states' labels render at full
+      // opacity in their own group so the dim group's opacity doesn't
+      // bleed onto them.
+      let focusGroup: SVGGElement | null = null;
+      if (partialFilter) {
+        focusGroup = svgEl("g", { class: "adm1-focus-labels" });
+        this.adm1LabelLayer.appendChild(focusGroup);
+      }
 
       const labelFeatures = isDrill
         ? adm1Visible.filter((f) => f.properties.ADM1_PCODE !== this.drilledStatePcode)
-        : adm1Visible;
+        : (partialFilter
+          ? adm1Visible.filter((f) => !focusedStatePcodes!.has(f.properties.ADM1_PCODE))
+          : adm1Visible);
+      const focusLabelFeatures = partialFilter
+        ? adm1Visible.filter((f) => focusedStatePcodes!.has(f.properties.ADM1_PCODE))
+        : [];
       if (labelFeatures.length) {
         const labels: LabelDatum[] = labelFeatures.map((f) => {
           const datum = stateAreas.get(f.properties.ADM1_PCODE);
@@ -1090,6 +1187,33 @@ export class Visual implements IVisual {
           }
         }
         renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedForbid);
+      }
+
+      // Render the focus group at full opacity (partial filter only —
+      // drill view uses the title pill for the focused state's label).
+      if (partialFilter && focusGroup && focusLabelFeatures.length) {
+        const focusLabels: LabelDatum[] = focusLabelFeatures.map((f) => {
+          const datum = stateAreas.get(f.properties.ADM1_PCODE);
+          return {
+            feature: f,
+            pcode: f.properties.ADM1_PCODE,
+            name: (datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            nameOverride: datum?.labelText1 ?? null,
+            value: datum?.colorValue ?? null,
+            value2: datum?.labelValue2 ?? null,
+            bubbleValue: datum?.bubbleSize ?? null
+          };
+        });
+        renderLabels(
+          focusGroup,
+          projection,
+          path,
+          focusLabels,
+          this.styleFromCard(this.settings.stateLabels),
+          undefined,
+          this.zoomLevel,
+          this.ruleColorsForCard(prepared, "stateLabels")
+        );
       }
 
       this.focusedStateProjBBox = null;
@@ -1448,28 +1572,40 @@ export class Visual implements IVisual {
    */
   private applyAdmin1Selection(pcode: string, multiSelect: boolean): void {
     if (!this.cached) return;
+    // Build the set of selectionIds that "select Admin1 X" maps to —
+    // either the direct Admin1 row's id, or every Admin2 child row's
+    // id when only Admin2 is bound.
+    const ids: powerbi.extensibility.ISelectionId[] = [];
     const directly = this.cached.prepared.areas.get(pcode);
     if (directly && directly.level === 1) {
-      this.selectionManager.select(directly.selectionId, multiSelect);
-      return;
-    }
-    const country = this.cached.country;
-    const child2parent = new Map<string, string>();
-    if (country.adm2) {
-      for (const f of country.adm2.features as any[]) {
-        const c = f.properties?.ADM2_PCODE;
-        const p = f.properties?.ADM1_PCODE;
-        if (c && p) child2parent.set(c, p);
+      ids.push(directly.selectionId);
+    } else {
+      const country = this.cached.country;
+      const child2parent = new Map<string, string>();
+      if (country.adm2) {
+        for (const f of country.adm2.features as any[]) {
+          const c = f.properties?.ADM2_PCODE;
+          const p = f.properties?.ADM1_PCODE;
+          if (c && p) child2parent.set(c, p);
+        }
+      }
+      for (const a of this.cached.prepared.areas.values()) {
+        const parent = a.parentPcode || child2parent.get(a.pcode);
+        if (parent === pcode) ids.push(a.selectionId);
       }
     }
-    const ids: powerbi.extensibility.ISelectionId[] = [];
-    for (const a of this.cached.prepared.areas.values()) {
-      const parent = a.parentPcode || child2parent.get(a.pcode);
-      if (parent === pcode) ids.push(a.selectionId);
+    if (!ids.length) return;
+    // Toggle off when the user single-clicks the same Admin1 that's
+    // already the entire current selection. Without this PBI's
+    // select(replace) leaves the filter stuck on a re-click.
+    if (!multiSelect) {
+      const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+      if (selectionIdsEqual(current, ids)) {
+        this.selectionManager.clear();
+        return;
+      }
     }
-    if (ids.length) {
-      this.selectionManager.select(ids, multiSelect);
-    }
+    this.selectionManager.select(ids, multiSelect);
   }
   private admin1NavOrder(): string[] {
     if (!this.cached) return [];
@@ -2240,6 +2376,23 @@ function collectVisualCss(): string {
     }
   }
   return out.join("\n");
+}
+
+/**
+ * Compare two ISelectionId lists by value. Set-equality, order-
+ * independent. Used to detect a re-click on the already-selected
+ * Admin1 / Admin2 so the click can toggle the filter off rather than
+ * re-selecting it (PBI's select() without multiSelect is a replace,
+ * so without this check a re-click leaves the filter stuck).
+ */
+function selectionIdsEqual(
+  a: powerbi.extensibility.ISelectionId[] | undefined,
+  b: powerbi.extensibility.ISelectionId[]
+): boolean {
+  if (!a) return false;
+  if (a.length !== b.length) return false;
+  const eqOne = (x: any, list: any[]) => list.some((y) => typeof x.equals === "function" && x.equals(y));
+  return a.every((x) => eqOne(x, b)) && b.every((x) => eqOne(x, a));
 }
 
 function describeError(err: any): string {
