@@ -554,7 +554,7 @@ export class Visual implements IVisual {
     const draft = this.customUploadDraft!;
     const filesReady = !!draft.adm1Raw;
     card.innerHTML = `
-      <strong>Custom map data</strong>
+      <strong>AdminCartograph — Custom map data</strong>
       <p style="margin:4px 0 12px">Upload TopoJSON or GeoJSON for Admin1 (required) and Admin2 (optional).</p>
 
       <div class="row">
@@ -597,6 +597,7 @@ export class Visual implements IVisual {
       </div>
 
       <p style="font-size:11px;color:#666;margin-top:14px">The file is saved inside the report (.pbix). Keep it under a few MB.</p>
+      <p style="font-size:11px;color:#666;margin-top:4px">AdminCartograph &middot; <a href="https://github.com/nabilaljarmozi/AdminCartograph" target="_blank" rel="noopener noreferrer" style="color:#1f6feb;text-decoration:none">github.com/nabilaljarmozi/AdminCartograph</a></p>
     `;
     // File pickers: <label> wraps the hidden <input type="file"> so the
     // native click event opens the OS file dialog. No JS .click() needed —
@@ -730,7 +731,7 @@ export class Visual implements IVisual {
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     while (this.legendLayer.firstChild) this.legendLayer.removeChild(this.legendLayer.firstChild);
-    this.overlay.innerHTML = `<div class="adm-landing"><strong>ADM Choropleth + Bubble Map</strong><p>${escapeHtml(message)}</p></div>`;
+    this.overlay.innerHTML = `<div class="adm-landing"><strong>AdminCartograph</strong><p>${escapeHtml(message)}</p><p style="font-size:11px;color:#666;margin-top:8px"><a href="https://github.com/nabilaljarmozi/AdminCartograph" target="_blank" rel="noopener noreferrer" style="color:#1f6feb;text-decoration:none">github.com/nabilaljarmozi/AdminCartograph</a></p></div>`;
   }
 
   private resolveCountry(prepared: PreparedDataView): string | null {
