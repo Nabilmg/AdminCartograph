@@ -295,7 +295,8 @@ class GlyphChartSettings extends FormattingSettingsCard {
     items: [
       { value: "pie", displayName: "Pie" },
       { value: "donut", displayName: "Donut" },
-      { value: "column", displayName: "Column" }
+      { value: "column", displayName: "Column" },
+      { value: "concentric", displayName: "Concentric circles" }
     ],
     value: { value: "pie", displayName: "Pie" }
   });

@@ -503,7 +503,8 @@
             "enumeration": [
               { "value": "pie", "displayName": "Pie" },
               { "value": "donut", "displayName": "Donut" },
-              { "value": "column", "displayName": "Column" }
+              { "value": "column", "displayName": "Column" },
+              { "value": "concentric", "displayName": "Concentric circles" }
             ]
           }
         },
