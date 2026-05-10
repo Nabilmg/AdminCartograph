@@ -10,7 +10,7 @@ import { GeometryLoader } from "./geo/geometryLoader";
 import { prepareDataView } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
-import { renderBubbles } from "./render/bubbles";
+import { renderBubbles, updateBubbleTransforms } from "./render/bubbles";
 import { renderGlyphs, GlyphType } from "./render/glyphs";
 import { renderLabels, updateLabelTransforms, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
@@ -46,6 +46,10 @@ export class Visual implements IVisual {
   /** Soft halo behind every other map layer. Toggled via the borders
    *  card's "Country outer glow" setting. */
   private glowLayer: SVGGElement;
+  /** Drill title pill ("Country View" sub-header). Sits OUTSIDE
+   *  mapGroup so the zoom / pan transform doesn't move it — it stays
+   *  glued to the top-left in screen space at every zoom level. */
+  private pillLayer: SVGGElement;
   private adm1Layer: SVGGElement;
   private adm2Layer: SVGGElement;
   private bubbleLayer: SVGGElement;
@@ -57,12 +61,6 @@ export class Visual implements IVisual {
   /** Set by renderMap; called from applyZoom so the scale bar updates
    *  live as the user zooms without re-running renderMap. */
   private rerenderScaleBar: (() => void) | null = null;
-  /** Projected (pre-zoom) bounding box of the drilled state's polygon,
-   *  in the same coordinate space as the d3 projection output. Used by
-   *  updateDrilledPillVisibility to hide the title pill when the
-   *  focused polygon scrolls fully off-screen on pan / zoom. Null
-   *  outside drill view. */
-  private focusedStateProjBBox: [number, number, number, number] | null = null;
   private overlay: HTMLElement;
 
   private settingsService: FormattingSettingsService;
@@ -155,6 +153,7 @@ export class Visual implements IVisual {
     this.legendLayer = svgEl("g", { class: "legend-layer" });
     this.scaleBarLayer = svgEl("g", { class: "scale-bar-layer" });
     this.glowLayer = svgEl("g", { class: "country-glow-layer" });
+    this.pillLayer = svgEl("g", { class: "drill-pill-layer" });
     // Order (bottom -> top):
     //   adm2 (locality fills + borders)
     //   adm1 (Admin1 fills in Admin1 view, or just borders in drill view)
@@ -176,6 +175,9 @@ export class Visual implements IVisual {
     // otherwise be partially hidden.
     this.svg.appendChild(this.scaleBarLayer);
     this.svg.appendChild(this.legendLayer);
+    // Pill last so it draws on top of legend / scale bar in z-order
+    // (it's rare for them to share screen space, but defensive).
+    this.svg.appendChild(this.pillLayer);
 
     this.overlay = document.createElement("div");
     this.overlay.className = "adm-overlay";
@@ -1038,10 +1040,27 @@ export class Visual implements IVisual {
       }
     }
     if (focusedStatePcodes) {
+      // Out-of-focus states are blanked with the visual's background
+      // colour so the choropleth fill (and any overlays drawn into
+      // adm2Layer outside the focus set, in case a future feature
+      // adds them) doesn't bleed through. Falls back to white when
+      // the visual background is transparent — solid white reads
+      // cleanly against most report backgrounds.
+      const bgFill = this.settings?.general?.transparentBackground?.value
+        ? "#ffffff"
+        : (this.settings?.general?.background?.value?.value || "#ffffff");
       d3.select(this.adm1Layer).selectAll<SVGPathElement, any>("path")
         .attr("stroke-opacity", (d: any) => {
           if (!d || focusedStatePcodes!.has(d.pcode)) return this.settings.borders.stateOpacity.value;
           return Math.min(this.settings.borders.stateOpacity.value, 0.35);
+        })
+        .attr("fill", function (d: any) {
+          if (!d || focusedStatePcodes!.has(d.pcode)) return (this as SVGPathElement).getAttribute("fill") || "none";
+          return bgFill;
+        })
+        .attr("fill-opacity", (d: any) => {
+          if (!d || focusedStatePcodes!.has(d.pcode)) return null as any;
+          return 1;
         });
     }
 
@@ -1091,9 +1110,11 @@ export class Visual implements IVisual {
         strokeWidth: bubbleStyle.strokeWidth.value,
         opacity: bubbleStyle.opacity.value,
         minRadius: bubbleStyle.minRadius.value,
-        maxRadius: bubbleStyle.maxRadius.value
+        maxRadius: bubbleStyle.maxRadius.value,
+        constantSize: bubbleStyle.constantSize?.value ?? true
       },
-      prepared.ruleColorsByPcode
+      prepared.ruleColorsByPcode,
+      this.zoomLevel
     );
 
     // Labels — state labels always (when shown); locality labels depend on view.
@@ -1118,6 +1139,7 @@ export class Visual implements IVisual {
       : undefined;
 
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
+    while (this.pillLayer.firstChild) this.pillLayer.removeChild(this.pillLayer.firstChild);
     if (this.settings.stateLabels.show.value) {
       const isDrill = !!this.drilledStatePcode && view === "localities";
       // Partial-filter mode reuses the drill dim treatment but keeps
@@ -1216,20 +1238,13 @@ export class Visual implements IVisual {
         );
       }
 
-      this.focusedStateProjBBox = null;
       if (isDrill) {
         const drilledFeature = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
         if (drilledFeature) {
           const datum = stateAreas.get(drilledFeature.properties.ADM1_PCODE);
           this.renderAdmin1Header(width, drilledFeature, datum);
-          // Cache the focused polygon's projected bbox (in pre-zoom map
-          // coords) so applyZoom can hide the title pill when the
-          // polygon scrolls fully off-screen.
-          const b = path.bounds(drilledFeature);
-          this.focusedStateProjBBox = [b[0][0], b[0][1], b[1][0], b[1][1]];
         }
       }
-      this.updateDrilledPillVisibility();
     }
 
     // Pick the right Admin2 label card based on whether the user has drilled
@@ -1339,8 +1354,12 @@ export class Visual implements IVisual {
       } : undefined,
       bubble: bubbleLegend.show.value && bubbleResult ? {
         title: bubbleTitle,
-        fillColor: bubbleStyle.fillColor.value.value,
-        strokeColor: bubbleStyle.strokeColor.value.value,
+        // Use the colour actually painted on the bubbles. With no fx
+        // rule this equals the static card value; with fx in play it's
+        // the most-common rule-resolved colour, so the legend swatch
+        // matches what's on the map.
+        fillColor: bubbleResult.effectiveFillColor,
+        strokeColor: bubbleResult.effectiveStrokeColor,
         minRadius: bubbleStyle.minRadius.value,
         maxRadius: bubbleStyle.maxRadius.value,
         minValue: bubbleResult.minValue,
@@ -1496,12 +1515,13 @@ export class Visual implements IVisual {
     const baseX = 8;
     const baseY = 44;
     const svgNS = "http://www.w3.org/2000/svg";
-    // All pill elements live in a single wrapper group so applyZoom can
-    // toggle visibility (display:none) when the focused state's
-    // polygon scrolls fully off-screen during pan / zoom.
+    // Pill is rendered into pillLayer (a screen-space layer outside
+    // mapGroup) so it stays glued to (8, 44) regardless of zoom / pan.
+    // The wrapper group is purely for clarity; pillLayer itself is
+    // cleared at the start of every render.
     const sel = document.createElementNS(svgNS, "g") as SVGGElement;
     sel.setAttribute("class", "adm-drilled-pill");
-    this.adm1LabelLayer.appendChild(sel);
+    this.pillLayer.appendChild(sel);
 
     const padX = 14;
     const padY = 10;
@@ -1951,44 +1971,14 @@ export class Visual implements IVisual {
     // rewrites the per-label transform — no layout / fitting re-runs.
     updateLabelTransforms(this.adm1LabelLayer, z);
     updateLabelTransforms(this.adm2LabelLayer, z);
+    // Bubbles get the same counter-zoom treatment so they stay at
+    // their authored screen-space radius at any zoom level.
+    updateBubbleTransforms(this.bubbleLayer, z);
     // Re-run the scale bar so its labelled distance reflects the
     // current zoom (a "100 km" bar at zoom 1 spans a smaller geographic
     // distance at zoom 4 — renderScaleBar consumes zoomLevel and
     // shrinks / grows accordingly).
     this.rerenderScaleBar?.();
-    // Hide the drill title pill if the focused polygon has scrolled
-    // fully out of the viewport, so the on-screen label doesn't lie
-    // about what's currently visible.
-    this.updateDrilledPillVisibility();
-  }
-
-  /**
-   * Toggle the `.adm-drilled-pill` group's visibility based on whether
-   * the drilled state's polygon is still at least partially inside the
-   * viewport. The polygon's projected bbox is cached at render time;
-   * here we apply the current zoom + pan transform and test against
-   * the viewport rectangle.
-   */
-  private updateDrilledPillVisibility(): void {
-    const pill = this.overlay.parentElement?.querySelector?.(".adm-drilled-pill") as SVGGElement | null
-      || this.adm1LabelLayer.querySelector?.(".adm-drilled-pill") as SVGGElement | null;
-    if (!pill) return;
-    const b = this.focusedStateProjBBox;
-    if (!b) {
-      pill.style.display = "none";
-      return;
-    }
-    const z = this.zoomLevel;
-    const cx = this.viewportW / 2;
-    const cy = this.viewportH / 2;
-    const tx = (x: number) => (x - cx) * z + cx + this.panX;
-    const ty = (y: number) => (y - cy) * z + cy + this.panY;
-    const sxL = tx(b[0]);
-    const syT = ty(b[1]);
-    const sxR = tx(b[2]);
-    const syB = ty(b[3]);
-    const onScreen = sxR > 0 && sxL < this.viewportW && syB > 0 && syT < this.viewportH;
-    pill.style.display = onScreen ? "" : "none";
   }
 
   /**

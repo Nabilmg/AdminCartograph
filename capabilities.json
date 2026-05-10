@@ -483,7 +483,8 @@
               { "value": "center", "displayName": "Center of bubble" }
             ]
           }
-        }
+        },
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, bubbles keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect bubbles to be a screen-space cue.", "type": { "bool": true } }
       }
     },
 
