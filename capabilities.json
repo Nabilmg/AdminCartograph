@@ -121,6 +121,11 @@
           "displayName": "Hide unfiltered Admin1 in Admin2 mode",
           "type": { "bool": true }
         },
+        "hideMapChrome": {
+          "displayName": "Hide map chrome",
+          "description": "Hide the back button + arrow nav in drill view AND the on-canvas controls (zoom / pan / SVG export). Useful for clean, dashboard-style embeds.",
+          "type": { "bool": true }
+        },
         "background": {
           "displayName": "Background color",
           "type": { "fill": { "solid": { "color": true } } }
