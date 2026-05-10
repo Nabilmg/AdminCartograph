@@ -174,8 +174,21 @@ export function renderLabels(
     // regardless of zoom. applyLabelTransform divides these by the
     // current zoom so the offset is preserved after mapGroup's
     // scale(z).
-    if (override?.padX) g.attr("data-pad-x", String(override.padX));
-    if (override?.padY) g.attr("data-pad-y", String(override.padY));
+    //
+    // Multi-line adjustment: the override is computed assuming one
+    // line (padY = -(r + lineHeight/2 + padding) for "above"). With
+    // N lines the label CENTRE needs to shift further from the bubble
+    // by (N-1)/2 * lineHeight in the same direction as padY so the
+    // edge nearest the bubble (bottom for "above", top for "below")
+    // sits where the single-line edge would.
+    let padXFinal = override?.padX || 0;
+    let padYFinal = override?.padY || 0;
+    if (padYFinal && lines.length > 1) {
+      const lh = style.fontSize * 1.15;
+      padYFinal += Math.sign(padYFinal) * ((lines.length - 1) / 2) * lh;
+    }
+    if (padXFinal) g.attr("data-pad-x", String(padXFinal));
+    if (padYFinal) g.attr("data-pad-y", String(padYFinal));
     applyLabelTransform(g.node() as SVGGElement, currentZoom);
 
     let baseFontSize = style.fontSize;
