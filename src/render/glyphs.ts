@@ -32,6 +32,10 @@ export interface GlyphStyle {
   donutInnerRatio: number;
   /** Color per category, in the same order as glyph values come in. */
   colors: string[];
+  /** When true, each glyph is wrapped with translate(cx,cy) +
+   *  scale(1/zoom) so it keeps its authored on-screen size as the
+   *  user zooms. Default true to match the bubble layer. */
+  constantSize: boolean;
 }
 
 export interface GlyphAnchor {
@@ -54,7 +58,8 @@ export function renderGlyphs(
   features: any[],
   areaByPcode: Map<string, AreaDatum>,
   pcodeKey: "ADM1_PCODE" | "ADM2_PCODE",
-  style: GlyphStyle
+  style: GlyphStyle,
+  currentZoom: number = 1
 ): GlyphResult | null {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -99,12 +104,21 @@ export function renderGlyphs(
 
   for (const v of valued) {
     const size = scale(v.total);
+    // Per-glyph wrapper carries position + counter-zoom transform so a
+    // later zoom step can rebuild the transform via updateGlyphTransforms
+    // without recomputing the glyph's children. Glyph children are
+    // drawn at (0,0) inside the wrapper.
+    const g = sel.append("g").attr("class", "map-glyph");
+    g.attr("data-anchor-x", String(v.anchor[0]));
+    g.attr("data-anchor-y", String(v.anchor[1]));
+    if (style.constantSize) g.attr("data-constant-size", "1");
+    applyGlyphTransform(g.node() as SVGGElement, currentZoom);
     if (style.type === "pie" || style.type === "donut") {
-      drawPie(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
+      drawPie(g, 0, 0, size, v.datum.glyphValues, style);
     } else if (style.type === "concentric") {
-      drawConcentric(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
+      drawConcentric(g, 0, 0, size, v.datum.glyphValues, style);
     } else {
-      drawColumn(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
+      drawColumn(g, 0, 0, size, v.datum.glyphValues, style);
     }
     // size has same semantics for both kinds: half the bbox extent.
     // Pie/donut/concentric: outer radius. Column: half of total height.
@@ -214,4 +228,25 @@ function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1:
   const x1i = cx + r0 * Math.cos(a0);
   const y1i = cy + r0 * Math.sin(a0);
   return `M ${x0o},${y0o} A ${r1},${r1} 0 ${large} 1 ${x1o},${y1o} L ${x0i},${y0i} A ${r0},${r0} 0 ${large} 0 ${x1i},${y1i} Z`;
+}
+
+/** Build a per-glyph transform from data-* attributes. translate(cx,cy)
+ *  + scale(1/zoom) when constantSize is on. Same shape as the bubble
+ *  layer's applyBubbleTransform. */
+function applyGlyphTransform(g: SVGGElement, zoom: number): void {
+  const x = parseFloat(g.getAttribute("data-anchor-x") || "0");
+  const y = parseFloat(g.getAttribute("data-anchor-y") || "0");
+  const constant = g.getAttribute("data-constant-size") === "1";
+  const s = constant && zoom > 0 ? 1 / zoom : 1;
+  g.setAttribute("transform", s !== 1 ? `translate(${x},${y}) scale(${s})` : `translate(${x},${y})`);
+}
+
+/** Walk the glyph layer and re-apply per-glyph transforms with the
+ *  given zoom level. Mirrors updateBubbleTransforms / updateLabel-
+ *  Transforms — used so zoom steps update glyph size without
+ *  re-running the full glyph layout. */
+export function updateGlyphTransforms(parent: SVGGElement, zoom: number): void {
+  if (!parent) return;
+  const groups = parent.querySelectorAll<SVGGElement>(":scope > g.map-glyph, :scope g.map-glyph");
+  groups.forEach((g) => applyGlyphTransform(g, zoom));
 }

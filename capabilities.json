@@ -544,7 +544,8 @@
               { "value": "center", "displayName": "Center of glyph" }
             ]
           }
-        }
+        },
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, glyphs (pie / donut / column / concentric) keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect glyphs to be a screen-space cue.", "type": { "bool": true } }
       }
     },
 
