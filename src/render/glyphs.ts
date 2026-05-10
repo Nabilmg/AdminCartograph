@@ -13,7 +13,7 @@ import type { GeoProjection } from "d3-geo";
 import { pickAnchor } from "./labelPlacement";
 import type { AreaDatum } from "../types";
 
-export type GlyphType = "pie" | "donut" | "column";
+export type GlyphType = "pie" | "donut" | "column" | "concentric";
 
 export interface GlyphStyle {
   show: boolean;
@@ -101,11 +101,13 @@ export function renderGlyphs(
     const size = scale(v.total);
     if (style.type === "pie" || style.type === "donut") {
       drawPie(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
+    } else if (style.type === "concentric") {
+      drawConcentric(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
     } else {
       drawColumn(sel, v.anchor[0], v.anchor[1], size, v.datum.glyphValues, style);
     }
     // size has same semantics for both kinds: half the bbox extent.
-    // Pie/donut: outer radius. Column: half of total height.
+    // Pie/donut/concentric: outer radius. Column: half of total height.
     anchors.set(v.datum.pcode, {
       x: v.anchor[0],
       y: v.anchor[1],
@@ -138,6 +140,35 @@ function drawPie(parent: any, cx: number, cy: number, radius: number, values: nu
       .attr("stroke", style.stroke)
       .attr("stroke-width", style.strokeWidth);
     startAngle = endAngle;
+  }
+}
+
+/**
+ * Concentric circles: one circle per measure, all sharing (cx, cy).
+ * Each circle's radius is proportional to sqrt(value / peak) so the
+ * AREA is proportional (matches the bubble layer's convention).
+ * Drawn largest-first so smaller circles sit on top and stay visible.
+ * Stroke colour is the matching category colour from `style.colors`.
+ */
+function drawConcentric(parent: any, cx: number, cy: number, outerRadius: number, values: number[], style: GlyphStyle) {
+  const positives = values.map((v) => Math.max(0, v));
+  const peak = Math.max(...positives, 0);
+  if (peak <= 0) return;
+  // Pair value with its original index so colours stay consistent
+  // with the legend after we sort by value below.
+  const indexed = positives.map((v, i) => ({ v, i })).filter((p) => p.v > 0);
+  indexed.sort((a, b) => b.v - a.v);
+  for (const { v, i } of indexed) {
+    const r = outerRadius * Math.sqrt(v / peak);
+    if (r <= 0) continue;
+    parent.append("circle")
+      .attr("cx", cx)
+      .attr("cy", cy)
+      .attr("r", r)
+      .attr("fill", style.colors[i % style.colors.length] || "#888")
+      .attr("fill-opacity", style.opacity)
+      .attr("stroke", style.stroke)
+      .attr("stroke-width", style.strokeWidth);
   }
 }
 
