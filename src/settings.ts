@@ -82,7 +82,8 @@ class ChoroplethSettings extends FormattingSettingsCard {
     items: [
       { value: "quantile", displayName: "Quantile" },
       { value: "equal", displayName: "Equal interval" },
-      { value: "manual", displayName: "Manual breaks" }
+      { value: "manual", displayName: "Manual breaks" },
+      { value: "categorical", displayName: "Categorical" }
     ],
     value: { value: "quantile", displayName: "Quantile" }
   });

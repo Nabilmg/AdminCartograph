@@ -116,6 +116,10 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     const labelText = labelTextCat ? stringOrNull(labelTextCat.values[i]) : null;
 
     const colorValue = numericAt(colorCol, i);
+    // Raw colour-value cell, kept untouched for the categorical
+    // classification mode (string buckets like "High" / "Medium" /
+    // "Low" — or numeric values treated as discrete labels).
+    const colorValueRaw = colorCol ? colorCol.values[i] : null;
     const bubble = numericAt(bubbleCol, i);
     const label2 = numericAt(label2Col, i);
     const glyphValues = glyphCols.map((c) => {
@@ -186,6 +190,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
         parentPcode: statePcode || undefined,
         level: 2,
         colorValue,
+        colorValueRaw,
         bubbleSize: bubble,
         glyphValues,
         labelValue2: label2,
@@ -203,6 +208,7 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
         parentPcode: statePcode,
         level: 1,
         colorValue,
+        colorValueRaw,
         bubbleSize: bubble,
         glyphValues,
         labelValue2: label2,

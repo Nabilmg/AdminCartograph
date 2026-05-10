@@ -14,7 +14,10 @@ export interface LegendInputs {
   /** Choropleth value legend. */
   value?: {
     title: string;
-    classes: { color: string; from: number; to: number }[];
+    /** One swatch per class. Numeric modes set `from` / `to` and the
+     *  legend formats them as a range; categorical mode sets `label`
+     *  directly with the category text. */
+    classes: { color: string; from: number; to: number; label?: string }[];
     decimals: number;
     orientation: "vertical" | "horizontal";
     position: Position;
@@ -292,11 +295,20 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     .text(value.title || "");
 
   let y = yStart + titleSize + 6;
+  // Categorical classes carry an explicit `label`; numeric classes
+  // get formatted from from/to. Centralising the label resolution
+  // here keeps the horizontal / vertical paths in sync.
+  const labelFor = (c: { from: number; to: number; label?: string }): string => {
+    if (c.label != null) return c.label;
+    const fromTxt = formatNumber(c.from, value.decimals, "auto");
+    const toTxt = formatNumber(c.to, value.decimals, "auto");
+    return c.from === c.to ? fromTxt : `${fromTxt} – ${toTxt}`;
+  };
   if (value.orientation === "horizontal") {
     // Width each column to fit the longest label so adjacent labels don't
     // overlap. Numeric class labels (e.g. "5.4M") are wider than the 14 px
     // swatch, so the previous fixed swatch+gap stride was wrong.
-    const labels = value.classes.map((c) => formatNumber(c.to, value.decimals, "auto"));
+    const labels = value.classes.map((c) => labelFor(c));
     const maxLabelWidth = labels.reduce((m, t) => Math.max(m, approxTextWidth(t, fontSize)), 0);
     const colWidth = Math.max(swatch, maxLabelWidth) + gap * 2;
     let x = 0;
@@ -319,11 +331,8 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
   }
   for (const c of value.classes) {
     parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
-    const fromTxt = formatNumber(c.from, value.decimals, "auto");
-    const toTxt = formatNumber(c.to, value.decimals, "auto");
-    const text = c.from === c.to ? fromTxt : `${fromTxt} – ${toTxt}`;
     parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
-      .text(text);
+      .text(labelFor(c));
     y += swatch + gap;
   }
   return y;
