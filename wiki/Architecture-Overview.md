@@ -104,13 +104,13 @@ Locality-level rows take precedence over state-level when both are
 bound — so an Admin1 entry only stays in the map if there's no
 Admin2 row claiming the same parent.
 
-In the same pass, `prepareDataView` also collects per-row colour
-overrides from each PCODE column's `.objects` map (populated by
-Power BI when the user binds a ColorPicker via **fx** /
-conditional formatting) into
-`PreparedDataView.ruleColorsByPcode: Map<pcode, Map<objectName, Map<propertyName, hex>>>`.
-Bubble and label renderers consult this map per row before falling
-back to the static formatting-card value.
+`PreparedDataView.ruleColorsByPcode` is kept on the type for
+backwards compatibility but always empty in current builds —
+conditional formatting (fx) was removed from the colour pickers
+because Power BI's format-pane preview swatch wasn't reliably
+reflecting the user's static value with `instanceKind: ConstantOrRule`.
+The renderers' rule-aware fallback paths are still in place so fx
+can be re-enabled cleanly later if the host situation improves.
 
 ### 3. Resolve country
 

@@ -188,41 +188,25 @@ Note the double `.value` on dropdowns and colour pickers: the outer
 `.value` returns the structured object, the inner `.value` returns
 the actual string.
 
-## Conditional formatting (fx) on a ColorPicker
+## Conditional formatting (fx) — removed
 
-A `ColorPicker` shows the **fx** button when it carries an
-`instanceKind` and a `selector`. The bubble fill / stroke and the
-four label colour pickers do this:
+Earlier builds opted bubble fill / stroke + four label colour
+pickers into Power BI's **fx** button by setting
+`instanceKind: ConstantOrRule` plus a wildcard selector. That code
+path was removed: Power BI's format-pane preview swatch didn't
+reliably round-trip the static value when fx was wired up, so a
+colour the user picked rendered correctly on the map but the
+swatch + downstream reads (e.g. the Values legend) saw stale
+defaults.
 
-```ts
-new formattingSettings.ColorPicker({
-  name: "fillColor",
-  displayName: "Fill color",
-  value: { value: "#e6550d" },
-  instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule,
-  selector: {
-    data: [{ dataViewWildcard: { matchingOption: 0 } }] // InstancesAndTotals
-  }
-});
-```
-
-`ConstantOrRule` lets the user toggle between a static colour and a
-measure rule. The wildcard selector tells Power BI to evaluate that
-rule against every row of every categorical column in the dataView
-— for us, the Admin1 PCODE and Admin2 PCODE columns. The resolved
-per-row colour is written into
-
-```
-dataView.categorical.categories[i].objects[rowIdx]
-   .<objectName>.<propertyName>.solid.color
-```
-
-`dataConverter.ts` walks both PCODE columns and stores per-row hex
-colours in a `Map<pcode, Map<objectName, Map<propertyName, hex>>>`
-on `PreparedDataView.ruleColorsByPcode`. Renderers look up by
-pcode and fall back to the static card value when no rule
-resolves. See `pickAnchor` and `composeLines` callers for the
-exact path.
+The colour pickers are now plain `formattingSettings.ColorPicker`
+without `instanceKind` / `selector`. The renderers' rule-aware
+fallback paths and `PreparedDataView.ruleColorsByPcode` are kept
+intact but inert — `dataConverter` skips the per-row `.objects`
+extraction so the map is always empty, and consumers fall through
+to `style.<colour>`. Re-enabling fx later is a one-line change in
+each ColorPicker definition + restoring the
+`readRuleObjectsAt` calls in `dataConverter`.
 
 ## See also
 

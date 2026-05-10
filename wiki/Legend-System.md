@@ -4,18 +4,23 @@ AdminCartograph has three independent legends (one per data layer)
 plus a shared container that wraps any legends sharing the same
 canvas corner.
 
-## Three legends, one container
+## Four legends, one container
 
 | Legend | Card | Drives |
 |---|---|---|
-| Choropleth legend | #9 | Colour ramp + class breaks |
+| Choropleth legend | #9 | Colour ramp + class breaks (or category swatches in Categorical mode) |
 | Bubble legend | #10 | Bubble size scale |
 | Pie / Column legend | #11 | Glyph categories (one per measure) |
-| Legend container | #12 | Frame styling shared by all three |
+| Values legend | #12 | One `#` swatch per active label value source (Choropleth / Bubble / Label Value 2) |
+| Legend container | #13 | Frame styling, header style, orientation toggle |
 
-When two or three legends share a position (e.g. all set to
-"Bottom right"), they stack vertically inside one rounded
-container with **value first, then bubble, then glyph**. Otherwise
+When two or more legends share a position (e.g. all set to
+"Bottom right"), they stack inside one rounded container in
+**map z-order**: Values legend → Glyph legend → Bubble legend →
+Choropleth legend (top to bottom). The container itself can be
+oriented vertical (default — top-to-bottom) or horizontal
+(side-by-side) via the container card's **Container orientation**
+dropdown. Otherwise
 each legend gets its own container in its own corner.
 
 ## Choropleth legend (#9)
@@ -164,7 +169,39 @@ Categories
 The colours come from Pie / Column overlay → Category 1-8 colour
 pickers in input order.
 
-## Legend container (#12)
+## Values legend (#12)
+
+Explains the numbers shown on the map's labels by listing each
+bound measure with a `#` swatch in the matching label-value
+colour. Reads the **Admin1 labels** card's *Value source* to decide
+which entries appear (in drill view it switches to the
+**drillLocalityLabels** card; in non-drilled Admin2 view, the
+**localityLabels** card).
+
+```
+Values
+# PiN                  (colour from Value color)
+# Target               (colour from Bubble value color)
+# Financial Req…       (colour from Custom value color)
+```
+
+| Setting | Default |
+|---|---|
+| Show | Off |
+| Title | empty (no header) |
+| Orientation | Vertical (one entry per line) / Horizontal (side by side) |
+| Position | Top left |
+| Size | Medium |
+
+The `#` colour comes from the active label card's
+`Value color` / `Bubble value color` / `Custom value color`
+pickers — change those and the legend updates.
+
+Empty entries (a measure isn't bound, or its display name is
+blank) are skipped, so a single-source label setup produces a
+single-line legend.
+
+## Legend container (#13)
 
 Frame styling shared by all three legends.
 
@@ -212,6 +249,35 @@ Frame styling shared by all three legends.
 
 A semi-opaque background lets the legend sit over the choropleth
 without occluding it entirely.
+
+### Header color / Header bold / Header font size
+
+Style for every legend's title text inside this container.
+
+| Setting | Default |
+|---|---|
+| Header color | `#222222` |
+| Header bold | On |
+| Header font size (px) | `0` (auto — each legend uses its own body-relative size) |
+
+Header font size of **0** keeps the legacy auto-sized titles
+(legend's body fontSize × 1.2). Any positive value pins every
+combined legend's header to that exact pixel size.
+
+### Container orientation
+
+| | |
+|---|---|
+| Type | Dropdown |
+| Default | Vertical (top → bottom) |
+| Options | Vertical (top → bottom), Horizontal (left → right) |
+
+Vertical stacks combined legends top-to-bottom; horizontal
+arranges them side-by-side. Useful when several legends share a
+single corner and you want the container as a wide strip rather
+than a tall column. Each sub-legend keeps its own internal
+layout — the orientation toggle only changes how the sub-groups
+themselves are positioned relative to each other.
 
 ## How combined containers work
 

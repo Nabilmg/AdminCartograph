@@ -19,9 +19,10 @@ deserve their own deep dive.
 | 9 | Choropleth legend | Colour-class legend | [Legend System](Legend-System.md) |
 | 10 | Bubble legend | Bubble size legend | [Legend System](Legend-System.md) |
 | 11 | Pie / Column legend | Glyph categories legend | [Legend System](Legend-System.md) |
-| 12 | Legend container | Shared frame styling for all three legends | [Legend System](Legend-System.md) |
-| 13 | Scale bar | Distance bar in km / miles | [Scale Bar](Scale-Bar.md) |
-| 14 | Map controls | Zoom / pan / export buttons | [Map Controls and Navigation](Map-Controls-and-Navigation.md) |
+| 12 | Values legend | One `#` swatch per active label measure (Choropleth / Bubble / Label Value 2) | [Legend System](Legend-System.md#values-legend-12) |
+| 13 | Legend container | Shared frame styling, header style, vertical / horizontal stacking | [Legend System](Legend-System.md#legend-container-13) |
+| 14 | Scale bar | Distance bar in km / miles | [Scale Bar](Scale-Bar.md) |
+| 15 | Map controls | Zoom / pan / SVG export buttons | [Map Controls and Navigation](Map-Controls-and-Navigation.md) |
 
 ## Format pane mechanics
 

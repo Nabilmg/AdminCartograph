@@ -38,7 +38,7 @@ The ramp's deepest colour. The visual interpolates from white
 |---|---|
 | Type | Dropdown |
 | Default | Quantile |
-| Options | Quantile, Equal interval, Manual breaks |
+| Options | Quantile, Equal interval, Manual breaks, Categorical |
 
 ### Quantile
 
@@ -64,6 +64,31 @@ Breaks: 28, 46, 64, 82
 
 Reads the **Manual breaks** input below; renders classes split at
 exactly those numbers.
+
+### Categorical
+
+Treats the bound **Choropleth fill** column as a discrete label list
+rather than a numeric distribution. Use it when your column is a
+text status (`High` / `Medium` / `Low`), a labelled severity
+(`Severity 1` / `Severity 2` / ...), or even numeric values that
+read as identifiers (1 / 2 / 3 / 4) rather than amounts.
+
+Behaviour:
+
+- Unique values from the bound column become legend entries — one
+  swatch per category.
+- Each polygon's fill is its category's colour. Polygons whose
+  category isn't in the data render in the **No-data colour**.
+- Categories are sorted with a **natural-order** comparator so
+  `Severity 10` lands after `Severity 9`, not after `Severity 1`.
+- Colours come from the **Class 1 – Class 5** custom pickers,
+  cycled if you have more than five categories.
+- The Manual breaks input is ignored in this mode.
+
+Categorical pairs best with **Admin1 PCODE** bound directly (one
+row per state) so each polygon maps to a single label. With only
+Admin2 PCODE bound, the visual aggregates Admin2 rows up to Admin1
+and the per-row category is dropped — pick a numeric mode instead.
 
 ## Manual breaks
 

@@ -42,24 +42,29 @@ copy it manually, you know it worked.
 ## The copy modal
 
 ```
-┌─ Copy SVG manually ───────────────────────── × ─┐
-│ Select all, then press Ctrl/Cmd+C to copy.       │
-│                                                  │
-│ Click "Select all", then press Ctrl/Cmd + C…     │
-│                                                  │
-│ ┌────────────────────────────────────────────┐   │
-│ │ <svg xmlns="http://www.w3.org/2000/svg" …  │   │
-│ │   <style>…inlined CSS…</style>             │   │
-│ │   <rect …/>                                │   │
-│ │   <g class="adm1-layer">…</g>              │   │
-│ │   …                                        │   │
-│ │ </svg>                                     │   │
-│ └────────────────────────────────────────────┘   │
-│                                                  │
-│ [Select all] [Try copy]            [Close]       │
-└──────────────────────────────────────────────────┘
+┌─ Copy SVG manually ─────────────────────────────────── × ─┐
+│ The SVG includes every visible map element — choropleth,  │
+│ bubbles, charts, labels, legends, scale bar, drill pill.  │
+│                                                            │
+│ ┌──────────────────────────────────────────────────────┐  │
+│ │ <svg xmlns="http://www.w3.org/2000/svg" …           │  │
+│ │   <style>…inlined CSS…</style>                      │  │
+│ │   <rect …/>                                         │  │
+│ │   <g class="map-group">…</g>                        │  │
+│ │   <g class="legend-layer">…</g>                     │  │
+│ │   <g class="scale-bar-layer">…</g>                  │  │
+│ │   <g class="drill-pill-layer">…</g>                 │  │
+│ │ </svg>                                              │  │
+│ └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│ [Download .svg] [Select all] [Try copy]         [Close]   │
+└────────────────────────────────────────────────────────────┘
 ```
 
+- **Download .svg** is the primary action — saves the file
+  directly via a Blob download. **Use this for big-country
+  exports** (many Admin2 polygons + labels can produce huge
+  SVGs that the textarea-and-copy path silently truncates).
 - The textarea auto-selects on open, so Ctrl/Cmd + C works
   immediately if your focus is on it.
 - **Select all** re-selects the textarea contents (useful if you
@@ -70,6 +75,22 @@ copy it manually, you know it worked.
   get a hint to use Ctrl/Cmd + C manually.
 - **Close**, the × button, or clicking the dimmed backdrop dismisses
   the modal.
+
+## What's in the export
+
+The cloned SVG captures **every child of the visual's root `<svg>`** —
+so the exported file contains:
+
+- Country outer glow + choropleth fills (`map-group → glow-layer / adm2-layer / adm1-layer`)
+- Bubbles, glyph charts, labels (`bubble-layer / glyph-layer / adm[12]-label-layer`)
+- Scale bar (`scale-bar-layer`)
+- All legends — choropleth, bubble, pie / column, **values** (`legend-layer`)
+- Drill title pill in drill view (`drill-pill-layer`)
+
+The HTML overlay items — *Country View* back-bar, +/- controls
+panel, mismatch banner, custom-upload card — live outside the
+SVG and are intentionally excluded since they're interactive
+chrome rather than data.
 
 ## Saving the SVG to a file
 

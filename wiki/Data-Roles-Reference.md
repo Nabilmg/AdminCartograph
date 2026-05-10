@@ -48,20 +48,26 @@ which only one is required.
 
 ## Measures
 
-### Color Value
+### Choropleth fill
 
 | | |
 |---|---|
 | **Kind** | Measure |
 | **Multiplicity** | At most 1 |
-| **What it does** | Drives the choropleth fill. Each polygon is classified into one of N colour buckets based on this measure's value. |
-| **Typical measure** | `SUM(Population)`, `AVG(Score)`, `COUNT(Cases)`, etc. |
+| **What it does** | Drives the choropleth fill. In numeric modes (Quantile / Equal interval / Manual breaks) each polygon is classified into one of N colour buckets. In **Categorical** mode, each unique value becomes its own legend entry / colour, supporting string columns like `High` / `Medium` / `Low`. |
+| **Typical bindings** | Numeric: `SUM(Population)`, `AVG(Score)`, `COUNT(Cases)`. Categorical: `MAX(SeverityLabel)`, status flags, banded text columns. |
 
 When a polygon has no row of data (or this measure is `null` for it),
 it renders with the **No-data colour** from the Choropleth Fill card.
 
-If you also enable **Treat 0 as no-data**, polygons with `Color
-Value = 0` use the no-data colour and are excluded from classification.
+If you also enable **Treat 0 as no-data**, polygons with the
+choropleth value equal to `0` use the no-data colour and are
+excluded from classification.
+
+> **Field-well label.** Power BI shows this role as
+> **Choropleth fill** in the field well. Older builds called it
+> **Color Value** — same internal role name (`colorValue`), so
+> bindings made under the old label keep working.
 
 ### Bubble Size
 
@@ -122,7 +128,7 @@ the on-screen breakdown.
 |---|---|
 | **Kind** | Measure |
 | **Multiplicity** | Multiple |
-| **What it does** | Adds extra fields to every hover tooltip. Each measure becomes one row beneath the standard rows (Admin1 name, Admin2 name, Color Value, Bubble Size). |
+| **What it does** | Adds extra fields to every hover tooltip. Each measure becomes one row beneath the standard rows (Admin1 / Admin2 names — using the aliases set on card 1, the Choropleth fill measure, the Bubble Size measure, and every Glyph Values measure with its share of total). |
 | **Typical use** | "Show me the underlying breakdown when I hover" — bind 3-5 measures, see them all in the tooltip. |
 
 ## Grouping fields
@@ -154,7 +160,7 @@ A typical humanitarian binding setup:
 |---|---|
 | Admin1 PCODE | `SudanData[StatePcode]` |
 | Admin2 PCODE | `SudanData[LocalityPcode]` |
-| Color Value | `[Total Cases]` (a measure) |
+| Choropleth fill | `[Total Cases]` (a measure) |
 | Bubble Size | `[Confirmed Cases]` (a measure) |
 | Glyph Values | `[Children]`, `[Adults]`, `[Elderly]` (three measures) |
 | Label Text 1 | `SudanData[LocalityNameAr]` (Arabic locality name) |

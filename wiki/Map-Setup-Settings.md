@@ -66,6 +66,13 @@ Locks the visual to the all-Admin2 view (every Admin2 polygon in
 the country, regardless of filter context). Clicks cross-filter at
 the Admin2 level.
 
+> **Admin1-only mode is implicit.** When you bind only the
+> **Admin1 PCODE** role (no Admin2 PCODE), the visual stays in
+> Admin1 view regardless of this dropdown's value — drill and the
+> Admin2 detail view are unavailable because there's no per-Admin2
+> data to render. Bind both PCODE roles to re-enable drill /
+> Admin2 view.
+
 ## Interaction enabled
 
 | | |
@@ -117,6 +124,29 @@ When **on**:
 The drill **title pill** stays — it's a label, not chrome — so
 drilled state names still show. Useful for clean dashboard-style
 embeds and exports where you only want the map.
+
+## Admin1 alias / Admin2 alias
+
+| | |
+|---|---|
+| Type | Text input |
+| Default | empty (falls back to "Admin1" / "Admin2") |
+| Placeholder | *Admin 1 / Governorate / State…* / *Admin 2 / District / Locality…* |
+
+Override the hardcoded `Admin1` / `Admin2` row labels in tooltips
+with terminology that matches your country's administrative
+hierarchy. Common pairs:
+
+| Country / org context | Admin1 alias | Admin2 alias |
+|---|---|---|
+| Egypt, Yemen | Governorate | District |
+| Sudan, Libya | State | Locality |
+| France | Region | Department |
+| US humanitarian | State | County |
+
+Empty input falls back to the default label. Internal role names
+in the field well are unchanged — these aliases only affect the
+display text on tooltips and the landing-page binding prompt.
 
 ## Background color
 

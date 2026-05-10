@@ -64,40 +64,50 @@ or any boundary version you prefer.
 
 ## Capabilities
 
-- **Choropleth fill** — quantile / equal-interval / manual classification,
-  automatic ramp from a base color or 5 user-defined classes, optional
-  "Treat 0 as no-data".
+- **Choropleth fill** — quantile / equal-interval / manual classification
+  for numeric measures, plus a **Categorical** mode for string columns
+  (`High` / `Medium` / `Low`, `Severity 1-N`) or numeric values you want
+  shown as discrete labels. Automatic ramp from a base color or 5 user-
+  defined classes; optional "Treat 0 as no-data".
 - **Bubble overlay** — square-root scaling; constant on-screen size as
   the user zooms (toggle, default on); label placement above / below /
-  left / right / center; **fx (conditional formatting)** on Fill and
-  Stroke so a measure rule can colour bubbles per area.
+  left / right / center.
 - **Pie / Donut / Column / Concentric circles overlay** — driven by 2+
   measures. Pie / donut slice each value; column draws side-by-side
   bars; concentric stacks circles sharing the same centre, each sized
-  by sqrt(value) so area is proportional. Independent palette and
-  label placement per glyph.
+  by sqrt(value) so area is proportional. Constant on-screen size on
+  zoom (toggle, default on); independent palette and label placement.
 - **Country outer glow** — soft halo behind every layer, colour /
   radius / opacity controls; off by default.
 - **Drill** — click an Admin1 to focus its Admin2 children. The
   focused state's name pill stays anchored top-left across pan / zoom;
   prev / next arrows step alphabetically; "Country View" returns to
-  all-Admin1. Neighbour state borders + labels dim to ~55% so the
-  focus reads.
+  all-Admin1. Neighbour state borders + labels dim to ~55%, polygon
+  fills are blanked to the visual background, and neighbour labels
+  drop their value lines so the focused state reads cleanly.
 - **Filter dimming** — in Admin2 view, states excluded by a slicer get
-  the same dim treatment (no drill click required), with a white fill
-  to suppress the underlying choropleth.
+  the same dim / blank-fill treatment (no drill click required).
 - **Cross-filter** through `selectionManager.select`. Re-clicking the
   same area or clicking the map background clears the filter; Ctrl /
   Cmd-click multi-selects.
 - **Filter-driven drill** — in Auto mode, when a slicer narrows to one
   Admin1 (or several Admin2 in one parent), the visual auto-drills.
-- **Tooltips** with Admin1 + Admin2 names, color value, bubble value,
-  every Glyph Values measure (with `(% of total)` when 2+ are bound),
-  and any extra Tooltip fields.
-- **Three legends** — choropleth, bubble size, pie / column / concentric
-  categories. Stack into a single rounded container when they share a
-  corner. Bubble swatch reflects the rule-resolved colour when fx is
-  bound.
+- **Admin1-only when only Admin1 PCODE is bound** — visual stays a flat
+  Admin1 choropleth, no drill / Admin2 view, regardless of the View
+  Mode dropdown. Bind both PCODEs to re-enable drill.
+- **Admin1 / Admin2 aliases** — text inputs on card 1 (Map setup) so
+  tooltips read in your terminology (Governorate / District,
+  State / Locality, etc.).
+- **Tooltips** with Admin1 + Admin2 names (using your aliases), the
+  choropleth measure, bubble measure, every Glyph Values measure
+  (with `(% of total)` when 2+ are bound), and any extra Tooltip
+  fields. Pulls in the user's chosen terminology.
+- **Five legends** — choropleth, bubble size, pie / column / concentric
+  categories, **Values legend** (lists each bound label measure with a
+  `#` swatch in the matching label-value colour), and a unified
+  container that combines them when they share a corner. Header
+  colour / bold / font-size and a vertical-or-horizontal stacking
+  toggle on the container card.
 - **Scale bar** — km or miles, latitude-aware, sits flush against its
   corner (legend dodges the bar) and live-updates with zoom.
 - **Zoom + pan** — on-canvas buttons, mouse drag, mouse wheel. The
@@ -105,33 +115,41 @@ or any boundary version you prefer.
   "Show zoom buttons" toggle.
 - **Hide map chrome** — single toggle in Map setup that drops the
   drill back-bar + control panel for clean dashboard embeds.
+- **PCODE-tolerant matching** — case + separator differences (`sd-01`,
+  `SD_01`, `SD 01`) all match the canonical `SD01`. When no PCODEs
+  match, an on-canvas banner shows samples from both data and
+  geometry side so you can spot the convention mismatch immediately.
 - **SVG export** — portable SVG with inlined CSS for Illustrator /
-  Inkscape / browser.
+  Inkscape / browser. **Download button** in the export modal saves
+  the file directly so big-country exports don't get truncated by
+  the clipboard. The SVG includes everything visible — choropleth,
+  bubbles, charts, labels, all five legends, scale bar, drill title
+  pill, country glow.
 - **Rich label engine** — explicit *Name source* (Geometry vs Label
   Text 1 override) and *Value source* (any combination of Choropleth /
-  Bubble / Label Value 2) dropdowns; **fx** on label colour, value
-  colour, bubble-value colour, custom-value colour; constant on-screen
-  size on zoom (toggle); halo, italic, bold, decimals, K/M format,
-  curved / straight / boundary placement, fit-to-shape, abbreviation,
-  hide-on-overflow; spatial-enclave detection so labels avoid
-  embedded sibling polygons (Pest megye → Budapest, Lazio → Vatican).
+  Bubble / Label Value 2) dropdowns; constant on-screen size on zoom
+  (toggle); halo, italic, bold, decimals, K/M format, curved /
+  straight / boundary placement, fit-to-shape, abbreviation,
+  hide-on-overflow; spatial-enclave detection so labels avoid embedded
+  sibling polygons (Pest megye → Budapest, Lazio → Vatican).
 
 ## Format pane (top-down flow)
 
-1. **Map setup** — country, view mode, background, interaction
-2. **Choropleth fill**
+1. **Map setup** — country, view mode, background, aliases, hide chrome
+2. **Choropleth fill** — Quantile / Equal / Manual / **Categorical**
 3. **Bubble overlay**
-4. **Pie / Column overlay**
-5. **Borders**
+4. **Pie / Donut / Column / Concentric overlay**
+5. **Borders** (incl. country outer glow)
 6. **Admin1 labels**
 7. **Admin2 labels — default view**
 8. **Admin2 labels — drill view**
 9. **Choropleth legend**
 10. **Bubble legend**
 11. **Pie / Column legend**
-12. **Legend container**
-13. **Scale bar**
-14. **Map controls** (zoom / pan / export)
+12. **Values legend** — lists each bound label measure with a `#` swatch
+13. **Legend container** — header style, vertical / horizontal stacking
+14. **Scale bar**
+15. **Map controls** (zoom / pan / SVG export)
 
 ## Data roles
 
@@ -139,7 +157,7 @@ or any boundary version you prefer.
 |------|----------|---------|
 | **Admin1 PCODE** | yes (or Admin2) | choropleth + bubble at Admin1 level |
 | **Admin2 PCODE** | optional | choropleth + bubble at Admin2 level |
-| **Color Value** | optional | choropleth fill |
+| **Choropleth fill** | optional | choropleth fill (numeric or categorical) |
 | **Bubble Size** | optional | bubble overlay |
 | **Glyph Values (pie / column)** | optional | multi-measure pie / donut / column |
 | **Label Value 2** | optional | overrides the auto-shown number in labels |

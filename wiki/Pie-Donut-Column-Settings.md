@@ -92,6 +92,22 @@ When off, every glyph uses the **Max size** regardless of total.
 Use this when the relative composition matters more than the
 absolute total.
 
+## Constant size on zoom
+
+| | |
+|---|---|
+| Type | Toggle |
+| Default | On |
+
+When on, each glyph is wrapped with `translate(cx, cy) scale(1/zoom)`
+so its on-screen size stays at the authored radius / column height
+as the user zooms in. When off, glyphs grow with the map. Updates
+live on every zoom step (no full re-render).
+
+Matches the bubbles and labels' equivalent toggles — most
+cartographic visuals expect glyphs to be a screen-space cue
+rather than a geographically scaled feature.
+
 ## Stroke color
 
 | | |
