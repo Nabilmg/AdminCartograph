@@ -790,6 +790,33 @@ export class Visual implements IVisual {
     this.overlay.innerHTML = `<div class="adm-landing"><strong>AdminCartograph</strong><p>${escapeHtml(message)}</p><p style="font-size:11px;color:#666;margin-top:8px"><a href="https://github.com/nabilaljarmozi/AdminCartograph" target="_blank" rel="noopener noreferrer" style="color:#1f6feb;text-decoration:none">github.com/nabilaljarmozi/AdminCartograph</a></p></div>`;
   }
 
+  /**
+   * On-canvas banner shown when bindings exist but no PCODE matches
+   * the country's geometry. Appears at the bottom-centre so it doesn't
+   * block legends in the corners. Click to dismiss.
+   */
+  private renderPcodeMismatchBanner(sampleData: string, sampleGeo: string, pcodeKey: string): void {
+    let el = this.overlay.querySelector(".adm-pcode-mismatch") as HTMLDivElement | null;
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "adm-pcode-mismatch";
+      el.style.cssText = "position:absolute;left:50%;bottom:12px;transform:translateX(-50%);max-width:80%;padding:10px 14px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;color:#7c2d12;font-size:12px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer;z-index:5";
+      el.title = "Click to dismiss";
+      el.addEventListener("click", () => el && el.remove());
+      this.overlay.appendChild(el);
+    }
+    el.innerHTML =
+      `<strong>No PCODE matches.</strong> Your bound ${escapeHtml(pcodeKey === "ADM2_PCODE" ? "Admin2" : "Admin1")} PCODE values don't line up with the country's geometry. ` +
+      `<br><span style="font-family:monospace;color:#9a3412">Data sample:</span> [${escapeHtml(sampleData || "(empty)")}] ` +
+      `<br><span style="font-family:monospace;color:#9a3412">Geometry sample:</span> [${escapeHtml(sampleGeo || "(empty)")}] ` +
+      `<br>Check the Country dropdown matches your data, or upload custom geometry whose ${escapeHtml(pcodeKey)} field uses the same format. <em>(Click to dismiss.)</em>`;
+  }
+
+  private clearPcodeMismatchBanner(): void {
+    const el = this.overlay.querySelector(".adm-pcode-mismatch");
+    if (el) el.remove();
+  }
+
   private resolveCountry(prepared: PreparedDataView): string | null {
     const dropdownValue = (this.settings.general.selectedCountry.value as any)?.value as string | undefined;
     const value = (dropdownValue || "").trim();
@@ -937,10 +964,37 @@ export class Visual implements IVisual {
     const pcodeKey = view === "localities" ? "ADM2_PCODE" : "ADM1_PCODE";
     const visibleFeatures = view === "localities" ? adm2Visible : adm1Visible;
     const lookup = view === "localities" ? prepared.areas : stateAreas;
+    // PCODE-format-tolerant lookup. The geometry uses canonical
+    // OCHA-style codes (e.g. "SD01"); the user's data column may
+    // arrive in mixed case or with separators ("sd01", "SD-01",
+    // "sd_01"). Build a normalised secondary index so we still
+    // match those rows. Empty-suffix collisions are unlikely at
+    // admin-code level.
+    const normPcode = (s: string | undefined | null): string => (s == null ? "" : String(s).toUpperCase().replace(/[\s_\-]+/g, ""));
+    const normalizedLookup = new Map<string, AreaDatum>();
+    lookup.forEach((datum, key) => {
+      const n = normPcode(key);
+      if (n && !normalizedLookup.has(n)) normalizedLookup.set(n, datum);
+    });
     const valuedFeatures = visibleFeatures.map((f) => {
-      const datum = lookup.get(f.properties[pcodeKey]);
+      const raw = f.properties[pcodeKey];
+      const datum = lookup.get(raw) || normalizedLookup.get(normPcode(raw));
       return { feature: f, datum };
     });
+    // Diagnostic — warn when bindings exist but nothing matched. Common
+    // cause: user's PCODE column uses a different convention than the
+    // bundled geometry (e.g. numeric IDs against a string geometry,
+    // or the wrong country was picked from the dropdown). Console
+    // warning + an on-canvas banner overlay so the user knows why the
+    // map renders empty / no-data instead of just seeing a grey fill.
+    if (lookup.size > 0 && valuedFeatures.every((v) => !v.datum)) {
+      const sampleData = Array.from(lookup.keys()).slice(0, 3).join(", ");
+      const sampleGeo = visibleFeatures.slice(0, 3).map((f) => f.properties[pcodeKey]).filter(Boolean).join(", ");
+      console.warn(`[AdminCartograph] No PCODE matches between your data and the country's geometry. Data sample: [${sampleData}]. Geometry sample: [${sampleGeo}]. Check the Country dropdown matches your data, or upload custom geometry whose ${pcodeKey} values use the same format.`);
+      this.renderPcodeMismatchBanner(sampleData, sampleGeo, pcodeKey);
+    } else {
+      this.clearPcodeMismatchBanner();
+    }
     const cs = this.settings.choropleth;
     const treatZeroAsBlank = cs.zeroAsBlank.value;
     // Helper: is this color value missing for choropleth purposes?
