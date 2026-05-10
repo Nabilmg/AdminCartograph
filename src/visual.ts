@@ -1411,7 +1411,8 @@ export class Visual implements IVisual {
         backgroundOpacity: this.settings.legendContainer.backgroundOpacity.value,
         headerColor: this.settings.legendContainer.headerColor?.value?.value || "#222222",
         headerBold: this.settings.legendContainer.headerBold?.value !== false,
-        headerFontSize: this.settings.legendContainer.headerFontSize?.value || 0
+        headerFontSize: this.settings.legendContainer.headerFontSize?.value || 0,
+        orientation: ((this.settings.legendContainer.containerOrientation?.value as any)?.value === "horizontal" ? "horizontal" : "vertical") as "horizontal" | "vertical"
       }
     }, sbFootprintByCorner);
 

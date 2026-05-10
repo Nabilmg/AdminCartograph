@@ -515,10 +515,19 @@ class LegendContainerSettings extends FormattingSettingsCard {
   headerColor = new formattingSettings.ColorPicker({ name: "headerColor", displayName: "Header color", value: { value: "#222222" } });
   headerBold = new formattingSettings.ToggleSwitch({ name: "headerBold", displayName: "Header bold", value: true });
   headerFontSize = new formattingSettings.NumUpDown({ name: "headerFontSize", displayName: "Header font size (px)", value: 0 });
+  containerOrientation = new formattingSettings.ItemDropdown({
+    name: "containerOrientation",
+    displayName: "Container orientation",
+    items: [
+      { value: "vertical", displayName: "Vertical (top → bottom)" },
+      { value: "horizontal", displayName: "Horizontal (left → right)" }
+    ],
+    value: { value: "vertical", displayName: "Vertical (top → bottom)" }
+  });
 
   name = "legendContainer";
   displayName = "12. Legend container";
-  slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize];
+  slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize, this.containerOrientation];
 }
 
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {

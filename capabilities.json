@@ -724,7 +724,17 @@
         "backgroundOpacity": { "displayName": "Background opacity", "type": { "numeric": true } },
         "headerColor": { "displayName": "Header color", "type": { "fill": { "solid": { "color": true } } } },
         "headerBold": { "displayName": "Header bold", "type": { "bool": true } },
-        "headerFontSize": { "displayName": "Header font size (px)", "description": "0 lets each legend pick its own header size based on body font; >0 forces every legend's title to that pixel size.", "type": { "numeric": true } }
+        "headerFontSize": { "displayName": "Header font size (px)", "description": "0 lets each legend pick its own header size based on body font; >0 forces every legend's title to that pixel size.", "type": { "numeric": true } },
+        "containerOrientation": {
+          "displayName": "Container orientation",
+          "description": "Vertical stacks combined legends top-to-bottom (default). Horizontal arranges them left-to-right side by side — useful when you have multiple legends sharing one corner and want the container to be wide rather than tall.",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical (top → bottom)" },
+              { "value": "horizontal", "displayName": "Horizontal (left → right)" }
+            ]
+          }
+        }
       }
     }
   },
