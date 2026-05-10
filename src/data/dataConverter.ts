@@ -124,6 +124,15 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     });
 
     const tooltips: powerbi.extensibility.VisualTooltipDataItem[] = [];
+    // Glyph Values appear as their own tooltip rows (in input order)
+    // ahead of any extra columns bound to the Tooltips role. This way
+    // a hover always exposes the raw category values that drive the
+    // pie / donut / column overlay, even when the user hasn't double-
+    // bound the same measures into Tooltips.
+    for (const c of glyphCols) {
+      const raw = c.values[i];
+      tooltips.push({ displayName: c.source.displayName, value: formatTooltipValue(raw, c.source) });
+    }
     for (const t of tooltipCols) {
       const raw = t.values[i];
       tooltips.push({ displayName: t.source.displayName, value: formatTooltipValue(raw, t.source) });
