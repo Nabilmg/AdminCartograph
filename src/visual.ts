@@ -901,6 +901,11 @@ export class Visual implements IVisual {
         parentPcode: pcode,
         level: 1,
         colorValue: acc.color,
+        // Aggregated rows don't have a meaningful raw category value
+        // (each child Admin2 may have its own); leave it null. The
+        // categorical mode is most useful when the user binds Admin1
+        // PCODE directly with one row per state.
+        colorValueRaw: null,
         bubbleSize: acc.bubble,
         glyphValues: acc.glyph,
         labelValue2: acc.label2,
@@ -1007,7 +1012,8 @@ export class Visual implements IVisual {
       .map((v) => v.datum?.colorValue)
       .filter((v): v is number => !isBlankValue(v));
 
-    const breaks = buildBreaks(colorValues, (cs.classification.value as any).value, cs.classCount.value, cs.manualBreaks.value);
+    const classification = (cs.classification.value as any).value;
+    const breaks = buildBreaks(colorValues, classification, cs.classCount.value, cs.manualBreaks.value);
     const customColors = [cs.color1.value.value, cs.color2.value.value, cs.color3.value.value, cs.color4.value.value, cs.color5.value.value];
     const colors = (cs.mode.value as any).value === "custom"
       ? customColors.slice(0, breaks.classCount)
@@ -1015,10 +1021,42 @@ export class Visual implements IVisual {
 
     const blank = cs.blankTransparent.value ? "transparent" : cs.blankColor.value.value;
 
+    // Categorical mode: collect unique raw values from the bound
+    // colorValueRaw column (in first-seen order, then natural-sort
+    // with numeric awareness so 'Severity 1, 2, 10' comes out right),
+    // assign colours by cycling through the 5 custom class colours.
+    // Each polygon's fill = the colour for its category.
+    let categoryColorMap: Map<string, string> | null = null;
+    let categoricalClasses: { color: string; label: string }[] | null = null;
+    if (classification === "categorical") {
+      const seen = new Set<string>();
+      const cats: string[] = [];
+      for (const v of valuedFeatures) {
+        const raw = v.datum?.colorValueRaw;
+        if (raw == null || raw === "") continue;
+        const key = String(raw);
+        if (!seen.has(key)) { seen.add(key); cats.push(key); }
+      }
+      cats.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      categoryColorMap = new Map();
+      categoricalClasses = cats.map((cat, i) => {
+        const color = customColors[i % customColors.length];
+        categoryColorMap!.set(cat, color);
+        return { color, label: cat };
+      });
+    }
+
     // Choropleth rows
     const rows = valuedFeatures.map(({ feature, datum }) => {
-      const v = datum?.colorValue;
-      const fill = !isBlankValue(v) ? colors[Math.min(colors.length - 1, classIndex(breaks.breaks, v as number))] : blank;
+      let fill: string;
+      if (classification === "categorical") {
+        const raw = datum?.colorValueRaw;
+        const key = raw == null ? null : String(raw);
+        fill = key && categoryColorMap?.has(key) ? categoryColorMap!.get(key)! : blank;
+      } else {
+        const v = datum?.colorValue;
+        fill = !isBlankValue(v) ? colors[Math.min(colors.length - 1, classIndex(breaks.breaks, v as number))] : blank;
+      }
       return {
         feature,
         pcode: feature.properties[pcodeKey],
@@ -1412,7 +1450,12 @@ export class Visual implements IVisual {
     const valueLegend = this.settings.valueLegend;
     const bubbleLegend = this.settings.bubbleLegend;
     const glyphLegend = this.settings.glyphLegend;
-    const valueClasses = breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : [];
+    // Legend classes: categorical mode emits one entry per unique
+    // category with a `label`; numeric modes use the from/to range
+    // formatter via makeLegendClasses.
+    const valueClasses = classification === "categorical"
+      ? (categoricalClasses || []).map((c) => ({ color: c.color, from: 0, to: 0, label: c.label }))
+      : (breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : []);
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
     renderLegends(this.legendLayer, {

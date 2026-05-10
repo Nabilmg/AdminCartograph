@@ -9,6 +9,12 @@ export interface AreaDatum {
   parentPcode?: string;
   level: 1 | 2;
   colorValue: number | null;
+  /** Raw cell value bound to Color Value, before any numeric coercion.
+   *  Used by the categorical classification mode where the user binds
+   *  a string column ("High" / "Medium" / "Low") or a numeric column
+   *  treated as discrete labels (1 / 2 / 3). Null when the column
+   *  isn't bound. */
+  colorValueRaw: any;
   bubbleSize: number | null;
   /** Multi-measure values bound to the "Glyph Values" data role. Drives
    *  the pie / donut / column overlay layer. Display names live in the
