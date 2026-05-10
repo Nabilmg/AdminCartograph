@@ -12,7 +12,7 @@ import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles, updateBubbleTransforms } from "./render/bubbles";
 import { renderGlyphs, GlyphType } from "./render/glyphs";
-import { renderLabels, updateLabelTransforms, LabelDatum, LabelAnchorOverride } from "./render/labels";
+import { renderLabels, updateLabelTransforms, largestProjectedOuterRing, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
 import type { BubbleResult } from "./render/bubbles";
 import { renderLegends } from "./render/legend";
@@ -1197,18 +1197,22 @@ export class Visual implements IVisual {
         if (isDrill) {
           neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
         }
-        // Projected bbox of the focused state — used by renderLabels
-        // to drop any neighbour label that would visually intersect
-        // the focused polygon (drill view only).
-        let focusedForbid: [number, number, number, number] | undefined;
+        // Projected outer ring of the focused state (largest part for
+        // multi-polygon features). renderLabels drops a neighbour
+        // label only when its anchor lies *inside* this polygon —
+        // less aggressive than the previous bbox check, which dropped
+        // labels whose anchor was clearly outside the focused state
+        // but whose bounding box happened to overlap the focused
+        // state's bbox.
+        let focusedRing: [number, number][] | undefined;
         if (isDrill) {
           const focused = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
           if (focused) {
-            const b = path.bounds(focused);
-            focusedForbid = [b[0][0], b[0][1], b[1][0], b[1][1]];
+            const ring = largestProjectedOuterRing(focused.geometry, projection);
+            if (ring && ring.length >= 3) focusedRing = ring as [number, number][];
           }
         }
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedForbid);
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedRing);
       }
 
       // Render the focus group at full opacity (partial filter only —
