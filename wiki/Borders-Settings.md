@@ -83,18 +83,40 @@ its borders show — and they cover the Admin2 borders along the
 shared boundary, which gives the cleaner cartographic look (Admin1
 boundaries always read as "stronger" than Admin2 boundaries).
 
-## In drill view: dimmed neighbours
+## Country outer glow
 
-When you drill into a single Admin1, its Admin2 children render
-with full styling, but the **other** Admin1 borders dim to 35%
-opacity (clamped by your configured Admin1 border opacity, so if
-you set 0.5 the neighbours go to 0.35; if you set 0.3 they stay
-at 0.3).
+A soft halo behind every map layer, hugging the country's outer
+boundary. Useful for a "the map is a card" look against busy
+report backgrounds.
+
+| Property | Type | Default |
+|---|---|---|
+| Country outer glow | Toggle | Off |
+| Glow color | Colour picker | `#d0d4da` (light grey) |
+| Glow radius (px) | Number stepper | 12 |
+| Glow opacity | Number stepper | 0.6 |
+
+Implemented as a single `<path>` whose `d` is the union of the
+visible Admin1 polygons, fill + stroke in the glow colour, with an
+SVG `feGaussianBlur` filter (`stdDeviation = radius / 2`). The
+choropleth fills sit on top so only the soft edge extending
+*outside* the country boundary reads.
+
+## In drill view + filter dimming
+
+When you drill into a single Admin1 — or when a slicer narrows the
+visual to a strict subset of states in Admin2 mode — the
+out-of-focus Admin1 polygons dim:
+
+- Border stroke-opacity drops to **0.35** (clamped by your
+  configured Admin1 border opacity).
+- Polygon fill is replaced with the visual's background colour
+  (white when the background is transparent), so the choropleth
+  ramp doesn't bleed through.
+- Their state labels render at **0.55** opacity.
 
 This makes the focused state's frame stand out without removing
-context.
-
-To hide neighbours entirely instead of dimming them, see
+context. To hide neighbours entirely instead of dimming them, see
 **1. Map setup → Hide unfiltered Admin1 in Admin2 mode**.
 
 ## Tips

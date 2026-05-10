@@ -43,7 +43,7 @@ manual.
 - [**1. Map Setup**](Map-Setup-Settings.md)
 - [**2. Choropleth Fill**](Choropleth-Settings.md)
 - [**3. Bubble Overlay**](Bubble-Settings.md)
-- [**4. Pie / Column Overlay**](Pie-Donut-Column-Settings.md)
+- [**4. Pie / Donut / Column / Concentric Overlay**](Pie-Donut-Column-Settings.md)
 - [**5. Borders**](Borders-Settings.md)
 - [**6 / 7 / 8. Label Cards**](Label-Engine.md) — Admin1, Admin2 default,
   Admin2 drill

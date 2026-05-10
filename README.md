@@ -67,29 +67,54 @@ or any boundary version you prefer.
 - **Choropleth fill** — quantile / equal-interval / manual classification,
   automatic ramp from a base color or 5 user-defined classes, optional
   "Treat 0 as no-data".
-- **Bubble overlay** — square-root scaling, label placement above /
-  below / left / right / center.
-- **Pie / Donut / Column overlay** — driven by 2+ measures, one slice
-  / column per measure, independent palette and label placement.
-- **Drill** — click an Admin1 to focus its Admin2 children. Prev /
-  next arrows step alphabetically; "Country View" returns to all-
-  Admin1.
-- **Cross-filter** through `selectionManager.select` so other visuals
-  respond to map clicks.
+- **Bubble overlay** — square-root scaling; constant on-screen size as
+  the user zooms (toggle, default on); label placement above / below /
+  left / right / center; **fx (conditional formatting)** on Fill and
+  Stroke so a measure rule can colour bubbles per area.
+- **Pie / Donut / Column / Concentric circles overlay** — driven by 2+
+  measures. Pie / donut slice each value; column draws side-by-side
+  bars; concentric stacks circles sharing the same centre, each sized
+  by sqrt(value) so area is proportional. Independent palette and
+  label placement per glyph.
+- **Country outer glow** — soft halo behind every layer, colour /
+  radius / opacity controls; off by default.
+- **Drill** — click an Admin1 to focus its Admin2 children. The
+  focused state's name pill stays anchored top-left across pan / zoom;
+  prev / next arrows step alphabetically; "Country View" returns to
+  all-Admin1. Neighbour state borders + labels dim to ~55% so the
+  focus reads.
+- **Filter dimming** — in Admin2 view, states excluded by a slicer get
+  the same dim treatment (no drill click required), with a white fill
+  to suppress the underlying choropleth.
+- **Cross-filter** through `selectionManager.select`. Re-clicking the
+  same area or clicking the map background clears the filter; Ctrl /
+  Cmd-click multi-selects.
 - **Filter-driven drill** — in Auto mode, when a slicer narrows to one
   Admin1 (or several Admin2 in one parent), the visual auto-drills.
 - **Tooltips** with Admin1 + Admin2 names, color value, bubble value,
-  and any user-bound Tooltip fields.
-- **Three legends** — choropleth, bubble size, pie / column categories.
-  Stack into a single rounded container when they share a corner.
-- **Scale bar** — km or miles, latitude-aware.
-- **Zoom + pan** — on-canvas buttons, mouse drag, mouse wheel.
-- **PNG / SVG export** — A5-landscape PNG (1748 × 1240 @ ~300 DPI) for
-  PowerPoint, or portable SVG with inlined CSS for Illustrator /
-  Inkscape.
-- **Rich label engine** — halo, italic, bold, decimals, K/M format,
+  every Glyph Values measure (with `(% of total)` when 2+ are bound),
+  and any extra Tooltip fields.
+- **Three legends** — choropleth, bubble size, pie / column / concentric
+  categories. Stack into a single rounded container when they share a
+  corner. Bubble swatch reflects the rule-resolved colour when fx is
+  bound.
+- **Scale bar** — km or miles, latitude-aware, sits flush against its
+  corner (legend dodges the bar) and live-updates with zoom.
+- **Zoom + pan** — on-canvas buttons, mouse drag, mouse wheel. The
+  reset button always appears after any pan / zoom regardless of the
+  "Show zoom buttons" toggle.
+- **Hide map chrome** — single toggle in Map setup that drops the
+  drill back-bar + control panel for clean dashboard embeds.
+- **SVG export** — portable SVG with inlined CSS for Illustrator /
+  Inkscape / browser.
+- **Rich label engine** — explicit *Name source* (Geometry vs Label
+  Text 1 override) and *Value source* (any combination of Choropleth /
+  Bubble / Label Value 2) dropdowns; **fx** on label colour, value
+  colour, bubble-value colour, custom-value colour; constant on-screen
+  size on zoom (toggle); halo, italic, bold, decimals, K/M format,
   curved / straight / boundary placement, fit-to-shape, abbreviation,
-  hide-on-overflow.
+  hide-on-overflow; spatial-enclave detection so labels avoid
+  embedded sibling polygons (Pest megye → Budapest, Lazio → Vatican).
 
 ## Format pane (top-down flow)
 
@@ -192,8 +217,11 @@ releases/
 - Cross-filter on click flows through the host's `selectionManager`.
   Disabling Interaction in the format pane stops drill / filter (but
   keeps tooltips).
-- PNG export depends on canvas serialisation; falls back to a
-  download if the host blocks the canvas API.
+- PNG copy-to-clipboard is currently disabled — Power BI Service +
+  Desktop both block `navigator.clipboard.write` on PNG blobs from a
+  visual iframe. Use the **SVG** button for portable export; paste
+  the SVG into Illustrator / Inkscape / a browser, or save it as
+  `.svg` and rasterise externally.
 
 ## License
 

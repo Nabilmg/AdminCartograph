@@ -1,8 +1,9 @@
-# 4. Pie / Donut / Column Overlay Settings
+# 4. Pie / Donut / Column / Concentric Overlay Settings
 
 A multi-measure data layer drawn on top of the choropleth and
-bubble layers. Each polygon shows a small pie, donut, or column
-chart whose slices / columns come from your bound measures.
+bubble layers. Each polygon shows a small pie, donut, column, or
+concentric-circles glyph whose slices / columns / rings come from
+your bound measures.
 
 ## Prerequisites
 
@@ -34,7 +35,7 @@ Master switch.
 |---|---|
 | Type | Dropdown |
 | Default | Pie |
-| Options | Pie, Donut, Column |
+| Options | Pie, Donut, Column, Concentric circles |
 
 ### Pie
 
@@ -50,6 +51,19 @@ Useful when you want labels in the centre or just a different visual.
 
 A small multi-bar chart. Each measure renders as one column;
 column heights are scaled to the maximum value within that polygon.
+
+### Concentric circles
+
+One circle per measure, all sharing the same centre. Each circle's
+radius is `outerR * sqrt(value / peak)` so the **area** is
+proportional to the value (matches the bubble layer's convention).
+Drawn largest-first so smaller circles layer on top and stay
+visible. Category colours line up with the legend the same way
+as the other glyphs.
+
+Useful when you want a direct visual ratio between 2-4 measures
+(PIN vs Reached, quarterly snapshots, before / after) without
+slicing them into a pie or stacking columns.
 
 ## Min / Max size (px)
 

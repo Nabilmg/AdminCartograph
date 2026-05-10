@@ -36,6 +36,17 @@ final label.
 Where the scale bar sits inside the canvas. 12 px margin from the
 chosen corner.
 
+When a legend already occupies the same corner, the **legend**
+shifts inward by `bar.height + 8 px` so the scale bar can sit
+flush against the edge with the legend stacked above it (or below,
+in top corners). The scale bar always wins the corner — it's a
+small, fixed-size element and reads more naturally near the screen
+edge than tucked behind a legend.
+
+The scale bar layer sits BEFORE the legend layer in the SVG tree
+so the legend draws on top in z-order if they ever visually
+overlap.
+
 ## Color
 
 | | |
@@ -73,7 +84,9 @@ For every render, the visual:
 When you zoom in, the bar shrinks (because each km covers more
 pixels at higher zoom), so the next "nice" smaller value is
 chosen. You'll see it snap from "100 km" to "50 km" to "20 km" as
-you zoom.
+you zoom. Updates are **live** — `applyZoom` re-runs the bar's
+render closure on every zoom step (mouse wheel / drag / button)
+without triggering a full map re-render.
 
 ## Visual style
 

@@ -75,23 +75,32 @@ Value = 0` use the no-data colour and are excluded from classification.
 Square-root scaling means bubble *area* (not radius) is proportional
 to value — which matches how human visual perception interprets size.
 
-### Glyph Values (pie / column)
+### Glyph Values (pie / column / concentric)
 
 | | |
 |---|---|
 | **Kind** | Measure |
 | **Multiplicity** | Multiple — bind 2 or more measures |
-| **What it does** | Drives the pie / donut / column overlay. Each measure becomes one slice (pie / donut) or one column. |
-| **Typical measures** | `Children`, `Adults`, `Elderly` — three measures for a three-slice pie |
+| **What it does** | Drives the multi-measure overlay. Each measure becomes one slice (Pie / Donut), one column (Column), or one ring (Concentric circles). |
+| **Typical measures** | `Children`, `Adults`, `Elderly` — three measures for a three-slice glyph |
 
 To enable the overlay:
 
 1. Bind 2+ measures to **Glyph Values**.
 2. Open **4. Pie / Column overlay** in the format pane.
-3. Set **Show** to on, pick a **Chart type**, and adjust colors.
+3. Set **Show** to on, pick a **Chart type** (Pie / Donut / Column /
+   Concentric circles), and adjust colors.
 
 The legend (under **11. Pie / Column legend**) shows one swatch per
 measure with the measure's display name as the label.
+
+**In tooltips.** Every Glyph Values measure also appears as its
+own row on hover, ahead of any extra **Tooltips** columns. When 2+
+measures are bound and the row's total is positive, each value is
+suffixed with its share of the total — e.g.
+`Children 1,200 (35%)`. The percentage uses the same per-row total
+the glyph uses internally so the numbers always reconcile with
+the on-screen breakdown.
 
 ### Label Value 2
 

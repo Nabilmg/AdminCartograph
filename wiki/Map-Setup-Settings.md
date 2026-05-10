@@ -96,6 +96,28 @@ background or are hidden entirely.
 Use it when you want the focus state to be the *only* thing on
 screen.
 
+## Hide map chrome
+
+| | |
+|---|---|
+| Type | Toggle |
+| Default | Off |
+
+Drops the on-canvas UI overlays so the visual is just the map.
+
+When **on**:
+
+- The drill **top-bar** (Country View back button + prev / next
+  arrows) is removed entirely. Drill view still works via cross-
+  filter / external triggers — there's just no on-canvas back
+  button.
+- The on-canvas **controls panel** (zoom +/-, reset, pan pad, SVG
+  export) is removed.
+
+The drill **title pill** stays — it's a label, not chrome — so
+drilled state names still show. Useful for clean dashboard-style
+embeds and exports where you only want the map.
+
 ## Background color
 
 | | |

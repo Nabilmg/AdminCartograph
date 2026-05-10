@@ -130,6 +130,35 @@ Both **also** submit a selection through `selectionManager.select`,
 so flipping between states updates the rest of the report —
 matching the click-to-drill behaviour.
 
+## Drill UI bits
+
+The drill view adds a few non-data overlays around the map:
+
+- **Title pill** — a small rounded badge in the top-left, just
+  below the **← Country View** button, showing the focused state's
+  name (and value, depending on the Admin1 labels card's *Content*
+  setting). The pill lives in a screen-space SVG layer outside
+  `mapGroup`, so it stays glued to its top-left position regardless
+  of zoom / pan.
+- **Reset zoom-and-pan button** — appears on the on-canvas controls
+  panel any time `zoomLevel > 1` or `panX/Y != 0`, regardless of
+  whether **Show zoom buttons** is on. Wheel / drag users can still
+  reset their view without enabling the +/- buttons.
+- **Neighbour Admin1 borders + labels** — dim to ~55% / 0.35
+  stroke-opacity, with their polygon fills replaced by the visual
+  background colour so the choropleth doesn't bleed through. The
+  same dimming kicks in for partial-filter mode in Admin2 view
+  (no drill click required) — see [Borders Settings →
+  Filter dimming](Borders-Settings.md#in-drill-view--filter-dimming).
+- **Neighbour labels never spill onto the focused state** — any
+  neighbour Admin1 label whose anchor lies inside the focused
+  polygon is dropped. Labels at the shared border with anchors
+  in their own polygon stay visible.
+
+To hide all of this for a clean dashboard embed, set **1. Map
+setup → Hide map chrome** to on. The title pill stays (it's a
+label, not chrome) but the back-bar and controls disappear.
+
 The order is alphabetical by `ADM1_EN` from the bundled geometry
 (or from your custom mapping's Admin1 Name field).
 
