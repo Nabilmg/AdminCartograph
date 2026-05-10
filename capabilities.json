@@ -13,10 +13,10 @@
       "description": "Field that uniquely identifies an Admin2 area (locality / district). Must match ADM2_PCODE in the embedded geometry."
     },
     {
-      "displayName": "Color Value",
+      "displayName": "Choropleth fill",
       "name": "colorValue",
       "kind": "Measure",
-      "description": "Measure used to color the choropleth fills."
+      "description": "Measure used to colour the choropleth (the fill of each Admin1 / Admin2 polygon)."
     },
     {
       "displayName": "Bubble Size",
@@ -586,6 +586,44 @@
       }
     },
 
+    "valuesLegend": {
+      "displayName": "12. Values legend",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "title": { "displayName": "Title", "type": { "text": true } },
+        "orientation": {
+          "displayName": "Orientation",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical" },
+              { "value": "horizontal", "displayName": "Horizontal" }
+            ]
+          }
+        },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "size": {
+          "displayName": "Size",
+          "type": {
+            "enumeration": [
+              { "value": "small", "displayName": "Small" },
+              { "value": "medium", "displayName": "Medium" },
+              { "value": "large", "displayName": "Large" }
+            ]
+          }
+        }
+      }
+    },
+
     "valueLegend": {
       "displayName": "9. Choropleth legend",
       "properties": {
@@ -665,7 +703,7 @@
     },
 
     "scaleBar": {
-      "displayName": "13. Scale bar",
+      "displayName": "14. Scale bar",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "units": {
@@ -694,7 +732,7 @@
     },
 
     "controls": {
-      "displayName": "14. Map controls (zoom / pan / copy)",
+      "displayName": "15. Map controls (zoom / pan / copy)",
       "properties": {
         "showZoom": { "displayName": "Show zoom buttons", "type": { "bool": true } },
         "showPan": { "displayName": "Show pan buttons (up / down / left / right)", "type": { "bool": true } },
@@ -714,7 +752,7 @@
     },
 
     "legendContainer": {
-      "displayName": "12. Legend container",
+      "displayName": "13. Legend container",
       "properties": {
         "borderWidth": { "displayName": "Border width", "type": { "numeric": true } },
         "borderColor": { "displayName": "Border color", "type": { "fill": { "solid": { "color": true } } } },

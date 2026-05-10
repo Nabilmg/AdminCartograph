@@ -1266,8 +1266,13 @@ export class Visual implements IVisual {
         // polygon. If even the smallest size doesn't fit, drop the label
         // entirely rather than letting it spill onto the focused state.
         const baseStyle = this.styleFromCard(this.settings.stateLabels);
+        // In drill view, neighbour Admin1 labels render NAME ONLY (no
+        // value lines) regardless of the card's Content setting. The
+        // focused state's value still appears in the title pill, and
+        // showing per-area values for unfocused neighbours just adds
+        // noise to a view that's about a single state.
         const neighborStyle = isDrill
-          ? { ...baseStyle, allowOverrun: false, hideOnOverflow: true }
+          ? { ...baseStyle, allowOverrun: false, hideOnOverflow: true, content: "name" as const }
           : baseStyle;
         // In drill view, also bias neighbour anchors toward the focused
         // state so their labels sit near the shared border instead of
@@ -1456,6 +1461,7 @@ export class Visual implements IVisual {
         orientation: (bubbleLegend.orientation.value as any).value,
         scale: bubbleResult.scale
       } : undefined,
+      values: this.buildValuesLegendInput(prepared),
       container: {
         borderColor: this.settings.legendContainer.borderColor.value.value,
         borderWidth: this.settings.legendContainer.borderWidth.value,
@@ -2400,6 +2406,54 @@ export class Visual implements IVisual {
    * pcode → propertyName → colour map so renderLabels doesn't need to
    * know about the outer object-name layer.
    */
+  /**
+   * Build the input for the new "Values legend" (card 12). Reads the
+   * Admin1 labels card's Value source to decide which entries are
+   * active (Choropleth, Bubble, Label Value 2 in any combination),
+   * picks each entry's colour from the same card's per-source colour
+   * pickers, and labels each entry with the bound measure's display
+   * name. Returns undefined when the card is hidden so the legend
+   * never appears in the DOM.
+   */
+  private buildValuesLegendInput(prepared: PreparedDataView): {
+    title: string;
+    items: { label: string; color: string }[];
+    position: any;
+    size: any;
+    orientation: "vertical" | "horizontal";
+  } | undefined {
+    const card = this.settings.valuesLegend;
+    if (!card.show.value) return undefined;
+    const labelCard = this.settings.stateLabels;
+    const source: string = (labelCard.valueSource?.value as any)?.value || "choropleth";
+    const want = {
+      choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
+      bubble: source === "bubble" || source === "both" || source === "bubble_custom" || source === "all",
+      custom: source === "custom" || source === "choropleth_custom" || source === "bubble_custom" || source === "all"
+    };
+    const items: { label: string; color: string }[] = [];
+    if (want.choropleth) {
+      const name = prepared.colorValueColumn?.displayName || "";
+      if (name) items.push({ label: name, color: labelCard.valueColor.value.value });
+    }
+    if (want.bubble) {
+      const name = prepared.bubbleSizeColumn?.displayName || "";
+      if (name) items.push({ label: name, color: labelCard.bubbleValueColor.value.value });
+    }
+    if (want.custom) {
+      const name = prepared.labelValue2Column?.displayName || "";
+      if (name) items.push({ label: name, color: labelCard.customValueColor.value.value });
+    }
+    if (!items.length) return undefined;
+    return {
+      title: card.title.value || "",
+      items,
+      position: (card.position.value as any).value,
+      size: (card.size.value as any).value,
+      orientation: ((card.orientation.value as any).value as "vertical" | "horizontal")
+    };
+  }
+
   private ruleColorsForCard(prepared: PreparedDataView, objectName: string): Map<string, Map<string, string>> {
     const out = new Map<string, Map<string, string>>();
     prepared.ruleColorsByPcode.forEach((byObject, pcode) => {

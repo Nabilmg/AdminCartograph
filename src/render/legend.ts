@@ -45,6 +45,17 @@ export interface LegendInputs {
     /** Maps a measure value to a radius — same scale used by the bubbles. */
     scale: (v: number) => number;
   };
+  /** Values legend — explains the numbers on labels. One entry per
+   *  active value source (Choropleth / Bubble / Label Value 2),
+   *  showing the bound measure's name with a `#` swatch in the
+   *  matching label-value colour. */
+  values?: {
+    title: string;
+    items: { label: string; color: string }[];
+    position: Position;
+    size: LegendSize;
+    orientation: "vertical" | "horizontal";
+  };
   container: {
     borderColor: string;
     borderWidth: number;
@@ -95,10 +106,15 @@ export function renderLegends(
     value?: LegendInputs["value"];
     bubble?: LegendInputs["bubble"];
     glyph?: LegendInputs["glyph"];
+    values?: LegendInputs["values"];
   }> = {};
   if (inputs.value) {
     groups[inputs.value.position] = groups[inputs.value.position] || {};
     groups[inputs.value.position].value = inputs.value;
+  }
+  if (inputs.values) {
+    groups[inputs.values.position] = groups[inputs.values.position] || {};
+    groups[inputs.values.position].values = inputs.values;
   }
   if (inputs.bubble) {
     groups[inputs.bubble.position] = groups[inputs.bubble.position] || {};
@@ -123,7 +139,17 @@ export function renderLegends(
       bold: inputs.container.headerBold !== false,
       forceFontSize: inputs.container.headerFontSize > 0 ? inputs.container.headerFontSize : 0
     };
+    // Values legend is the top of the stack — it explains the labels
+    // (which sit on top of every other map layer), so it reads first.
+    // Then glyph (charts on top of bubbles), bubble, and finally
+    // choropleth at the bottom — top-to-bottom matches the map's
+    // z-order from above to below.
     const stack: SVGGElement[] = [];
+    if (contents.values) {
+      const sub = inner.append("g").attr("class", "legend-values-sub");
+      drawValuesLegend(sub, contents.values as any, 0, headerStyle);
+      stack.push(sub.node() as SVGGElement);
+    }
     if (contents.glyph) {
       const sub = inner.append("g").attr("class", "legend-glyph-sub");
       drawGlyphLegend(sub, contents.glyph as any, 0, headerStyle);
@@ -299,6 +325,68 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
       .text(text);
     y += swatch + gap;
+  }
+  return y;
+}
+
+/**
+ * Values legend — explains the numbers shown on the map's labels by
+ * listing each bound measure with a `#` swatch in the matching label
+ * value colour. Same layout family as the glyph legend (vertical or
+ * horizontal). Empty rows (no measure name) are skipped.
+ */
+function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
+  const scale = SIZE_SCALE[values.size];
+  const fontSize = 11 * scale;
+  const autoTitleSize = 12 * scale;
+  const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
+  const gap = 6;
+
+  if (values.title) {
+    parent.append("text")
+      .attr("x", 0).attr("y", yStart + titleSize)
+      .attr("font-size", titleSize).attr("font-weight", header.bold ? 600 : 400)
+      .attr("fill", header.color)
+      .text(values.title);
+  }
+
+  let y = yStart + (values.title ? titleSize + 6 : 0);
+  const rows = values.items.filter((it) => it && (it.label || "").trim());
+  if (!rows.length) return y;
+
+  if (values.orientation === "horizontal") {
+    let x = 0;
+    for (const it of rows) {
+      // Render `#` symbol in the matching colour, then measure name in
+      // the default text colour. Use a small approximate width per
+      // entry so they don't bleed into each other.
+      parent.append("text")
+        .attr("x", x).attr("y", y + fontSize)
+        .attr("font-size", fontSize).attr("font-weight", 700)
+        .attr("fill", it.color)
+        .text("#");
+      parent.append("text")
+        .attr("x", x + fontSize * 0.8 + 4).attr("y", y + fontSize)
+        .attr("font-size", fontSize)
+        .text(it.label);
+      // Approximate: # plus name width plus padding.
+      x += fontSize * 0.8 + 4 + Math.max(40, (it.label.length * fontSize * 0.55)) + 14;
+    }
+    return y + fontSize + gap;
+  }
+
+  // Vertical: one entry per line.
+  for (const it of rows) {
+    parent.append("text")
+      .attr("x", 0).attr("y", y + fontSize)
+      .attr("font-size", fontSize).attr("font-weight", 700)
+      .attr("fill", it.color)
+      .text("#");
+    parent.append("text")
+      .attr("x", fontSize * 0.8 + 4).attr("y", y + fontSize)
+      .attr("font-size", fontSize)
+      .text(it.label);
+    y += fontSize + gap;
   }
   return y;
 }
