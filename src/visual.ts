@@ -1730,28 +1730,33 @@ export class Visual implements IVisual {
     const padding = 4;
     const lineHeight = fontSize * 1.15;
     const horizontalGap = 36; // approximate label half-width for left/right placement
+    // x/y on each override is the bubble CENTRE (in pre-zoom px); the
+    // padX / padY values are the desired on-screen offset between
+    // bubble centre and label centre. renderLabels divides them by
+    // the live zoom level so the label sticks to the bubble at a
+    // constant screen offset regardless of zoom.
     for (const [pcode, anchor] of bubbleResult.anchors) {
-      let x = anchor.x;
-      let y = anchor.y;
+      let padX = 0;
+      let padY = 0;
       switch (placement) {
         case "below":
-          y = anchor.y + anchor.r + lineHeight / 2 + padding;
+          padY = anchor.r + lineHeight / 2 + padding;
           break;
         case "left":
-          x = anchor.x - anchor.r - horizontalGap - padding;
+          padX = -(anchor.r + horizontalGap + padding);
           break;
         case "right":
-          x = anchor.x + anchor.r + horizontalGap + padding;
+          padX = anchor.r + horizontalGap + padding;
           break;
         case "center":
           // Bubble center — label sits inside the bubble.
           break;
         case "above":
         default:
-          y = anchor.y - anchor.r - lineHeight / 2 - padding;
+          padY = -(anchor.r + lineHeight / 2 + padding);
           break;
       }
-      out.set(pcode, { x, y });
+      out.set(pcode, { x: anchor.x, y: anchor.y, padX, padY });
     }
     return out;
   }

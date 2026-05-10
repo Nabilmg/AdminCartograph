@@ -80,9 +80,18 @@ export interface LabelDatum {
 }
 
 export interface LabelAnchorOverride {
-  /** Centre of the label, in screen-space px. */
+  /** Centre of the label, in screen-space px. When `padX` / `padY`
+   *  are also supplied, this is interpreted as the BUBBLE centre and
+   *  the actual label position becomes `(x + padX/zoom, y + padY/zoom)`
+   *  so the on-screen offset between bubble and label stays constant
+   *  as the user zooms. */
   x: number;
   y: number;
+  /** Screen-pixel offset from the override anchor (positive x = right,
+   *  positive y = down). Optional — when omitted the label sits
+   *  directly at `(x, y)`. */
+  padX?: number;
+  padY?: number;
   /**
    * If non-zero, the label engine will shift the text further from this
    * point so it doesn't overlap (e.g. above a bubble).
@@ -149,6 +158,13 @@ export function renderLabels(
     g.attr("data-anchor-dy", "0");
     g.attr("data-rotation", "0");
     if (style.constantSize) g.attr("data-constant-size", "1");
+    // Bubble-anchored labels carry a screen-pixel offset so the
+    // label sticks to its bubble at a constant on-screen distance
+    // regardless of zoom. applyLabelTransform divides these by the
+    // current zoom so the offset is preserved after mapGroup's
+    // scale(z).
+    if (override?.padX) g.attr("data-pad-x", String(override.padX));
+    if (override?.padY) g.attr("data-pad-y", String(override.padY));
     applyLabelTransform(g.node() as SVGGElement, currentZoom);
 
     let baseFontSize = style.fontSize;
@@ -327,9 +343,17 @@ function applyLabelTransform(g: SVGGElement, zoom: number): void {
   const y = parseFloat(g.getAttribute("data-anchor-y") || "0");
   const dy = parseFloat(g.getAttribute("data-anchor-dy") || "0");
   const rot = parseFloat(g.getAttribute("data-rotation") || "0");
+  const padX = parseFloat(g.getAttribute("data-pad-x") || "0");
+  const padY = parseFloat(g.getAttribute("data-pad-y") || "0");
   const constant = g.getAttribute("data-constant-size") === "1";
   const s = constant && zoom > 0 ? 1 / zoom : 1;
-  const parts: string[] = [`translate(${x},${y + dy})`];
+  // padX / padY are in screen pixels — divide by zoom so when the
+  // mapGroup multiplies the translate by z later, the on-screen
+  // offset between the label centre and the original anchor (a
+  // bubble centre, typically) stays constant across zoom levels.
+  const px = x + (zoom > 0 ? padX / zoom : 0);
+  const py = y + dy + (zoom > 0 ? padY / zoom : 0);
+  const parts: string[] = [`translate(${px},${py})`];
   if (s !== 1) parts.push(`scale(${s})`);
   if (rot) parts.push(`rotate(${rot})`);
   g.setAttribute("transform", parts.join(" "));
