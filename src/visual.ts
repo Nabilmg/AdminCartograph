@@ -54,6 +54,12 @@ export class Visual implements IVisual {
   /** Set by renderMap; called from applyZoom so the scale bar updates
    *  live as the user zooms without re-running renderMap. */
   private rerenderScaleBar: (() => void) | null = null;
+  /** Projected (pre-zoom) bounding box of the drilled state's polygon,
+   *  in the same coordinate space as the d3 projection output. Used by
+   *  updateDrilledPillVisibility to hide the title pill when the
+   *  focused polygon scrolls fully off-screen on pan / zoom. Null
+   *  outside drill view. */
+  private focusedStateProjBBox: [number, number, number, number] | null = null;
   private overlay: HTMLElement;
 
   private settingsService: FormattingSettingsService;
@@ -158,8 +164,12 @@ export class Visual implements IVisual {
     this.mapGroup.appendChild(this.glyphLayer);
     this.mapGroup.appendChild(this.adm2LabelLayer);
     this.mapGroup.appendChild(this.adm1LabelLayer);
-    this.svg.appendChild(this.legendLayer);
+    // Scale bar before legend in the SVG tree so the legend renders on
+    // top in z-order. With the scale bar flush against its corner and
+    // the legend stacked above, legends overlapping the bar would
+    // otherwise be partially hidden.
     this.svg.appendChild(this.scaleBarLayer);
+    this.svg.appendChild(this.legendLayer);
 
     this.overlay = document.createElement("div");
     this.overlay.className = "adm-overlay";
@@ -1068,16 +1078,34 @@ export class Visual implements IVisual {
         if (isDrill) {
           neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
         }
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"));
+        // Projected bbox of the focused state — used by renderLabels
+        // to drop any neighbour label that would visually intersect
+        // the focused polygon (drill view only).
+        let focusedForbid: [number, number, number, number] | undefined;
+        if (isDrill) {
+          const focused = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
+          if (focused) {
+            const b = path.bounds(focused);
+            focusedForbid = [b[0][0], b[0][1], b[1][0], b[1][1]];
+          }
+        }
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedForbid);
       }
 
+      this.focusedStateProjBBox = null;
       if (isDrill) {
         const drilledFeature = adm1Visible.find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
         if (drilledFeature) {
           const datum = stateAreas.get(drilledFeature.properties.ADM1_PCODE);
           this.renderAdmin1Header(width, drilledFeature, datum);
+          // Cache the focused polygon's projected bbox (in pre-zoom map
+          // coords) so applyZoom can hide the title pill when the
+          // polygon scrolls fully off-screen.
+          const b = path.bounds(drilledFeature);
+          this.focusedStateProjBBox = [b[0][0], b[0][1], b[1][0], b[1][1]];
         }
       }
+      this.updateDrilledPillVisibility();
     }
 
     // Pick the right Admin2 label card based on whether the user has drilled
@@ -1115,6 +1143,38 @@ export class Visual implements IVisual {
       while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
     }
 
+    // Scale bar (optional). Rendered BEFORE legends now so legends can
+    // dodge the bar's footprint and the bar sits flush against its
+    // chosen corner (visually below legends in bottom corners — closer
+    // to the screen edge — which is what users expect from a
+    // cartographic key).
+    const sb = this.settings.scaleBar;
+    const sbStyle = {
+      show: sb.show.value,
+      units: (sb.units.value as any).value,
+      position: (sb.position.value as any).value,
+      color: sb.color.value.value,
+      fontSize: sb.fontSize.value
+    };
+    const sbFootprint = renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, sbStyle);
+    // Stash a closure so applyZoom can re-render the bar with the
+    // current zoomLevel without a full renderMap pass. Settings are
+    // read freshly so format-pane edits made between full renders
+    // still apply.
+    this.rerenderScaleBar = () => {
+      const cardSb = this.settings.scaleBar;
+      renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
+        show: cardSb.show.value,
+        units: (cardSb.units.value as any).value,
+        position: (cardSb.position.value as any).value,
+        color: cardSb.color.value.value,
+        fontSize: cardSb.fontSize.value
+      });
+    };
+    const sbFootprintByCorner = sbFootprint
+      ? { [sbFootprint.position]: { height: sbFootprint.height } } as Partial<Record<typeof sbFootprint.position, { height: number }>>
+      : undefined;
+
     // Legends
     const valueLegend = this.settings.valueLegend;
     const bubbleLegend = this.settings.bubbleLegend;
@@ -1122,7 +1182,7 @@ export class Visual implements IVisual {
     const valueClasses = breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : [];
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
-    const legendFootprints = renderLegends(this.legendLayer, {
+    renderLegends(this.legendLayer, {
       width,
       height,
       value: valueLegend.show.value && valueClasses.length ? {
@@ -1174,31 +1234,7 @@ export class Visual implements IVisual {
         background: this.settings.legendContainer.background.value.value,
         backgroundOpacity: this.settings.legendContainer.backgroundOpacity.value
       }
-    });
-
-    // Scale bar (optional). Rendered after legends so it sits on top in
-    // the same screen-space layer (outside mapGroup, so it's not zoomed).
-    // When a legend already occupies the same corner, the scale bar is
-    // pushed past the legend's footprint so the two don't overlap.
-    const sb = this.settings.scaleBar;
-    const sbPosition = (sb.position.value as any).value;
-    // Stash a closure so applyZoom can re-render the bar with the
-    // current zoomLevel without a full renderMap pass. The closure
-    // captures the live projection / footprints; settings are read
-    // freshly so format-pane edits made between full renders still
-    // apply.
-    this.rerenderScaleBar = () => {
-      const cardSb = this.settings.scaleBar;
-      const cardPos = (cardSb.position.value as any).value;
-      renderScaleBar(this.scaleBarLayer, projection, width, height, this.zoomLevel, {
-        show: cardSb.show.value,
-        units: (cardSb.units.value as any).value,
-        position: cardPos,
-        color: cardSb.color.value.value,
-        fontSize: cardSb.fontSize.value
-      }, legendFootprints[cardPos as keyof typeof legendFootprints]);
-    };
-    this.rerenderScaleBar();
+    }, sbFootprintByCorner);
 
     // Wire interactivity (tooltips). Click handling is delegated through
     // handleMapClick attached once in the constructor.
@@ -1335,8 +1371,13 @@ export class Visual implements IVisual {
 
     const baseX = 8;
     const baseY = 44;
-    const sel = (this.adm1LabelLayer as any) as SVGGElement;
     const svgNS = "http://www.w3.org/2000/svg";
+    // All pill elements live in a single wrapper group so applyZoom can
+    // toggle visibility (display:none) when the focused state's
+    // polygon scrolls fully off-screen during pan / zoom.
+    const sel = document.createElementNS(svgNS, "g") as SVGGElement;
+    sel.setAttribute("class", "adm-drilled-pill");
+    this.adm1LabelLayer.appendChild(sel);
 
     const padX = 14;
     const padY = 10;
@@ -1706,22 +1747,26 @@ export class Visual implements IVisual {
       };
       panel.appendChild(mkZoom(+1, "+", "Zoom in"));
       panel.appendChild(mkZoom(-1, "&#8722;", "Zoom out"));
-      // Reset zoom button only appears once the user has zoomed or panned.
-      if (this.zoomLevel > 1.001 || this.panX || this.panY) {
-        const reset = document.createElement("button");
-        reset.className = "adm-zoom-button adm-zoom-reset";
-        reset.type = "button";
-        reset.setAttribute("aria-label", "Reset zoom and pan");
-        reset.title = "Reset zoom and pan";
-        reset.innerHTML = "&#8634;";
-        reset.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.panX = 0;
-          this.panY = 0;
-          this.setZoom(1);
-        });
-        panel.appendChild(reset);
-      }
+    }
+
+    // Reset button — visible after any pan / zoom (wheel, drag, or
+    // button), regardless of the "Show zoom buttons" toggle. Users who
+    // disable the +/- buttons can still reset what they did with the
+    // mouse wheel or a drag-pan.
+    if (this.zoomLevel > 1.001 || this.panX || this.panY) {
+      const reset = document.createElement("button");
+      reset.className = "adm-zoom-button adm-zoom-reset";
+      reset.type = "button";
+      reset.setAttribute("aria-label", "Reset zoom and pan");
+      reset.title = "Reset zoom and pan";
+      reset.innerHTML = "&#8634;";
+      reset.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.panX = 0;
+        this.panY = 0;
+        this.setZoom(1);
+      });
+      panel.appendChild(reset);
     }
 
     if (cs.showExport.value) {
@@ -1736,6 +1781,18 @@ export class Visual implements IVisual {
         this.exportSvg(svg);
       });
       panel.appendChild(svg);
+
+      const png = document.createElement("button");
+      png.className = "adm-zoom-button adm-export-button";
+      png.type = "button";
+      png.setAttribute("aria-label", "Copy map as PNG to clipboard");
+      png.title = "Copy PNG to clipboard (falls back to download if blocked)";
+      png.innerHTML = "PNG";
+      png.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.exportPng(png);
+      });
+      panel.appendChild(png);
     }
 
     if (!panel.children.length) panel.style.display = "none";
@@ -1768,6 +1825,39 @@ export class Visual implements IVisual {
     // distance at zoom 4 — renderScaleBar consumes zoomLevel and
     // shrinks / grows accordingly).
     this.rerenderScaleBar?.();
+    // Hide the drill title pill if the focused polygon has scrolled
+    // fully out of the viewport, so the on-screen label doesn't lie
+    // about what's currently visible.
+    this.updateDrilledPillVisibility();
+  }
+
+  /**
+   * Toggle the `.adm-drilled-pill` group's visibility based on whether
+   * the drilled state's polygon is still at least partially inside the
+   * viewport. The polygon's projected bbox is cached at render time;
+   * here we apply the current zoom + pan transform and test against
+   * the viewport rectangle.
+   */
+  private updateDrilledPillVisibility(): void {
+    const pill = this.overlay.parentElement?.querySelector?.(".adm-drilled-pill") as SVGGElement | null
+      || this.adm1LabelLayer.querySelector?.(".adm-drilled-pill") as SVGGElement | null;
+    if (!pill) return;
+    const b = this.focusedStateProjBBox;
+    if (!b) {
+      pill.style.display = "none";
+      return;
+    }
+    const z = this.zoomLevel;
+    const cx = this.viewportW / 2;
+    const cy = this.viewportH / 2;
+    const tx = (x: number) => (x - cx) * z + cx + this.panX;
+    const ty = (y: number) => (y - cy) * z + cy + this.panY;
+    const sxL = tx(b[0]);
+    const syT = ty(b[1]);
+    const sxR = tx(b[2]);
+    const syB = ty(b[3]);
+    const onScreen = sxR > 0 && sxL < this.viewportW && syB > 0 && syT < this.viewportH;
+    pill.style.display = onScreen ? "" : "none";
   }
 
   /**
@@ -1830,6 +1920,111 @@ export class Visual implements IVisual {
       btn.title = `SVG export failed: ${describeError(e)}`;
       setTimeout(() => { btn.innerHTML = original; btn.title = "Show SVG source — select all and copy"; }, 2500);
     }
+  }
+
+  /**
+   * Rasterise the export SVG to a PNG and try to put it on the
+   * clipboard. Power BI Service iframes used to block
+   * `navigator.clipboard.write` outright; recent hosts (Service +
+   * Desktop on a permitted page) sometimes succeed. We attempt the
+   * write and fall back to a download if it fails so the user always
+   * gets a deliverable.
+   */
+  private exportPng(btn: HTMLButtonElement): void {
+    const original = btn.innerHTML;
+    const restoreLater = () => setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1800);
+    btn.disabled = true;
+    btn.innerHTML = "…";
+    let built: ReturnType<typeof this.buildExportSvg>;
+    try {
+      built = this.buildExportSvg();
+      if (!built) throw new Error("could not build export SVG");
+    } catch (e) {
+      console.error("[ADM Map export] PNG export failed at SVG step:", e);
+      btn.innerHTML = errorIconSvg();
+      btn.title = `PNG export failed: ${describeError(e)}`;
+      restoreLater();
+      return;
+    }
+
+    // Rasterise: SVG → blob URL → <img> → canvas → PNG blob. devicePixelRatio
+    // boosts crispness on retina without changing logical dimensions.
+    const dpr = Math.min(2, Math.max(1, (window as any).devicePixelRatio || 1));
+    const svgBlob = new Blob([built.xml], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = async () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(built!.width * dpr);
+        canvas.height = Math.round(built!.height * dpr);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("2D canvas unavailable");
+        ctx.fillStyle = built!.bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            this.fallbackDownloadPng(btn, original);
+            return;
+          }
+          // Try clipboard first — succeeds in Desktop and some Service
+          // contexts. ClipboardItem may also be undefined in older
+          // hosts; guard before the call.
+          let copied = false;
+          if ((navigator as any).clipboard && typeof (window as any).ClipboardItem === "function") {
+            try {
+              await (navigator as any).clipboard.write([new (window as any).ClipboardItem({ "image/png": blob })]);
+              copied = true;
+            } catch (e) {
+              copied = false;
+            }
+          }
+          if (copied) {
+            btn.innerHTML = "&#10003;"; // checkmark
+            btn.title = "PNG copied to clipboard";
+            restoreLater();
+          } else {
+            // Download fallback so the user still gets the PNG.
+            this.triggerPngDownload(blob);
+            btn.innerHTML = "&#8595;"; // down arrow
+            btn.title = "Clipboard blocked — PNG downloaded instead";
+            restoreLater();
+          }
+        }, "image/png");
+      } catch (e) {
+        console.error("[ADM Map export] PNG rasterisation failed:", e);
+        URL.revokeObjectURL(url);
+        btn.innerHTML = errorIconSvg();
+        btn.title = `PNG export failed: ${describeError(e)}`;
+        restoreLater();
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      btn.innerHTML = errorIconSvg();
+      btn.title = "PNG export failed: SVG image load error";
+      restoreLater();
+    };
+    img.src = url;
+  }
+
+  private triggerPngDownload(blob: Blob): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "map.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  private fallbackDownloadPng(btn: HTMLButtonElement, original: string): void {
+    btn.innerHTML = errorIconSvg();
+    btn.title = "PNG export failed: blob unavailable";
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1800);
   }
 
   /**

@@ -106,7 +106,12 @@ export function renderLabels(
    *  to the right card (stateLabels / localityLabels /
    *  drillLocalityLabels) so the inner key is just the property name
    *  ("color", "valueColor", "bubbleValueColor", "customValueColor"). */
-  ruleColorsByPcode?: Map<string, Map<string, string>>
+  ruleColorsByPcode?: Map<string, Map<string, string>>,
+  /** Optional axis-aligned bounding box in projected pixel space. Any
+   *  label whose own text bbox intersects this rectangle is dropped
+   *  when `hideOnOverflow` is on. Used in drill view so neighbour
+   *  Admin1 labels never spill onto the focused state's polygon. */
+  forbiddenBBox?: [number, number, number, number]
 ): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -189,9 +194,21 @@ export function renderLabels(
     }
 
     // Hide-on-overflow: drop labels that still overflow even after fit
-    // attempts. Used for neighbour Admin1 labels in drill view so a small
-    // state's label never spills onto the focused state next door.
-    if (style.hideOnOverflow && polyBBox && !labelFits) {
+    // attempts, OR (in drill view) any label whose text bbox would
+    // intersect the focused state's polygon. Used so neighbour Admin1
+    // labels never spill onto the focused state next door.
+    let crossesForbidden = false;
+    if (forbiddenBBox && renderedLines.length) {
+      const longest = renderedLines.reduce((m, l) => Math.max(m, approxTextWidth(l.text, baseFontSize)), 0);
+      const totalH = renderedLines.length * (baseFontSize * 1.15);
+      const xL = px - longest / 2;
+      const xR = px + longest / 2;
+      const yT = py - totalH / 2;
+      const yB = py + totalH / 2;
+      const [fxL, fyT, fxR, fyB] = forbiddenBBox;
+      crossesForbidden = xL < fxR && xR > fxL && yT < fyB && yB > fyT;
+    }
+    if (style.hideOnOverflow && ((polyBBox && !labelFits) || crossesForbidden)) {
       // Remove the empty group we created so we don't leave debris behind.
       g.remove();
       continue;

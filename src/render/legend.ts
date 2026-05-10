@@ -64,7 +64,15 @@ const SIZE_SCALE: Record<LegendSize, number> = { small: 0.8, medium: 1.0, large:
 export type LegendFootprint = { width: number; height: number };
 export type LegendFootprints = Partial<Record<Position, LegendFootprint>>;
 
-export function renderLegends(parent: SVGGElement, inputs: LegendInputs): LegendFootprints {
+export function renderLegends(
+  parent: SVGGElement,
+  inputs: LegendInputs,
+  /** Optional scale-bar footprint per corner. When the scale bar
+   *  occupies the same corner as a legend, the legend is shifted
+   *  inward by `height + 8 px` so the scale bar can sit flush
+   *  against the corner with the legend stacked above it. */
+  scaleBarFootprints?: Partial<Record<Position, { height: number }>>
+): LegendFootprints {
   const root = d3.select(parent);
   root.selectAll("*").remove();
   const footprints: LegendFootprints = {};
@@ -146,12 +154,19 @@ export function renderLegends(parent: SVGGElement, inputs: LegendInputs): Legend
     const totalW = bbox.width + pad * 2;
     const totalH = bbox.height + pad * 2;
     const margin = 12;
+    // When the scale bar shares this corner, legend dodges it by its
+    // height + 8 px gap. Top corners push the legend down; bottom
+    // corners push it up. Side corners (no top/bottom collision)
+    // never need this since legend and scale bar occupy different
+    // vertical edges.
+    const sbHeight = scaleBarFootprints?.[position as Position]?.height || 0;
+    const sbOffset = sbHeight ? sbHeight + 8 : 0;
     let dx = 0;
     let dy = 0;
-    if (position === "topLeft") { dx = margin - bbox.x + pad; dy = margin - bbox.y + pad; }
-    else if (position === "topRight") { dx = inputs.width - margin - totalW - bbox.x + pad; dy = margin - bbox.y + pad; }
-    else if (position === "bottomLeft") { dx = margin - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
-    else { dx = inputs.width - margin - totalW - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad; }
+    if (position === "topLeft") { dx = margin - bbox.x + pad; dy = margin - bbox.y + pad + sbOffset; }
+    else if (position === "topRight") { dx = inputs.width - margin - totalW - bbox.x + pad; dy = margin - bbox.y + pad + sbOffset; }
+    else if (position === "bottomLeft") { dx = margin - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad - sbOffset; }
+    else { dx = inputs.width - margin - totalW - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad - sbOffset; }
     group.attr("transform", `translate(${dx},${dy})`);
     footprints[position as Position] = { width: totalW, height: totalH };
   }
