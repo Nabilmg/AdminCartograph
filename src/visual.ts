@@ -827,7 +827,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; glyph: number[]; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -836,10 +836,11 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, glyph: [], sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
+      if (a.labelValue2 != null) acc.label2 = (acc.label2 ?? 0) + a.labelValue2;
       // Sum glyph categories index-wise so the rolled-up Admin1 carries the
       // same number of segments as the source Admin2 areas.
       for (let i = 0; i < (a.glyphValues?.length || 0); i++) {
@@ -857,7 +858,7 @@ export class Visual implements IVisual {
         colorValue: acc.color,
         bubbleSize: acc.bubble,
         glyphValues: acc.glyph,
-        labelValue2: null,
+        labelValue2: acc.label2,
         labelText1: null,
         tooltips: [],
         selectionId: acc.sample.selectionId,
