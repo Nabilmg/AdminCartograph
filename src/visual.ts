@@ -1917,18 +1917,13 @@ export class Visual implements IVisual {
         this.exportSvg(svg);
       });
       panel.appendChild(svg);
-
-      const png = document.createElement("button");
-      png.className = "adm-zoom-button adm-export-button";
-      png.type = "button";
-      png.setAttribute("aria-label", "Copy map as PNG to clipboard");
-      png.title = "Copy PNG to clipboard (falls back to download if blocked)";
-      png.innerHTML = "PNG";
-      png.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.exportPng(png);
-      });
-      panel.appendChild(png);
+      // PNG button is intentionally hidden — clipboard.write of a
+      // PNG blob is blocked in every Power BI host we tested
+      // (Service iframe sandbox + Desktop's webview both deny the
+      // write), and the canvas → SVG → image rasterisation also
+      // breaks on inlined CSS in some hosts. Keep exportPng around
+      // so it can be re-enabled if Microsoft relaxes the iframe
+      // policy, but don't add the button.
     }
 
     if (!panel.children.length) panel.style.display = "none";
