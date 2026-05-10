@@ -16,6 +16,13 @@ import * as d3 from "d3";
 export interface AnchorOptions {
   largestPartOnly: boolean;
   avoidHoles: boolean;
+  /** Outer rings of sibling features that are spatially enclosed by
+   *  the polygon being anchored — Budapest inside Pest megye, Vatican
+   *  inside Lazio, Lesotho inside South Africa, etc. Treated as
+   *  additional holes when picking the anchor so the label sits in
+   *  the surrounding ring rather than on top of the enclave. Same
+   *  coordinate space as `geometry`. */
+  virtualHoles?: number[][][];
 }
 
 /**
@@ -28,20 +35,27 @@ export function pickAnchor(geometry: any, options: AnchorOptions): [number, numb
   const rings = collectRings(geometry, options.largestPartOnly, options.avoidHoles);
   if (!rings.length) return null;
   const outer = rings[0];
-  const holes = rings.slice(1);
+  // Real holes from the polygon's inner rings + any virtual holes
+  // (sibling enclaves) supplied by the caller. Both are treated the
+  // same way: the centroid candidate is rejected if it lies inside
+  // any of them, and polylabel is given all of them so the largest
+  // inscribed circle skips them.
+  const realHoles = rings.slice(1);
+  const virtualHoles = (options.virtualHoles || []).filter((r) => r && r.length >= 3);
+  const allHoles = [...realHoles, ...virtualHoles];
+  const allRings = [outer, ...allHoles];
 
   // Try the area-weighted centroid first — most polygons are mostly
   // convex and the centroid is what users intuit as "the centre". The
   // candidate is accepted only when it actually lies inside the
-  // polygon: inside the outer ring AND outside every hole. The hole
-  // check is what keeps Pest megye's label out of Budapest (the
-  // enclave hole inside it).
+  // polygon: inside the outer ring AND outside every (real OR
+  // virtual) hole.
   if (outer && outer.length >= 3) {
     const centroid = d3.polygonCentroid(outer as [number, number][]);
     if (
       Number.isFinite(centroid[0]) && Number.isFinite(centroid[1]) &&
       d3.polygonContains(outer as [number, number][], centroid) &&
-      !holes.some((h) => h.length >= 3 && d3.polygonContains(h as [number, number][], centroid))
+      !allHoles.some((h) => d3.polygonContains(h as [number, number][], centroid))
     ) {
       return [centroid[0], centroid[1]];
     }
@@ -51,7 +65,7 @@ export function pickAnchor(geometry: any, options: AnchorOptions): [number, numb
   // guarantees an interior point and naturally avoids holes when they
   // are passed in alongside the outer ring.
   try {
-    const [x, y] = polylabel(rings, 1.0);
+    const [x, y] = polylabel(allRings, 1.0);
     if (Number.isFinite(x) && Number.isFinite(y)) return [x, y];
   } catch {
     // fall through

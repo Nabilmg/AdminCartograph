@@ -121,7 +121,13 @@ export function renderLabels(
    *  polygon is dropped (drill view only — keeps neighbour Admin1
    *  labels off the focused state without dropping labels that just
    *  poke their right edge past the focused state's bbox). */
-  forbiddenPolygon?: [number, number][]
+  forbiddenPolygon?: [number, number][],
+  /** Per-pcode → outer rings of sibling features that are spatially
+   *  enclosed by this feature (in geographic coords, same as the
+   *  feature geometry). Treated as virtual holes by pickAnchor so
+   *  the label sits in the surrounding ring — Pest megye → Budapest,
+   *  Lazio → Vatican, etc. */
+  virtualHolesByPcode?: Map<string, number[][][]>
 ): void {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
@@ -135,7 +141,12 @@ export function renderLabels(
       px = override.x;
       py = override.y;
     } else {
-      const anchorGeo = pickAnchor(label.feature.geometry, { largestPartOnly: style.labelLargestPart, avoidHoles: style.avoidHoles });
+      const labelHoles = label.pcode ? virtualHolesByPcode?.get(label.pcode) : undefined;
+      const anchorGeo = pickAnchor(label.feature.geometry, {
+        largestPartOnly: style.labelLargestPart,
+        avoidHoles: style.avoidHoles,
+        virtualHoles: labelHoles
+      });
       if (!anchorGeo) continue;
       const projected = projection(anchorGeo as [number, number]);
       if (!projected) continue;
