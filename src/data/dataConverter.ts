@@ -162,29 +162,12 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
 
     const highlighted = !!(colorCol && colorCol.highlights && colorCol.highlights[i] != null);
 
-    // Conditional-formatting (fx) results land on each category
-    // column's .objects array. Power BI typically populates per-row
-    // objects on every category column, so we read both and store
-    // entries keyed by both the locality and the state pcode — the
-    // bubble / label renderer then finds the rule whichever level
-    // the visual is showing (Admin1 in country view, Admin2 in
-    // drill).
-    const ruleObjectsForLoc = readRuleObjectsAt(locCat, i);
-    const ruleObjectsForState = readRuleObjectsAt(stateCat, i);
-
-    if (locPcode) {
-      const objs = ruleObjectsForLoc || ruleObjectsForState;
-      if (objs && !ruleColorsByPcode.has(locPcode)) ruleColorsByPcode.set(locPcode, objs);
-    }
-    if (statePcode) {
-      // First-write-wins so country-view bubbles get a stable colour
-      // when a state has many Admin2 children with possibly differing
-      // per-row rule outputs. Users wanting predictable per-state
-      // behaviour should bind only Admin1 PCODE; with both bound, we
-      // pick the rule colour from the first row of each state.
-      const objs = ruleObjectsForState || ruleObjectsForLoc;
-      if (objs && !ruleColorsByPcode.has(statePcode)) ruleColorsByPcode.set(statePcode, objs);
-    }
+    // Conditional formatting (fx) was removed (PR #38). Per-row colour
+    // overrides in cat.objects can still linger from older sessions
+    // when a rule was previously bound — we deliberately ignore them
+    // so the static card-level colour always wins. ruleColorsByPcode
+    // stays empty; the renderers' rule-aware fallback paths simply
+    // never hit and always read style.<colour>.
 
     // Build a stable selection id so cross-filter / drill works correctly.
     const builder = host.createSelectionIdBuilder();
