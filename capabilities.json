@@ -126,6 +126,16 @@
           "description": "Hide the back button + arrow nav in drill view AND the on-canvas controls (zoom / pan / SVG export). Useful for clean, dashboard-style embeds.",
           "type": { "bool": true }
         },
+        "admin1Alias": {
+          "displayName": "Admin1 alias",
+          "description": "Override the 'Admin1' label in tooltips with your own term — e.g. Governorate, State, Region, Province. Empty = use 'Admin1'.",
+          "type": { "text": true }
+        },
+        "admin2Alias": {
+          "displayName": "Admin2 alias",
+          "description": "Override the 'Admin2' label in tooltips with your own term — e.g. District, Locality, County, Municipality. Empty = use 'Admin2'.",
+          "type": { "text": true }
+        },
         "background": {
           "displayName": "Background color",
           "type": { "fill": { "solid": { "color": true } } }
@@ -711,7 +721,10 @@
         "cornerRadius": { "displayName": "Corner radius", "type": { "numeric": true } },
         "padding": { "displayName": "Padding", "type": { "numeric": true } },
         "background": { "displayName": "Background color", "type": { "fill": { "solid": { "color": true } } } },
-        "backgroundOpacity": { "displayName": "Background opacity", "type": { "numeric": true } }
+        "backgroundOpacity": { "displayName": "Background opacity", "type": { "numeric": true } },
+        "headerColor": { "displayName": "Header color", "type": { "fill": { "solid": { "color": true } } } },
+        "headerBold": { "displayName": "Header bold", "type": { "bool": true } },
+        "headerFontSize": { "displayName": "Header font size (px)", "description": "0 lets each legend pick its own header size based on body font; >0 forces every legend's title to that pixel size.", "type": { "numeric": true } }
       }
     }
   },
