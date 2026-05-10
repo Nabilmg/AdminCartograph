@@ -1463,7 +1463,7 @@ export class Visual implements IVisual {
         orientation: (bubbleLegend.orientation.value as any).value,
         scale: bubbleResult.scale
       } : undefined,
-      values: this.buildValuesLegendInput(prepared),
+      values: this.buildValuesLegendInput(prepared, view, !!this.drilledStatePcode),
       container: {
         borderColor: this.settings.legendContainer.borderColor.value.value,
         borderWidth: this.settings.legendContainer.borderWidth.value,
@@ -2418,7 +2418,7 @@ export class Visual implements IVisual {
    * name. Returns undefined when the card is hidden so the legend
    * never appears in the DOM.
    */
-  private buildValuesLegendInput(prepared: PreparedDataView): {
+  private buildValuesLegendInput(prepared: PreparedDataView, view: "states" | "localities", drilled: boolean): {
     title: string;
     items: { label: string; color: string }[];
     position: any;
@@ -2427,7 +2427,15 @@ export class Visual implements IVisual {
   } | undefined {
     const card = this.settings.valuesLegend;
     if (!card.show.value) return undefined;
-    const labelCard = this.settings.stateLabels;
+    // Pick the label card whose value source + colours actually drive
+    // the values currently visible on the map. In Admin2 view, that's
+    // the locality label card (drill or default depending on whether
+    // the user drilled). In Admin1 view, it's the Admin1 labels card.
+    // This way the legend's # swatches match the colours of the value
+    // text the user is reading on the map.
+    const labelCard = view === "localities"
+      ? (drilled ? this.settings.drillLocalityLabels : this.settings.localityLabels)
+      : this.settings.stateLabels;
     const source: string = (labelCard.valueSource?.value as any)?.value || "choropleth";
     const want = {
       choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
