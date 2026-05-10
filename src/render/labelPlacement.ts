@@ -28,23 +28,28 @@ export function pickAnchor(geometry: any, options: AnchorOptions): [number, numb
   const rings = collectRings(geometry, options.largestPartOnly, options.avoidHoles);
   if (!rings.length) return null;
   const outer = rings[0];
+  const holes = rings.slice(1);
 
   // Try the area-weighted centroid first — most polygons are mostly
-  // convex and the centroid is what users intuit as "the centre". Only
-  // accept it when it actually sits inside the polygon (point-in-poly
-  // against the outer ring is good enough — holes don't matter for
-  // labels).
+  // convex and the centroid is what users intuit as "the centre". The
+  // candidate is accepted only when it actually lies inside the
+  // polygon: inside the outer ring AND outside every hole. The hole
+  // check is what keeps Pest megye's label out of Budapest (the
+  // enclave hole inside it).
   if (outer && outer.length >= 3) {
     const centroid = d3.polygonCentroid(outer as [number, number][]);
     if (
       Number.isFinite(centroid[0]) && Number.isFinite(centroid[1]) &&
-      d3.polygonContains(outer as [number, number][], centroid)
+      d3.polygonContains(outer as [number, number][], centroid) &&
+      !holes.some((h) => h.length >= 3 && d3.polygonContains(h as [number, number][], centroid))
     ) {
       return [centroid[0], centroid[1]];
     }
   }
 
-  // Concave / weird shapes: polylabel guarantees an interior point.
+  // Concave / weird shapes (or centroid landed in a hole): polylabel
+  // guarantees an interior point and naturally avoids holes when they
+  // are passed in alongside the outer ring.
   try {
     const [x, y] = polylabel(rings, 1.0);
     if (Number.isFinite(x) && Number.isFinite(y)) return [x, y];
@@ -60,7 +65,12 @@ export function pickAnchor(geometry: any, options: AnchorOptions): [number, numb
 function collectRings(geometry: any, largestPartOnly: boolean, avoidHoles: boolean): number[][][] {
   if (geometry.type === "Polygon") {
     const rings = geometry.coordinates as number[][][];
-    return avoidHoles ? [rings[0]] : rings;
+    // avoidHoles=true (default) — keep the holes so polylabel /
+    // centroid avoid placing the label inside them. avoidHoles=false
+    // strips the holes, letting the label sit anywhere inside the
+    // outer ring (including over an enclave). The previous
+    // implementation had this inverted.
+    return avoidHoles ? rings : [rings[0]];
   }
   if (geometry.type === "MultiPolygon") {
     const polys = geometry.coordinates as number[][][][];
@@ -75,7 +85,7 @@ function collectRings(geometry: any, largestPartOnly: boolean, avoidHoles: boole
       }
       chosen = polys[bestIdx];
     }
-    return avoidHoles ? [chosen[0]] : chosen;
+    return avoidHoles ? chosen : [chosen[0]];
   }
   return [];
 }
