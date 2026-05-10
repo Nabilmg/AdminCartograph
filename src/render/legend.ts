@@ -295,10 +295,17 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     .text(value.title || "");
 
   let y = yStart + titleSize + 6;
-  // Categorical classes carry an explicit `label`; numeric classes
-  // get formatted from from/to. Centralising the label resolution
-  // here keeps the horizontal / vertical paths in sync.
-  const labelFor = (c: { from: number; to: number; label?: string }): string => {
+  // Class label resolution differs by layout. Horizontal shows ONE
+  // value per swatch — for numeric modes that's the class's upper
+  // bound only ('50' rather than '10 – 50'), since adjacent swatches
+  // already convey the lower bound visually. Vertical shows the full
+  // range ('10 – 50') because each class gets its own line. Both
+  // layouts pass the categorical label through verbatim.
+  const horizontalLabelFor = (c: { from: number; to: number; label?: string }): string => {
+    if (c.label != null) return c.label;
+    return formatNumber(c.to, value.decimals, "auto");
+  };
+  const verticalLabelFor = (c: { from: number; to: number; label?: string }): string => {
     if (c.label != null) return c.label;
     const fromTxt = formatNumber(c.from, value.decimals, "auto");
     const toTxt = formatNumber(c.to, value.decimals, "auto");
@@ -308,7 +315,7 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     // Width each column to fit the longest label so adjacent labels don't
     // overlap. Numeric class labels (e.g. "5.4M") are wider than the 14 px
     // swatch, so the previous fixed swatch+gap stride was wrong.
-    const labels = value.classes.map((c) => labelFor(c));
+    const labels = value.classes.map((c) => horizontalLabelFor(c));
     const maxLabelWidth = labels.reduce((m, t) => Math.max(m, approxTextWidth(t, fontSize)), 0);
     const colWidth = Math.max(swatch, maxLabelWidth) + gap * 2;
     let x = 0;
@@ -332,7 +339,7 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
   for (const c of value.classes) {
     parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
     parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
-      .text(labelFor(c));
+      .text(verticalLabelFor(c));
     y += swatch + gap;
   }
   return y;
