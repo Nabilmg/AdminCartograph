@@ -1140,6 +1140,12 @@ export class Visual implements IVisual {
 
     while (this.adm1LabelLayer.firstChild) this.adm1LabelLayer.removeChild(this.adm1LabelLayer.firstChild);
     while (this.pillLayer.firstChild) this.pillLayer.removeChild(this.pillLayer.firstChild);
+    // Detect spatial enclaves so e.g. Pest megye's label sits in the
+    // ring around Budapest rather than over Budapest itself. Computed
+    // once per render and reused by both Admin1 and Admin2 label
+    // passes below.
+    const adm1VirtualHoles = this.buildVirtualHolesByPcode(adm1Visible, "ADM1_PCODE");
+    const adm2VirtualHoles = this.buildVirtualHolesByPcode(adm2Visible, "ADM2_PCODE");
     if (this.settings.stateLabels.show.value) {
       const isDrill = !!this.drilledStatePcode && view === "localities";
       // Partial-filter mode reuses the drill dim treatment but keeps
@@ -1212,7 +1218,7 @@ export class Visual implements IVisual {
             if (ring && ring.length >= 3) focusedRing = ring as [number, number][];
           }
         }
-        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedRing);
+        renderLabels(neighborGroup, projection, path, labels, neighborStyle, neighborOverrides, this.zoomLevel, this.ruleColorsForCard(prepared, "stateLabels"), focusedRing, adm1VirtualHoles);
       }
 
       // Render the focus group at full opacity (partial filter only —
@@ -1238,7 +1244,9 @@ export class Visual implements IVisual {
           this.styleFromCard(this.settings.stateLabels),
           undefined,
           this.zoomLevel,
-          this.ruleColorsForCard(prepared, "stateLabels")
+          this.ruleColorsForCard(prepared, "stateLabels"),
+          undefined,
+          adm1VirtualHoles
         );
       }
 
@@ -1280,7 +1288,9 @@ export class Visual implements IVisual {
         this.styleFromCard(localityCard),
         localityOverrides,
         this.zoomLevel,
-        this.ruleColorsForCard(prepared, localityCardName)
+        this.ruleColorsForCard(prepared, localityCardName),
+        undefined,
+        adm2VirtualHoles
       );
     } else {
       while (this.adm2LabelLayer.firstChild) this.adm2LabelLayer.removeChild(this.adm2LabelLayer.firstChild);
@@ -2307,6 +2317,56 @@ export class Visual implements IVisual {
     });
     return out;
   }
+
+  /**
+   * For each feature, find sibling features whose geographic centroid
+   * lies inside this feature's outer ring. Those siblings are
+   * spatially enclosed (Budapest in Pest megye, Vatican in Lazio,
+   * etc.) and become virtual holes for the label-anchor computation.
+   * Returns a map keyed by `pcodeKey` (ADM1_PCODE / ADM2_PCODE) so
+   * renderLabels can look up by `label.pcode`.
+   *
+   * O(n²) — acceptable for the small feature counts at admin level
+   * (typically < 100 features per country).
+   */
+  private buildVirtualHolesByPcode(features: any[], pcodeKey: "ADM1_PCODE" | "ADM2_PCODE"): Map<string, number[][][]> {
+    const out = new Map<string, number[][][]>();
+    if (!features || features.length < 2) return out;
+    const meta = features.map((f) => ({
+      feature: f,
+      pcode: (f.properties && f.properties[pcodeKey]) as string,
+      centroid: d3.geoCentroid(f as any) as [number, number]
+    })).filter((m) => m.pcode && m.centroid && Number.isFinite(m.centroid[0]));
+    for (const a of meta) {
+      const aPolys = collectAllOuterRings(a.feature.geometry);
+      if (!aPolys.length) continue;
+      const aHoles: number[][][] = [];
+      for (const b of meta) {
+        if (a === b) continue;
+        // b is enclosed by a if b's centroid is inside any of a's
+        // outer rings (handles MultiPolygon: any part counts).
+        const insideA = aPolys.some((ring) => ring.length >= 3 && d3.polygonContains(ring as [number, number][], b.centroid));
+        if (!insideA) continue;
+        for (const ring of collectAllOuterRings(b.feature.geometry)) {
+          if (ring.length >= 3) aHoles.push(ring);
+        }
+      }
+      if (aHoles.length) out.set(a.pcode, aHoles);
+    }
+    return out;
+  }
+}
+
+/** Return every outer ring of a (Multi)Polygon geometry in its native
+ *  coord system. For Polygon: one ring; for MultiPolygon: one per
+ *  part. Used by buildVirtualHolesByPcode for enclave detection. */
+function collectAllOuterRings(geometry: any): number[][][] {
+  if (!geometry) return [];
+  if (geometry.type === "Polygon") return [geometry.coordinates[0] as number[][]];
+  if (geometry.type === "MultiPolygon") {
+    return (geometry.coordinates as number[][][][]).map((poly) => poly[0]);
+  }
+  return [];
 }
 
 function svgEl<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {
