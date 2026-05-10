@@ -329,10 +329,11 @@ class GlyphChartSettings extends FormattingSettingsCard {
     ],
     value: { value: "above", displayName: "Above glyph" }
   });
+  constantSize = new formattingSettings.ToggleSwitch({ name: "constantSize", displayName: "Constant size on zoom", value: true });
 
   name = "glyphChart";
   displayName = "4. Pie / Column overlay";
-  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement];
+  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement, this.constantSize];
 }
 
 class GlyphLegendSettings extends FormattingSettingsCard {

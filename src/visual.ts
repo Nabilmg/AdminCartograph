@@ -11,7 +11,7 @@ import { prepareDataView } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles, updateBubbleTransforms } from "./render/bubbles";
-import { renderGlyphs, GlyphType } from "./render/glyphs";
+import { renderGlyphs, updateGlyphTransforms, GlyphType } from "./render/glyphs";
 import { renderLabels, updateLabelTransforms, largestProjectedOuterRing, LabelDatum, LabelAnchorOverride } from "./render/labels";
 import { pickAnchor, pickAnchorTowardPoint } from "./render/labelPlacement";
 import type { BubbleResult } from "./render/bubbles";
@@ -1164,8 +1164,10 @@ export class Visual implements IVisual {
           glyphStyle.color6.value.value,
           glyphStyle.color7.value.value,
           glyphStyle.color8.value.value
-        ]
-      }
+        ],
+        constantSize: glyphStyle.constantSize?.value ?? true
+      },
+      this.zoomLevel
     );
 
     // Bubbles
@@ -2090,6 +2092,7 @@ export class Visual implements IVisual {
     // Bubbles get the same counter-zoom treatment so they stay at
     // their authored screen-space radius at any zoom level.
     updateBubbleTransforms(this.bubbleLayer, z);
+    updateGlyphTransforms(this.glyphLayer, z);
     // Re-run the scale bar so its labelled distance reflects the
     // current zoom (a "100 km" bar at zoom 1 spans a smaller geographic
     // distance at zoom 4 — renderScaleBar consumes zoomLevel and
