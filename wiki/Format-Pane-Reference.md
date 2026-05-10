@@ -11,7 +11,7 @@ deserve their own deep dive.
 | 1 | Map setup | Country, view mode, background, interaction | [Map Setup Settings](Map-Setup-Settings.md) |
 | 2 | Choropleth fill | Polygon colour, classification, breaks, no-data | [Choropleth Settings](Choropleth-Settings.md) |
 | 3 | Bubble overlay | Proportional bubble layer | [Bubble Settings](Bubble-Settings.md) |
-| 4 | Pie / Column overlay | Multi-measure glyph layer | [Pie / Donut / Column Settings](Pie-Donut-Column-Settings.md) |
+| 4 | Pie / Column overlay | Multi-measure glyph layer (Pie / Donut / Column / Concentric circles) | [Pie / Donut / Column Settings](Pie-Donut-Column-Settings.md) |
 | 5 | Borders | Admin1 / Admin2 stroke styling | [Borders Settings](Borders-Settings.md) |
 | 6 | Admin1 labels | Labels on Admin1 polygons | [Label Engine](Label-Engine.md) |
 | 7 | Admin2 labels — default view | Labels in the all-Admin2 view | [Label Engine](Label-Engine.md) |

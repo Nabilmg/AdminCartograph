@@ -13,14 +13,15 @@ the Map controls card.
 | Type | Toggle |
 | Default | Off |
 
-When on, three small buttons appear in the controls panel:
+When on, two small buttons appear in the controls panel:
 
 - **+** zooms in by 1.25× per click
 - **−** zooms out by 1 / 1.25 per click
-- **↻** (only visible after the user has zoomed or panned) resets
-  zoom to 1× and pan to (0, 0)
 
 Zoom range is clamped to **[1×, 8×]**.
+
+The **↻ reset** button has its own visibility rules — see
+[Reset](#reset) below — and appears regardless of this toggle.
 
 ### Show pan buttons
 
@@ -98,9 +99,14 @@ the map re-centres cleanly.
 
 Three ways to reset zoom + pan:
 
-1. The **↻** button (visible only after zoom or pan)
-2. Mouse-wheel zoom-out past 1× (auto-clamps to 1× and resets pan)
-3. Set Country to a different value in the format pane (full re-render)
+1. The **↻** button (visible only after zoom or pan).
+   Independent of **Show zoom buttons** — it appears whenever
+   `zoomLevel > 1` or `panX/Y != 0`, even if the +/- buttons are
+   disabled. So users who only zoom/pan via wheel and drag can
+   still reset cleanly.
+2. Mouse-wheel zoom-out past 1× (auto-clamps to 1× and resets pan).
+3. Set Country to a different value in the format pane (full
+   re-render).
 
 ## How zoom + pan are applied
 

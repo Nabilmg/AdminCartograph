@@ -110,6 +110,51 @@ area-weighted centroid as the label anchor (with a polylabel
 fallback for genuinely concave shapes — see
 [Label-Engine](Label-Engine.md#anchor-placement)).
 
+When **Constant size on zoom** is on (default) the bubble's screen
+radius stays fixed; the label engine keeps the on-screen offset
+between bubble centre and label centre constant by dividing the
+override pad by the live zoom level on every zoom step. Multi-line
+labels (Words on separate lines) push themselves further from the
+bubble by `(N - 1) / 2 * lineHeight` so each word stacks above /
+below without overlapping the bubble.
+
+## Constant size on zoom
+
+| | |
+|---|---|
+| Type | Toggle |
+| Default | On |
+
+When on, each bubble is wrapped with `translate(cx, cy) scale(1/zoom)`
+so its on-screen radius stays at the authored value as the user
+zooms in. When off, bubbles grow with the map (legacy behaviour).
+Updates live on every zoom step (no full re-render), so wheel /
+drag / button zooms feel snappy.
+
+## Conditional formatting (fx)
+
+Both **Fill color** and **Stroke color** carry the standard Power BI
+**fx** button next to the swatch. Click it to open the conditional-
+formatting dialog and pick:
+
+| Mode | Behaviour |
+|---|---|
+| Format style: Gradient | Linear ramp between colours, driven by a measure (e.g. lighter for low values, darker for high). |
+| Format style: Rules | Threshold-based: "if cases > 1000 then red, else if > 500 then yellow, else green". |
+| Format style: Field value | Read the colour from a column directly. |
+
+Rules resolve per row of whichever PCODE category is bound:
+**Admin1 PCODE** in country view, **Admin2 PCODE** in drill view —
+the same rule "just works" at both levels. With both PCODEs bound
+in country view, each state inherits the rule colour from its first
+Admin2 row (first-write-wins, so it stays stable across renders);
+bind only Admin1 PCODE to evaluate the rule against the
+state-aggregated total.
+
+The **Bubble legend** swatch reads the most-common colour actually
+painted across visible bubbles, so with fx in play the legend
+matches what's drawn instead of showing the static card value.
+
 ## How bubble sizing works
 
 Square-root scaling: bubble *area* (not radius) is proportional to

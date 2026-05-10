@@ -54,6 +54,22 @@ Click SD03 (no Ctrl)  → other visuals filter to South Darfur only
 
 Multi-select is supported on both Admin1 and Admin2 clicks.
 
+## Clearing the cross-filter
+
+Two click gestures clear it:
+
+- **Re-click the same area without a modifier.** A second click
+  on the polygon that's already the only selected item toggles
+  the filter off. (Power BI's `selectionManager.select(id, false)`
+  is a replace, so the visual detects "this id is already the
+  whole selection" and calls `clear()` instead.)
+- **Click the map background.** Any click on the canvas that
+  doesn't land on an Admin1 / Admin2 polygon (ocean, gap between
+  states, the SVG background) clears the selection.
+
+Drag-end clicks are suppressed via the existing didDrag flag, so
+panning the map doesn't accidentally clear the filter.
+
 ## Visual highlight (the dimming effect)
 
 When a cross-filter is active, every other visual on the page
