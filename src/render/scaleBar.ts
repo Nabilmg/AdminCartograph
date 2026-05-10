@@ -47,30 +47,29 @@ export function renderScaleBar(
   viewportW: number,
   viewportH: number,
   zoomLevel: number,
-  style: ScaleBarStyle,
-  cornerFootprint?: CornerFootprint
-): void {
+  style: ScaleBarStyle
+): { width: number; height: number; position: ScaleBarStyle["position"] } | null {
   const sel = d3.select(parent);
   sel.selectAll("*").remove();
-  if (!style.show) return;
+  if (!style.show) return null;
 
   // Probe the projection at the viewport centre.
   const cx = viewportW / 2;
   const cy = viewportH / 2;
   const center = projection.invert ? projection.invert([cx, cy]) : null;
-  if (!center) return;
+  if (!center) return null;
   const [lon, lat] = center;
 
   // 1 degree of longitude in km, scaled by latitude.
   const kmPerDegLon = 111.32 * Math.cos((lat * Math.PI) / 180);
-  if (!Number.isFinite(kmPerDegLon) || kmPerDegLon <= 0) return;
+  if (!Number.isFinite(kmPerDegLon) || kmPerDegLon <= 0) return null;
 
   // Pixel distance for a 1° longitude step. Then derive pxPerKm.
   const east = projection([lon + 1, lat]);
   const here = projection([lon, lat]);
-  if (!east || !here) return;
+  if (!east || !here) return null;
   const pxPerDegLon = Math.hypot(east[0] - here[0], east[1] - here[1]);
-  if (!Number.isFinite(pxPerDegLon) || pxPerDegLon <= 0) return;
+  if (!Number.isFinite(pxPerDegLon) || pxPerDegLon <= 0) return null;
   const pxPerKm = (pxPerDegLon / kmPerDegLon) * (zoomLevel || 1);
 
   // Pick a "nice" round distance whose on-screen length is about 100 px.
@@ -81,7 +80,7 @@ export function renderScaleBar(
   const niceKm = niceUnits / factor;
   const barPx = niceKm * pxPerKm;
 
-  if (!Number.isFinite(barPx) || barPx <= 8) return;
+  if (!Number.isFinite(barPx) || barPx <= 8) return null;
 
   // Bar geometry.
   const fontSize = style.fontSize;
@@ -90,22 +89,22 @@ export function renderScaleBar(
   const tickHeight = 10;
   const bbox = { width: barPx + 2, height: tickHeight + labelGap + fontSize + 4 };
 
-  // Position the bar inside the viewport with a 12 px margin from the
-  // chosen corner. When a legend already occupies the same corner, push
-  // the scale bar past the legend's footprint with an 8 px gap so the
-  // two don't overlap. The bar moves vertically: legends in top corners
-  // push it down, legends in bottom corners push it up.
+  // The scale bar always sits flush against its chosen corner with a
+  // 12 px margin. Legends that share the corner are responsible for
+  // dodging *the bar* — that's why renderScaleBar runs first in
+  // renderMap and the legend renderer reads its returned footprint.
+  // This puts the scale bar visually below the legend in bottom
+  // corners (closer to the screen edge) which matches what most users
+  // expect from a cartographic key.
   const margin = 12;
-  const gap = 8;
-  const legendOffset = cornerFootprint ? cornerFootprint.height + gap : 0;
   let x: number;
   let y: number;
   switch (style.position) {
-    case "topLeft":     x = margin;                              y = margin + legendOffset; break;
-    case "topRight":    x = viewportW - margin - bbox.width;     y = margin + legendOffset; break;
-    case "bottomRight": x = viewportW - margin - bbox.width;     y = viewportH - margin - bbox.height - legendOffset; break;
+    case "topLeft":     x = margin;                              y = margin; break;
+    case "topRight":    x = viewportW - margin - bbox.width;     y = margin; break;
+    case "bottomRight": x = viewportW - margin - bbox.width;     y = viewportH - margin - bbox.height; break;
     case "bottomLeft":
-    default:            x = margin;                              y = viewportH - margin - bbox.height - legendOffset; break;
+    default:            x = margin;                              y = viewportH - margin - bbox.height; break;
   }
 
   const root = sel.append("g").attr("class", "scale-bar").attr("transform", `translate(${x},${y})`);
@@ -140,6 +139,8 @@ export function renderScaleBar(
     .attr("font-size", fontSize).attr("text-anchor", "end")
     .attr("fill", style.color)
     .text(`${formatNice(niceUnits)} ${unitsLabel}`);
+
+  return { width: bbox.width, height: bbox.height, position: style.position };
 }
 
 /**
