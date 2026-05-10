@@ -279,10 +279,11 @@ class BubblesSettings extends FormattingSettingsCard {
     ],
     value: { value: "above", displayName: "Above bubble" }
   });
+  constantSize = new formattingSettings.ToggleSwitch({ name: "constantSize", displayName: "Constant size on zoom", value: true });
 
   name = "bubbles";
   displayName = "3. Bubble overlay";
-  slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement];
+  slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement, this.constantSize];
 }
 
 class GlyphChartSettings extends FormattingSettingsCard {
