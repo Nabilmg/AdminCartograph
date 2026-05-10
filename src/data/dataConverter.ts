@@ -127,11 +127,32 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
     // Glyph Values appear as their own tooltip rows (in input order)
     // ahead of any extra columns bound to the Tooltips role. This way
     // a hover always exposes the raw category values that drive the
-    // pie / donut / column overlay, even when the user hasn't double-
-    // bound the same measures into Tooltips.
+    // pie / donut / column / concentric overlay, even when the user
+    // hasn't double-bound the same measures into Tooltips. The value
+    // line includes "(% of total)" when there are 2+ measures and
+    // the row's total is positive — same total the glyph itself uses
+    // to slice / size, so the percentages match what's drawn.
+    const glyphTotal = glyphCols.reduce((sum, c) => {
+      const raw = c.values[i];
+      const n = raw == null ? 0 : Number(raw);
+      return sum + (Number.isFinite(n) && n > 0 ? n : 0);
+    }, 0);
     for (const c of glyphCols) {
       const raw = c.values[i];
-      tooltips.push({ displayName: c.source.displayName, value: formatTooltipValue(raw, c.source) });
+      const formatted = formatTooltipValue(raw, c.source);
+      let line = formatted;
+      if (glyphCols.length > 1 && glyphTotal > 0 && raw != null) {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) {
+          const pct = (n / glyphTotal) * 100;
+          // 1 decimal under 10%, integer above — matches how most
+          // BI tools format inline percentages without taking up too
+          // much room in the tooltip.
+          const pctStr = pct < 10 ? pct.toFixed(1) : Math.round(pct).toString();
+          line = `${formatted} (${pctStr}%)`;
+        }
+      }
+      tooltips.push({ displayName: c.source.displayName, value: line });
     }
     for (const t of tooltipCols) {
       const raw = t.values[i];
