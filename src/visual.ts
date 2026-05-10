@@ -2293,13 +2293,16 @@ export class Visual implements IVisual {
         </div>
         <p class="adm-copy-modal-subtitle">${escapeHtml(subtitle)}</p>
         <p class="adm-copy-modal-instructions">
-          Click <strong>Select all</strong>, then press
-          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>C</kbd>. Paste into a
-          text file (save as <code>map.svg</code>) or directly into
-          Inkscape / Illustrator / a browser address bar.
+          The SVG includes every visible map element — choropleth,
+          bubbles, charts, labels, legends, scale bar, and the drill
+          title pill. Click <strong>Download</strong> to save it as a
+          file, or <strong>Select all</strong> + <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> +
+          <kbd>C</kbd> to copy. Paste / open in Inkscape, Illustrator,
+          a browser, or PowerPoint.
         </p>
         <textarea class="adm-copy-modal-textarea" readonly spellcheck="false"></textarea>
         <div class="adm-copy-modal-footer">
+          <button class="adm-copy-modal-download" type="button">Download .svg</button>
           <button class="adm-copy-modal-select" type="button">Select all</button>
           <button class="adm-copy-modal-copy" type="button">Try copy</button>
           <span class="adm-copy-modal-status"></span>
@@ -2325,6 +2328,25 @@ export class Visual implements IVisual {
 
     const close = () => modal.remove();
 
+    modal.querySelector(".adm-copy-modal-download")!.addEventListener("click", () => {
+      // Direct file download bypasses the textarea/clipboard path
+      // entirely — works even for huge SVGs (full-country Admin2
+      // export) where browser clipboards typically silently truncate.
+      try {
+        const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "map.svg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        setStatus("Downloaded map.svg.");
+      } catch (e) {
+        setStatus(`Download failed: ${describeError(e)}. Try Select all + copy.`);
+      }
+    });
     modal.querySelector(".adm-copy-modal-select")!.addEventListener("click", () => {
       selectAll();
       setStatus("Selected. Press Ctrl/Cmd+C to copy.");
