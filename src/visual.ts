@@ -271,7 +271,18 @@ export class Visual implements IVisual {
       return;
     }
     const node = (e.target as Element)?.closest?.("[data-pcode]") as SVGElement | null;
-    if (!node) return;
+    if (!node) {
+      // Click on the map background (no polygon under cursor): clear
+      // any cross-filter the user previously triggered. Matches the
+      // standard PBI "click outside to deselect" pattern.
+      e.stopPropagation();
+      const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+      if (current && current.length) {
+        this.selectionManager.clear();
+        this.refreshSelectionStyles();
+      }
+      return;
+    }
     const pcode = node.getAttribute("data-pcode");
     if (!pcode) return;
     e.stopPropagation();
@@ -302,7 +313,21 @@ export class Visual implements IVisual {
     if (view === "localities" && isAdm2) {
       const datum = this.cached.prepared.areas.get(pcode);
       if (datum) {
-        this.selectionManager.select(datum.selectionId, (e as any).ctrlKey || (e as any).metaKey);
+        const multi = (e as any).ctrlKey || (e as any).metaKey;
+        const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+        // Re-clicking the same Admin2 with no modifier toggles the
+        // selection off (PBI's select() without multiSelect is a
+        // replace, so a re-click would otherwise leave the filter
+        // stuck).
+        const isOnlySelected = !multi
+          && current && current.length === 1
+          && typeof (current[0] as any).equals === "function"
+          && (current[0] as any).equals(datum.selectionId);
+        if (isOnlySelected) {
+          this.selectionManager.clear();
+        } else {
+          this.selectionManager.select(datum.selectionId, multi);
+        }
       }
       this.refreshSelectionStyles();
     }
@@ -1547,28 +1572,40 @@ export class Visual implements IVisual {
    */
   private applyAdmin1Selection(pcode: string, multiSelect: boolean): void {
     if (!this.cached) return;
+    // Build the set of selectionIds that "select Admin1 X" maps to —
+    // either the direct Admin1 row's id, or every Admin2 child row's
+    // id when only Admin2 is bound.
+    const ids: powerbi.extensibility.ISelectionId[] = [];
     const directly = this.cached.prepared.areas.get(pcode);
     if (directly && directly.level === 1) {
-      this.selectionManager.select(directly.selectionId, multiSelect);
-      return;
-    }
-    const country = this.cached.country;
-    const child2parent = new Map<string, string>();
-    if (country.adm2) {
-      for (const f of country.adm2.features as any[]) {
-        const c = f.properties?.ADM2_PCODE;
-        const p = f.properties?.ADM1_PCODE;
-        if (c && p) child2parent.set(c, p);
+      ids.push(directly.selectionId);
+    } else {
+      const country = this.cached.country;
+      const child2parent = new Map<string, string>();
+      if (country.adm2) {
+        for (const f of country.adm2.features as any[]) {
+          const c = f.properties?.ADM2_PCODE;
+          const p = f.properties?.ADM1_PCODE;
+          if (c && p) child2parent.set(c, p);
+        }
+      }
+      for (const a of this.cached.prepared.areas.values()) {
+        const parent = a.parentPcode || child2parent.get(a.pcode);
+        if (parent === pcode) ids.push(a.selectionId);
       }
     }
-    const ids: powerbi.extensibility.ISelectionId[] = [];
-    for (const a of this.cached.prepared.areas.values()) {
-      const parent = a.parentPcode || child2parent.get(a.pcode);
-      if (parent === pcode) ids.push(a.selectionId);
+    if (!ids.length) return;
+    // Toggle off when the user single-clicks the same Admin1 that's
+    // already the entire current selection. Without this PBI's
+    // select(replace) leaves the filter stuck on a re-click.
+    if (!multiSelect) {
+      const current = this.selectionManager.getSelectionIds() as powerbi.extensibility.ISelectionId[];
+      if (selectionIdsEqual(current, ids)) {
+        this.selectionManager.clear();
+        return;
+      }
     }
-    if (ids.length) {
-      this.selectionManager.select(ids, multiSelect);
-    }
+    this.selectionManager.select(ids, multiSelect);
   }
   private admin1NavOrder(): string[] {
     if (!this.cached) return [];
@@ -2339,6 +2376,23 @@ function collectVisualCss(): string {
     }
   }
   return out.join("\n");
+}
+
+/**
+ * Compare two ISelectionId lists by value. Set-equality, order-
+ * independent. Used to detect a re-click on the already-selected
+ * Admin1 / Admin2 so the click can toggle the filter off rather than
+ * re-selecting it (PBI's select() without multiSelect is a replace,
+ * so without this check a re-click leaves the filter stuck).
+ */
+function selectionIdsEqual(
+  a: powerbi.extensibility.ISelectionId[] | undefined,
+  b: powerbi.extensibility.ISelectionId[]
+): boolean {
+  if (!a) return false;
+  if (a.length !== b.length) return false;
+  const eqOne = (x: any, list: any[]) => list.some((y) => typeof x.equals === "function" && x.equals(y));
+  return a.every((x) => eqOne(x, b)) && b.every((x) => eqOne(x, a));
 }
 
 function describeError(err: any): string {
