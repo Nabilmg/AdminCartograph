@@ -1783,6 +1783,13 @@ export class Visual implements IVisual {
 
   private renderTopBar(view: "states" | "localities"): void {
     let bar = this.overlay.querySelector(".adm-top-bar") as HTMLDivElement;
+    // Hide map chrome opt-out: drop the bar entirely so the map fills
+    // the canvas. Renderless return — keeps the title pill (which is
+    // a label, not chrome) intact.
+    if (this.settings?.general?.hideMapChrome?.value) {
+      if (bar) bar.remove();
+      return;
+    }
     if (!bar) {
       bar = document.createElement("div");
       bar.className = "adm-top-bar";
@@ -1865,6 +1872,11 @@ export class Visual implements IVisual {
    */
   private renderSecondaryControls(): void {
     let panel = this.overlay.querySelector(".adm-controls") as HTMLDivElement;
+    // Hide map chrome opt-out: drop the controls panel entirely.
+    if (this.settings?.general?.hideMapChrome?.value) {
+      if (panel) panel.remove();
+      return;
+    }
     if (!panel) {
       panel = document.createElement("div");
       panel.className = "adm-controls";

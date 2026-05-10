@@ -67,6 +67,7 @@ class GeneralSettings extends FormattingSettingsCard {
   });
   interactionEnabled = new formattingSettings.ToggleSwitch({ name: "interactionEnabled", displayName: "Interaction enabled", value: true });
   hideUnfilteredStates = new formattingSettings.ToggleSwitch({ name: "hideUnfilteredStates", displayName: "Hide unfiltered Admin1 in Admin2 mode", value: false });
+  hideMapChrome = new formattingSettings.ToggleSwitch({ name: "hideMapChrome", displayName: "Hide map chrome", value: false });
   background = new formattingSettings.ColorPicker({ name: "background", displayName: "Background color", value: { value: "#ffffff" } });
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
@@ -74,7 +75,7 @@ class GeneralSettings extends FormattingSettingsCard {
   displayName = "1. Map setup";
   // Hidden custom* slices live alongside the visible ones so the
   // formatting service round-trips them through host.persistProperties.
-  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
+  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
 }
 
 class ChoroplethSettings extends FormattingSettingsCard {
