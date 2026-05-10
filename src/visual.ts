@@ -793,6 +793,13 @@ export class Visual implements IVisual {
   }
 
   private resolveViewMode(prepared: PreparedDataView, country: CountryGeometry): "states" | "localities" {
+    // Hard rule: when only Admin1 PCODE is bound (no Admin2 binding),
+    // the visual stays a flat Admin1 choropleth — no drill, no
+    // Admin2 view, even if the View Mode dropdown says "Admin2" or
+    // the country has Admin2 geometry. Drill / Admin2 layout has
+    // nothing per-area to render in this case.
+    if (!prepared.hasLocalityBinding) return "states";
+
     const setting = (this.settings.general.viewMode.value as any).value as ViewMode;
     if (setting === "states") return "states";
     if (setting === "localities") return country.adm2 ? "localities" : "states";
@@ -802,8 +809,6 @@ export class Visual implements IVisual {
     //   - either the user clicked an Admin1 (drilledStatePcode set), OR
     //     the filter context implies a single-Admin1 focus AND Admin2
     //     data is bound (handled in applyFilterDrill).
-    // If only Admin1 PCODE is bound, drill never fires and the visual
-    // stays a normal Admin1 choropleth.
     if (!country.adm2) return "states";
     if (this.drilledStatePcode) return "localities";
     return "states";
@@ -1390,7 +1395,10 @@ export class Visual implements IVisual {
         cornerRadius: this.settings.legendContainer.cornerRadius.value,
         padding: this.settings.legendContainer.padding.value,
         background: this.settings.legendContainer.background.value.value,
-        backgroundOpacity: this.settings.legendContainer.backgroundOpacity.value
+        backgroundOpacity: this.settings.legendContainer.backgroundOpacity.value,
+        headerColor: this.settings.legendContainer.headerColor?.value?.value || "#222222",
+        headerBold: this.settings.legendContainer.headerBold?.value !== false,
+        headerFontSize: this.settings.legendContainer.headerFontSize?.value || 0
       }
     }, sbFootprintByCorner);
 
@@ -1437,12 +1445,14 @@ export class Visual implements IVisual {
     const props = row?.feature?.properties || {};
     const datum = lookup.get(row?.pcode) || prepared.areas.get(row?.pcode);
 
+    const adm1Label = (this.settings?.general?.admin1Alias?.value || "").trim() || "Admin1";
+    const adm2Label = (this.settings?.general?.admin2Alias?.value || "").trim() || "Admin2";
     const admin1Name = props.ADM1_EN || (datum && datum.level === 1 ? datum.name : undefined) || props.ADM1_PCODE;
-    if (admin1Name) items.push({ displayName: "Admin1", value: String(admin1Name) });
+    if (admin1Name) items.push({ displayName: adm1Label, value: String(admin1Name) });
 
     if (isAdmin2) {
       const admin2Name = props.ADM2_EN || (datum && datum.level === 2 ? datum.name : undefined) || props.ADM2_PCODE;
-      if (admin2Name) items.push({ displayName: "Admin2", value: String(admin2Name) });
+      if (admin2Name) items.push({ displayName: adm2Label, value: String(admin2Name) });
     }
 
     if (datum?.colorValue != null && prepared.colorValueColumn) {

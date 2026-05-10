@@ -52,6 +52,13 @@ export interface LegendInputs {
     padding: number;
     background: string;
     backgroundOpacity: number;
+    /** Header (title) styling. headerFontSize === 0 means "let each
+     *  legend pick its own size based on body font" (the legacy
+     *  behaviour: title = bodyFont * 1.2). Any positive value forces
+     *  every legend's title to that size. */
+    headerColor: string;
+    headerBold: boolean;
+    headerFontSize: number;
   };
 }
 
@@ -100,25 +107,30 @@ export function renderLegends(
     const group = root.append("g").attr("class", `legend legend-${position}`);
     const inner = group.append("g").attr("class", "legend-inner");
 
-    // Render value and bubble into separate sub-groups so we can measure
-    // each, then stack them with value FIRST (top) and bubble SECOND
-    // (below). Using each sub-group's actual bbox instead of trusting the
-    // returned yOffset is more robust against text descent / circle
-    // overhang outside the predicted range.
+    // Render each legend into its own sub-group so we can stack them
+    // afterwards with the natural map z-order: layers that sit ON TOP
+    // of the choropleth on the map (glyph charts, bubbles) appear
+    // ABOVE the choropleth in the legend container. Reads as: legend
+    // top = whatever's on top on the map.
+    const headerStyle: HeaderStyle = {
+      color: inputs.container.headerColor || "#222222",
+      bold: inputs.container.headerBold !== false,
+      forceFontSize: inputs.container.headerFontSize > 0 ? inputs.container.headerFontSize : 0
+    };
     const stack: SVGGElement[] = [];
-    if (contents.value) {
-      const sub = inner.append("g").attr("class", "legend-value-sub");
-      drawValueLegend(sub, contents.value as any, 0);
+    if (contents.glyph) {
+      const sub = inner.append("g").attr("class", "legend-glyph-sub");
+      drawGlyphLegend(sub, contents.glyph as any, 0, headerStyle);
       stack.push(sub.node() as SVGGElement);
     }
     if (contents.bubble) {
       const sub = inner.append("g").attr("class", "legend-bubble-sub");
-      drawBubbleLegend(sub, contents.bubble as any, 0);
+      drawBubbleLegend(sub, contents.bubble as any, 0, headerStyle);
       stack.push(sub.node() as SVGGElement);
     }
-    if (contents.glyph) {
-      const sub = inner.append("g").attr("class", "legend-glyph-sub");
-      drawGlyphLegend(sub, contents.glyph as any, 0);
+    if (contents.value) {
+      const sub = inner.append("g").attr("class", "legend-value-sub");
+      drawValueLegend(sub, contents.value as any, 0, headerStyle);
       stack.push(sub.node() as SVGGElement);
     }
     // Stack the sub-groups vertically with an 8px gap. The first item
@@ -182,16 +194,28 @@ function approxTextWidth(text: string, fontSize: number): number {
  * the value legend's vertical / horizontal layouts so it slots into the
  * combined-legend container without surprises.
  */
-function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>, yStart: number): number {
+/** Legend title style shared by all three legend kinds. forceFontSize=0
+ *  keeps the legacy auto-sized title; >0 pins every title to that
+ *  pixel size. */
+interface HeaderStyle { color: string; bold: boolean; forceFontSize: number; }
+
+/** Default header style — used when the renderer didn't pass one (older
+ *  callers, tests). Matches the pre-feature look: dark text, bold,
+ *  legend picks its own size. */
+const DEFAULT_HEADER: HeaderStyle = { color: "#222222", bold: true, forceFontSize: 0 };
+
+function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
   const scaleFactor = SIZE_SCALE[glyph.size];
   const fontSize = 11 * scaleFactor;
-  const titleSize = 12 * scaleFactor;
+  const autoTitleSize = 12 * scaleFactor;
+  const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
   const swatch = 12 * scaleFactor;
   const gap = 4;
 
   parent.append("text")
     .attr("x", 0).attr("y", yStart + titleSize)
-    .attr("font-size", titleSize).attr("font-weight", 600)
+    .attr("font-size", titleSize).attr("font-weight", header.bold ? 600 : 400)
+    .attr("fill", header.color)
     .text(glyph.title || "Categories");
 
   let y = yStart + titleSize + 6;
@@ -213,16 +237,18 @@ function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>,
   return y;
 }
 
-function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number): number {
+function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
   const scale = SIZE_SCALE[value.size];
   const swatch = 14 * scale;
   const fontSize = 11 * scale;
-  const titleSize = 12 * scale;
+  const autoTitleSize = 12 * scale;
+  const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
   const gap = 4;
 
   parent.append("text")
     .attr("x", 0).attr("y", yStart + titleSize)
-    .attr("font-size", titleSize).attr("font-weight", 600)
+    .attr("font-size", titleSize).attr("font-weight", header.bold ? 600 : 400)
+    .attr("fill", header.color)
     .text(value.title || "");
 
   let y = yStart + titleSize + 6;
@@ -263,14 +289,16 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
   return y;
 }
 
-function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number): number {
+function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
   const scaleFactor = SIZE_SCALE[bubble.size];
   const fontSize = 11 * scaleFactor;
-  const titleSize = 12 * scaleFactor;
+  const autoTitleSize = 12 * scaleFactor;
+  const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
 
   parent.append("text")
     .attr("x", 0).attr("y", yStart + titleSize)
-    .attr("font-size", titleSize).attr("font-weight", 600)
+    .attr("font-size", titleSize).attr("font-weight", header.bold ? 600 : 400)
+    .attr("fill", header.color)
     .text(bubble.title || "");
 
   if (bubble.orientation === "compact") {
