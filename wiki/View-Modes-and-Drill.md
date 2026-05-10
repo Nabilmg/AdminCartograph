@@ -154,6 +154,11 @@ The drill view adds a few non-data overlays around the map:
   neighbour Admin1 label whose anchor lies inside the focused
   polygon is dropped. Labels at the shared border with anchors
   in their own polygon stay visible.
+- **Neighbour labels are name-only** — even if the **Admin1
+  labels** card has Content set to *Name + Value*, the value lines
+  are stripped from neighbour labels in drill view. The focused
+  state's value still appears in the title pill, and per-neighbour
+  values in a single-state-focus context just add noise.
 
 To hide all of this for a clean dashboard embed, set **1. Map
 setup → Hide map chrome** to on. The title pill stays (it's a

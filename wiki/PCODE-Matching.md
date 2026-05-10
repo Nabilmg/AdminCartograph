@@ -32,7 +32,18 @@ the leading **two-character ISO-2 prefix** is universal.
 
 For every Admin1 polygon in the geometry, the visual reads the
 `ADM1_PCODE` property and compares it to the values in your bound
-Admin1 PCODE column. **Exact string equality, case-sensitive.**
+Admin1 PCODE column. **Exact string equality** is tried first.
+
+If the exact lookup misses, the visual falls back to a
+**normalised match**: both sides are uppercased and stripped of
+spaces, dashes, and underscores, so:
+
+| Your data | Geometry has | Matches? |
+|---|---|---|
+| `SD01` | `SD01` | ✅ exact |
+| `sd01` | `SD01` | ✅ via normalised |
+| `sd-01` / `SD_01` / `sd 01` | `SD01` | ✅ via normalised |
+| `SDN001` | `SD01` | ❌ different convention — see [When matching fails](#when-matching-fails) |
 
 Same for Admin2: `ADM2_PCODE` compared to your Admin2 PCODE column.
 
@@ -40,6 +51,27 @@ If a polygon's PCODE matches a data row, the polygon shows that
 row's color / bubble / labels. If it doesn't match anything, the
 polygon renders with the **No-data colour** from the Choropleth fill
 card.
+
+### Mismatch banner
+
+When **every** lookup misses (your PCODE column doesn't line up
+with any of the geometry's), the visual draws an orange info card
+at the bottom-centre of the canvas showing concrete samples from
+both sides:
+
+```
+No PCODE matches. Your bound Admin1 PCODE values don't line up
+with the country's geometry.
+
+Data sample:     [SD01, SD02, SD03]
+Geometry sample: [SDN001, SDN002, SDN003]
+
+Check the Country dropdown matches your data, or upload custom
+geometry whose ADM1_PCODE field uses the same format. (Click to dismiss.)
+```
+
+Click anywhere on the banner to dismiss it. The same diagnostic
+also goes to the browser console as a `console.warn`.
 
 ## The auto-detect
 
@@ -136,13 +168,15 @@ mapped. So if your data has `01`, `02`, `03` and your geometry has
 
 For more, see [Custom Geometry Upload](Custom-Geometry-Upload.md).
 
-## Matching is case-sensitive
+## Matching is forgiving for case + separators
 
-`SD01` ≠ `sd01`. If your data is mixed case, normalise it before
-binding. The visual deliberately doesn't lowercase / uppercase
-PCODEs because doing so masks real data-quality issues that you'd
-want to surface (a typo in one row staying invisible because it
-happened to lowercase to a valid match elsewhere).
+Exact equality is tried first; if it misses, a normalised match
+(uppercase, no whitespace / dashes / underscores) is the fallback.
+So `SD01`, `sd01`, `sd-01`, `SD_01`, and `sd 01` all match the
+geometry's `SD01`. **Different conventions don't match** —
+`SDN001` vs `SD01` requires picking the right country bundle (or
+uploading custom geometry) since one uses the 3-letter ISO prefix
+and the other the 2-letter.
 
 ## What about non-PCODE data?
 

@@ -98,20 +98,16 @@ without binding and you get an explicit no-op.
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#222222` |
 
-The colour for **Name** lines. Click the **fx** icon next to the
-swatch to bind it to a measure rule (gradient, rules, or field
-value); rules resolve per Admin1 area in country view and per
-Admin2 area in drill view. See [Conditional formatting](#conditional-formatting-fx)
-below.
+The colour for **Name** lines.
 
 ### Value color
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#444444` |
 
 The colour for **Value** lines that come from the choropleth
@@ -121,7 +117,7 @@ measure (any Value source containing "Choropleth").
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#e6550d` (orange) |
 
 The colour for **Value** lines that come from the bubble-size
@@ -131,7 +127,7 @@ measure (any Value source containing "Bubble").
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#0f766e` (teal) |
 
 The colour for **Value** lines that come from the `Label Value 2`
@@ -367,37 +363,6 @@ top-left corner of the canvas, not on the polygon. Sizing:
 
 Plus a drop shadow so the pill reads as a screen header against
 any choropleth.
-
-## Conditional formatting (fx)
-
-Four colour pickers on each labels card support per-area
-conditional formatting via the **fx** button next to the swatch:
-
-- **Color** (Name)
-- **Value color** (Choropleth value)
-- **Bubble value color**
-- **Custom value color** (Label Value 2)
-
-Click **fx** to open the standard Power BI conditional-formatting
-dialog and pick one of:
-
-| Mode | What it does |
-|---|---|
-| Format style: Gradient | Linear ramp between two or three colours, driven by a measure (e.g. lighter for low values, darker for high). |
-| Format style: Rules | Threshold-based: "if cases > 1000 then red, else if > 500 then yellow, else green". |
-| Format style: Field value | Read the colour from a column directly — your dataset stores `#ff0000` per area. |
-
-Rules resolve per row of whichever PCODE category is bound:
-**Admin1 PCODE** in country view, **Admin2 PCODE** in drill view.
-The Admin2 category wins for level-2 rows when both are bound, so
-a single rule "just works" at both levels.
-
-When the **fx** toggle is off (the default) the static value on the
-card applies to every label, identical to the pre-fx behaviour.
-
-The same fx mechanism is available on **Bubble fill color** and
-**Bubble stroke color** in card 5 (Bubbles) — see
-[Bubble Settings](Bubble-Settings.md#fill-color).
 
 ## See also
 

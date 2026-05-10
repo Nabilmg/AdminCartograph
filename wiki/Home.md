@@ -47,10 +47,10 @@ manual.
 - [**5. Borders**](Borders-Settings.md)
 - [**6 / 7 / 8. Label Cards**](Label-Engine.md) — Admin1, Admin2 default,
   Admin2 drill
-- [**9 / 10 / 11 / 12. Legends**](Legend-System.md) — Choropleth,
-  Bubble, Pie/Column, Container
-- [**13. Scale Bar**](Scale-Bar.md)
-- [**14. Map Controls**](Map-Controls-and-Navigation.md)
+- [**9 / 10 / 11 / 12 / 13. Legends**](Legend-System.md) — Choropleth,
+  Bubble, Pie/Column, **Values**, Container
+- [**14. Scale Bar**](Scale-Bar.md)
+- [**15. Map Controls**](Map-Controls-and-Navigation.md)
 
 ## Behaviours
 

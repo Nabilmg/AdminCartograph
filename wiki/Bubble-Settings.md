@@ -18,29 +18,22 @@ is bound.
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#e6550d` (orange) |
 
-The interior colour of every bubble. Click the small **fx** button
-next to the swatch to bind the colour to a measure rule (gradient,
-rules, or field value) — the rule resolves per Admin1 area in country
-view and per Admin2 area in drill view, so e.g. *red if cases > 1000,
-green otherwise* "just works" at both levels.
-
-When fx is off, the static colour applies to every bubble; the
-choropleth still handles per-area colour variation underneath.
+The interior colour of every bubble. The choropleth handles per-
+area colour variation underneath; bubbles are mono-coloured by
+design.
 
 ## Stroke color
 
 | | |
 |---|---|
-| Type | Colour picker (with **fx** conditional formatting) |
+| Type | Colour picker |
 | Default | `#ffffff` (white) |
 
 The outline colour. White stroke against an orange fill is the
-default for visibility against any choropleth ramp. Also accepts a
-conditional rule via **fx** if you want to highlight outliers per
-area without changing the fill.
+default for visibility against any choropleth ramp.
 
 ## Stroke width
 
@@ -130,30 +123,6 @@ so its on-screen radius stays at the authored value as the user
 zooms in. When off, bubbles grow with the map (legacy behaviour).
 Updates live on every zoom step (no full re-render), so wheel /
 drag / button zooms feel snappy.
-
-## Conditional formatting (fx)
-
-Both **Fill color** and **Stroke color** carry the standard Power BI
-**fx** button next to the swatch. Click it to open the conditional-
-formatting dialog and pick:
-
-| Mode | Behaviour |
-|---|---|
-| Format style: Gradient | Linear ramp between colours, driven by a measure (e.g. lighter for low values, darker for high). |
-| Format style: Rules | Threshold-based: "if cases > 1000 then red, else if > 500 then yellow, else green". |
-| Format style: Field value | Read the colour from a column directly. |
-
-Rules resolve per row of whichever PCODE category is bound:
-**Admin1 PCODE** in country view, **Admin2 PCODE** in drill view —
-the same rule "just works" at both levels. With both PCODEs bound
-in country view, each state inherits the rule colour from its first
-Admin2 row (first-write-wins, so it stays stable across renders);
-bind only Admin1 PCODE to evaluate the rule against the
-state-aggregated total.
-
-The **Bubble legend** swatch reads the most-common colour actually
-painted across visible bubbles, so with fx in play the legend
-matches what's drawn instead of showing the static card value.
 
 ## How bubble sizing works
 
