@@ -2,26 +2,11 @@
  * Strongly typed formatting settings for the visual.
  * Mirrors the objects defined in capabilities.json.
  */
-import powerbi from "powerbi-visuals-api";
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import { BUNDLED_COUNTRIES } from "./generated/countries";
 
 import FormattingSettingsCard = formattingSettings.SimpleCard;
 import FormattingSettingsModel = formattingSettings.Model;
-
-/**
- * Wildcard selector + ConstantOrRule instanceKind together turn on the
- * "fx" (conditional formatting) button on a ColorPicker. The wildcard
- * tells Power BI to evaluate the user's rule against every row of every
- * categorical column in the dataView (Admin1 PCODE and Admin2 PCODE for
- * us), so the rule resolves whether the visual is showing country or
- * drill view. The resolved per-row colour is written back into
- * `dataView.categorical.categories[i].objects[rowIdx].<object>.<prop>`.
- */
-const RULE_INSTANCE_KIND = powerbi.VisualEnumerationInstanceKinds.ConstantOrRule;
-const RULE_WILDCARD_SELECTOR: powerbi.data.Selector = {
-  data: [{ dataViewWildcard: { matchingOption: 0 } } as any]
-};
 
 export type ViewMode = "auto" | "states" | "localities";
 export type Position = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
@@ -151,34 +136,10 @@ function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Part
     });
     fontFamily = new formattingSettings.FontPicker({ name: "fontFamily", displayName: "Font family", value: "Segoe UI" });
     fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: defaults.fontSize ?? 11 });
-    color = new formattingSettings.ColorPicker({
-      name: "color",
-      displayName: "Color",
-      value: { value: defaults.color ?? "#222222" },
-      instanceKind: RULE_INSTANCE_KIND,
-      selector: RULE_WILDCARD_SELECTOR
-    });
-    valueColor = new formattingSettings.ColorPicker({
-      name: "valueColor",
-      displayName: "Value color",
-      value: { value: "#444444" },
-      instanceKind: RULE_INSTANCE_KIND,
-      selector: RULE_WILDCARD_SELECTOR
-    });
-    bubbleValueColor = new formattingSettings.ColorPicker({
-      name: "bubbleValueColor",
-      displayName: "Bubble value color",
-      value: { value: "#e6550d" },
-      instanceKind: RULE_INSTANCE_KIND,
-      selector: RULE_WILDCARD_SELECTOR
-    });
-    customValueColor = new formattingSettings.ColorPicker({
-      name: "customValueColor",
-      displayName: "Custom value color (Label Value 2)",
-      value: { value: "#0f766e" },
-      instanceKind: RULE_INSTANCE_KIND,
-      selector: RULE_WILDCARD_SELECTOR
-    });
+    color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color", value: { value: defaults.color ?? "#222222" } });
+    valueColor = new formattingSettings.ColorPicker({ name: "valueColor", displayName: "Value color", value: { value: "#444444" } });
+    bubbleValueColor = new formattingSettings.ColorPicker({ name: "bubbleValueColor", displayName: "Bubble value color", value: { value: "#e6550d" } });
+    customValueColor = new formattingSettings.ColorPicker({ name: "customValueColor", displayName: "Custom value color (Label Value 2)", value: { value: "#0f766e" } });
     valueSource = new formattingSettings.ItemDropdown({
       name: "valueSource",
       displayName: "Value source",
@@ -252,20 +213,8 @@ const DrillLocalityLabelsCard = makeLabelCard("drillLocalityLabels", "8. Admin2 
 
 class BubblesSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
-  fillColor = new formattingSettings.ColorPicker({
-    name: "fillColor",
-    displayName: "Fill color",
-    value: { value: "#e6550d" },
-    instanceKind: RULE_INSTANCE_KIND,
-    selector: RULE_WILDCARD_SELECTOR
-  });
-  strokeColor = new formattingSettings.ColorPicker({
-    name: "strokeColor",
-    displayName: "Stroke color",
-    value: { value: "#ffffff" },
-    instanceKind: RULE_INSTANCE_KIND,
-    selector: RULE_WILDCARD_SELECTOR
-  });
+  fillColor = new formattingSettings.ColorPicker({ name: "fillColor", displayName: "Fill color", value: { value: "#e6550d" } });
+  strokeColor = new formattingSettings.ColorPicker({ name: "strokeColor", displayName: "Stroke color", value: { value: "#ffffff" } });
   strokeWidth = new formattingSettings.NumUpDown({ name: "strokeWidth", displayName: "Stroke width", value: 1 });
   opacity = new formattingSettings.NumUpDown({ name: "opacity", displayName: "Opacity", value: 0.85 });
   minRadius = new formattingSettings.NumUpDown({ name: "minRadius", displayName: "Min radius (px)", value: 4 });
