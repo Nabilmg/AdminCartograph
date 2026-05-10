@@ -872,7 +872,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -881,17 +881,30 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
       if (a.labelValue2 != null) acc.label2 = (acc.label2 ?? 0) + a.labelValue2;
+      // For categorical mode: tally each child's raw category value so
+      // the rolled-up Admin1 can adopt the mode (most-common category).
+      if (a.colorValueRaw != null && a.colorValueRaw !== "") {
+        const key = String(a.colorValueRaw);
+        acc.rawTally.set(key, (acc.rawTally.get(key) || 0) + 1);
+      }
       // Sum glyph categories index-wise so the rolled-up Admin1 carries the
       // same number of segments as the source Admin2 areas.
       for (let i = 0; i < (a.glyphValues?.length || 0); i++) {
         acc.glyph[i] = (acc.glyph[i] || 0) + (a.glyphValues[i] || 0);
       }
     }
+
+    const modeOf = (m: Map<string, number>): string | null => {
+      let best: string | null = null;
+      let bestN = 0;
+      m.forEach((n, k) => { if (n > bestN) { bestN = n; best = k; } });
+      return best;
+    };
 
     const out = new Map<string, AreaDatum>();
     for (const [pcode, acc] of sums) {
@@ -901,11 +914,12 @@ export class Visual implements IVisual {
         parentPcode: pcode,
         level: 1,
         colorValue: acc.color,
-        // Aggregated rows don't have a meaningful raw category value
-        // (each child Admin2 may have its own); leave it null. The
-        // categorical mode is most useful when the user binds Admin1
-        // PCODE directly with one row per state.
-        colorValueRaw: null,
+        // Categorical mode: roll up by taking the mode (most-common
+        // category) of the child Admin2 rows. So a state whose
+        // localities are mostly 'High' renders as High in the Auto-
+        // mode Admin1 view. Ties are broken by first-seen order
+        // (Map iteration preserves insertion).
+        colorValueRaw: modeOf(acc.rawTally),
         bubbleSize: acc.bubble,
         glyphValues: acc.glyph,
         labelValue2: acc.label2,
