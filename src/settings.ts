@@ -374,6 +374,51 @@ class GlyphLegendSettings extends FormattingSettingsCard {
   slices = [this.show, this.title, this.orientation, this.position, this.size];
 }
 
+/**
+ * "12. Values legend" — explains the numbers shown on labels by listing
+ * the bound measure names (Choropleth, Bubble, Label Value 2) with
+ * a `#` swatch in their corresponding label-value colour. Reads the
+ * Admin1 labels card's Value source to decide which entries appear.
+ */
+class ValuesLegendSettings extends FormattingSettingsCard {
+  show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
+  title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "Values", value: "" });
+  orientation = new formattingSettings.ItemDropdown({
+    name: "orientation",
+    displayName: "Orientation",
+    items: [
+      { value: "vertical", displayName: "Vertical" },
+      { value: "horizontal", displayName: "Horizontal" }
+    ],
+    value: { value: "vertical", displayName: "Vertical" }
+  });
+  position = new formattingSettings.ItemDropdown({
+    name: "position",
+    displayName: "Position",
+    items: [
+      { value: "topLeft", displayName: "Top left" },
+      { value: "topRight", displayName: "Top right" },
+      { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomRight", displayName: "Bottom right" }
+    ],
+    value: { value: "topLeft", displayName: "Top left" }
+  });
+  size = new formattingSettings.ItemDropdown({
+    name: "size",
+    displayName: "Size",
+    items: [
+      { value: "small", displayName: "Small" },
+      { value: "medium", displayName: "Medium" },
+      { value: "large", displayName: "Large" }
+    ],
+    value: { value: "medium", displayName: "Medium" }
+  });
+
+  name = "valuesLegend";
+  displayName = "12. Values legend";
+  slices = [this.show, this.title, this.orientation, this.position, this.size];
+}
+
 class ValueLegendSettings extends FormattingSettingsCard {
   show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: true });
   title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "(measure name)", value: "" });
@@ -480,7 +525,7 @@ class ScaleBarSettings extends FormattingSettingsCard {
   fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: 11 });
 
   name = "scaleBar";
-  displayName = "13. Scale bar";
+  displayName = "14. Scale bar";
   slices = [this.show, this.units, this.position, this.color, this.fontSize];
 }
 
@@ -501,7 +546,7 @@ class ControlsSettings extends FormattingSettingsCard {
   });
 
   name = "controls";
-  displayName = "14. Map controls (zoom / pan / copy)";
+  displayName = "15. Map controls (zoom / pan / copy)";
   slices = [this.showZoom, this.showPan, this.showExport, this.position];
 }
 
@@ -526,7 +571,7 @@ class LegendContainerSettings extends FormattingSettingsCard {
   });
 
   name = "legendContainer";
-  displayName = "12. Legend container";
+  displayName = "13. Legend container";
   slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize, this.containerOrientation];
 }
 
@@ -542,6 +587,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   glyphLegend = new GlyphLegendSettings();
   valueLegend = new ValueLegendSettings();
   bubbleLegend = new BubbleLegendSettings();
+  valuesLegend = new ValuesLegendSettings();
   controls = new ControlsSettings();
   legendContainer = new LegendContainerSettings();
   scaleBar = new ScaleBarSettings();
@@ -571,6 +617,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.valueLegend,
     this.bubbleLegend,
     this.glyphLegend,
+    this.valuesLegend,
     this.legendContainer,
     this.scaleBar,
     this.controls

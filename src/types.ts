@@ -27,6 +27,10 @@ export interface PreparedDataView {
   hasLocalityBinding: boolean;
   colorValueColumn: powerbi.DataViewMetadataColumn | null;
   bubbleSizeColumn: powerbi.DataViewMetadataColumn | null;
+  /** Metadata column for Label Value 2 (custom value) so the new
+   *  Values legend can show its display name alongside the
+   *  choropleth and bubble measures. Null when not bound. */
+  labelValue2Column: powerbi.DataViewMetadataColumn | null;
   /** Display names of the measures bound to "Glyph Values", in input
    *  order. Used as legend / tooltip labels for each pie slice or column. */
   glyphColumns: powerbi.DataViewMetadataColumn[];
