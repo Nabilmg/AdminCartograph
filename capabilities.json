@@ -199,7 +199,11 @@
         "stateOpacity": { "displayName": "Admin1 border opacity", "type": { "numeric": true } },
         "localityColor": { "displayName": "Admin2 border color", "type": { "fill": { "solid": { "color": true } } } },
         "localityWidth": { "displayName": "Admin2 border width", "type": { "numeric": true } },
-        "localityOpacity": { "displayName": "Admin2 border opacity", "type": { "numeric": true } }
+        "localityOpacity": { "displayName": "Admin2 border opacity", "type": { "numeric": true } },
+        "countryGlowShow": { "displayName": "Country outer glow", "type": { "bool": true } },
+        "countryGlowColor": { "displayName": "Glow color", "type": { "fill": { "solid": { "color": true } } } },
+        "countryGlowRadius": { "displayName": "Glow radius (px)", "type": { "numeric": true } },
+        "countryGlowOpacity": { "displayName": "Glow opacity", "type": { "numeric": true } }
       }
     },
 

@@ -123,9 +123,14 @@ class BordersSettings extends FormattingSettingsCard {
   localityWidth = new formattingSettings.NumUpDown({ name: "localityWidth", displayName: "Admin2 border width", value: 0.5 });
   localityOpacity = new formattingSettings.NumUpDown({ name: "localityOpacity", displayName: "Admin2 border opacity", value: 0.8 });
 
+  countryGlowShow = new formattingSettings.ToggleSwitch({ name: "countryGlowShow", displayName: "Country outer glow", value: false });
+  countryGlowColor = new formattingSettings.ColorPicker({ name: "countryGlowColor", displayName: "Glow color", value: { value: "#d0d4da" } });
+  countryGlowRadius = new formattingSettings.NumUpDown({ name: "countryGlowRadius", displayName: "Glow radius (px)", value: 12 });
+  countryGlowOpacity = new formattingSettings.NumUpDown({ name: "countryGlowOpacity", displayName: "Glow opacity", value: 0.6 });
+
   name = "borders";
   displayName = "5. Borders";
-  slices = [this.stateColor, this.stateWidth, this.stateOpacity, this.localityColor, this.localityWidth, this.localityOpacity];
+  slices = [this.stateColor, this.stateWidth, this.stateOpacity, this.localityColor, this.localityWidth, this.localityOpacity, this.countryGlowShow, this.countryGlowColor, this.countryGlowRadius, this.countryGlowOpacity];
 }
 
 function makeLabelCard(cardName: string, cardDisplayName: string, defaults: Partial<{ show: boolean; content: LabelContent; fontSize: number; color: string; bold: boolean }> = {}) {
