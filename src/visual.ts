@@ -2189,6 +2189,23 @@ export class Visual implements IVisual {
     clone.setAttribute("xmlns", SVG_NS);
     clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 
+    // Drop the country outer glow from the export. The feGaussianBlur
+    // renders inconsistently across destinations (Illustrator and
+    // PowerPoint sometimes promote it to a raster with banding; some
+    // browsers handle filters oddly when the SVG is opened as a
+    // standalone file). The fix the user asked for: just remove it.
+    const glow = clone.querySelector(".country-glow-layer");
+    if (glow) glow.parentNode?.removeChild(glow);
+
+    // Shrink label halos. On-screen the halo is sized for legibility
+    // over busy choropleths (typically 2 px); in a static export at
+    // print resolution that reads as a chunky outline. Pin every
+    // label text's stroke-width to 0.3 in the clone so the halo is
+    // a hair-thin glow rather than a band.
+    clone.querySelectorAll(".map-label text[stroke]").forEach((t) => {
+      (t as SVGTextElement).setAttribute("stroke-width", "0.3");
+    });
+
     const bgColor = this.settings?.general?.transparentBackground?.value
       ? "#ffffff"
       : (this.settings?.general?.background?.value?.value || "#ffffff");
