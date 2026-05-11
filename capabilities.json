@@ -569,8 +569,12 @@
           "type": {
             "enumeration": [
               { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topCenter", "displayName": "Top centre" },
               { "value": "topRight", "displayName": "Top right" },
+              { "value": "leftCenter", "displayName": "Left centre" },
+              { "value": "rightCenter", "displayName": "Right centre" },
               { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomCenter", "displayName": "Bottom centre" },
               { "value": "bottomRight", "displayName": "Bottom right" }
             ]
           }
@@ -608,8 +612,12 @@
           "type": {
             "enumeration": [
               { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topCenter", "displayName": "Top centre" },
               { "value": "topRight", "displayName": "Top right" },
+              { "value": "leftCenter", "displayName": "Left centre" },
+              { "value": "rightCenter", "displayName": "Right centre" },
               { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomCenter", "displayName": "Bottom centre" },
               { "value": "bottomRight", "displayName": "Bottom right" }
             ]
           }
@@ -647,8 +655,12 @@
           "type": {
             "enumeration": [
               { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topCenter", "displayName": "Top centre" },
               { "value": "topRight", "displayName": "Top right" },
+              { "value": "leftCenter", "displayName": "Left centre" },
+              { "value": "rightCenter", "displayName": "Right centre" },
               { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomCenter", "displayName": "Bottom centre" },
               { "value": "bottomRight", "displayName": "Bottom right" }
             ]
           }
@@ -688,8 +700,12 @@
           "type": {
             "enumeration": [
               { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topCenter", "displayName": "Top centre" },
               { "value": "topRight", "displayName": "Top right" },
+              { "value": "leftCenter", "displayName": "Left centre" },
+              { "value": "rightCenter", "displayName": "Right centre" },
               { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomCenter", "displayName": "Bottom centre" },
               { "value": "bottomRight", "displayName": "Bottom right" }
             ]
           }

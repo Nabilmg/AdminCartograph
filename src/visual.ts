@@ -1815,12 +1815,28 @@ export class Visual implements IVisual {
   private admin1NavOrder(): string[] {
     if (!this.cached) return [];
     const feats = (this.cached.country.adm1.features as any[]) || [];
+    // Only navigate between states that ACTUALLY have data in the
+    // current dataView. Otherwise external slicers filtering down to
+    // a subset of states (or one state) leave prev / next clicking
+    // through to no-data polygons which then trigger the PCODE
+    // mismatch banner. Derive the in-scope state set from both
+    // prepared.filteredStatePcodes (when Admin1 PCODE is bound) and
+    // each Admin2 row's parent (when only Admin2 PCODE is bound).
+    const prepared = this.cached.prepared;
+    const inData = new Set<string>();
+    if (prepared.filteredStatePcodes) {
+      prepared.filteredStatePcodes.forEach((p) => inData.add(p));
+    }
+    for (const a of prepared.areas.values()) {
+      const parent = a.level === 1 ? a.pcode : a.parentPcode;
+      if (parent) inData.add(parent);
+    }
     return feats
       .map((f) => ({
         pcode: f.properties.ADM1_PCODE as string,
         name: (f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string
       }))
-      .filter((x) => x.pcode)
+      .filter((x) => x.pcode && (inData.size === 0 || inData.has(x.pcode)))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((x) => x.pcode);
   }
@@ -2006,8 +2022,15 @@ export class Visual implements IVisual {
       // states without going back to the Country View.
       const order = this.admin1NavOrder();
       const idx = order.indexOf(this.drilledStatePcode);
-      const prev = order.length ? order[(idx - 1 + order.length) % order.length] : null;
-      const next = order.length ? order[(idx + 1) % order.length] : null;
+      // Disable both buttons when there's nowhere meaningful to go:
+      // a slicer has narrowed the data to just this state, OR the
+      // drilled state isn't even in the in-scope set (in which case
+      // the cycle math would land on a no-data state and trigger the
+      // PCODE mismatch banner). Wrap-around only when there's >1
+      // valid state to step between.
+      const canCycle = order.length > 1 && idx >= 0;
+      const prev = canCycle ? order[(idx - 1 + order.length) % order.length] : null;
+      const next = canCycle ? order[(idx + 1) % order.length] : null;
 
       const mkNav = (dir: "prev" | "next", target: string | null, glyph: string, label: string) => {
         const btn = document.createElement("button");
