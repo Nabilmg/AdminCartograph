@@ -2002,20 +2002,36 @@ export class Visual implements IVisual {
       while (bar.firstChild) bar.removeChild(bar.firstChild);
     }
 
-    // Drill-back button (left side, only when drilled). A home icon
-    // ("⌂") replaces the older "← Country View" text so the button
-    // scales cleanly to small visuals. Accessible name still says
-    // "Country View".
+    // Three viewport-driven layout modes:
+    //   large  — back button has the home glyph + 'Country View'
+    //            text, nav arrows on the same row, and the state
+    //            title + values render in the SVG pill below the
+    //            button row (the original visual layout).
+    //   medium — back button shows the home glyph only; state name
+    //            and value lines render inline next to the nav
+    //            arrows on a single row.
+    //   small  — same inline layout as medium but with smaller
+    //            buttons / title text and values dropped so just
+    //            the state name remains.
+    const w = this.viewportW;
+    const mode: "large" | "medium" | "small" = w >= 500 ? "large" : (w < 320 ? "small" : "medium");
+    bar.classList.add("adm-top-bar");
+    bar.classList.toggle("adm-top-bar--large", mode === "large");
+    bar.classList.toggle("adm-top-bar--medium", mode === "medium");
+    bar.classList.toggle("adm-top-bar--small", mode === "small");
+
+    // Drill-back button (left side, only when drilled). Always a
+    // home icon; in large mode the icon is followed by 'Country
+    // View' text. Accessible name + title always include the full
+    // phrase regardless of visible text.
     if (view === "localities" && this.drilledStatePcode) {
       const back = document.createElement("button");
       back.className = "adm-back-button";
       back.type = "button";
       back.setAttribute("aria-label", "Country View");
       back.title = "Country View";
-      // Inline SVG home glyph — keeps weight + colour consistent with
-      // the prev/next arrows and avoids font-availability surprises
-      // across Power BI hosts.
-      back.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5 8 3l6 5.5"/><path d="M3.5 7.5V13h9V7.5"/></svg>';
+      const homeSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5 8 3l6 5.5"/><path d="M3.5 7.5V13h9V7.5"/></svg>';
+      back.innerHTML = mode === "large" ? `${homeSvg}<span class="adm-back-text">Country View</span>` : homeSvg;
       back.addEventListener("click", (e) => {
         e.stopPropagation();
         // Remember the user opted out so the same filter context doesn't
@@ -2076,37 +2092,50 @@ export class Visual implements IVisual {
       bar.appendChild(mkNav("prev", prev, "&#8249;", `Previous Admin1${prev ? ` (${this.admin1NameFor(prev)})` : ""}`));
       bar.appendChild(mkNav("next", next, "&#8250;", `Next Admin1${next ? ` (${this.admin1NameFor(next)})` : ""}`));
 
-      // State name (and, when there's room, the value line(s)) inline
-      // with the nav buttons. Replaces the SVG title pill in the live
-      // visual — the SVG pill is still generated for the SVG export so
-      // exported maps continue to show the drilled state's name.
-      // At very small viewports the values are dropped so just the
-      // state name reads, freeing every pixel for the map itself.
-      const titleEl = document.createElement("span");
-      titleEl.className = "adm-drill-title";
-      const veryNarrow = this.viewportW < 320;
-      const nameLine = document.createElement("span");
-      nameLine.className = "adm-drill-title-name";
-      nameLine.textContent = this.admin1NameFor(this.drilledStatePcode);
-      titleEl.appendChild(nameLine);
-      if (!veryNarrow) {
-        const valueRows = this.drilledValueRowsForTopBar();
-        if (valueRows.length) {
-          const valuesEl = document.createElement("span");
-          valuesEl.className = "adm-drill-title-values";
-          for (const row of valueRows) {
-            const v = document.createElement("span");
-            v.className = "adm-drill-title-value";
-            v.style.color = row.color;
-            v.textContent = row.text;
-            valuesEl.appendChild(v);
+      // State title placement varies by mode:
+      //   large  — SVG pill below the button row (the original
+      //            layout). Inline title in the HTML bar stays
+      //            hidden; the SVG pill is un-hidden so it renders.
+      //   medium — inline title next to the nav buttons (name +
+      //            value rows) and the SVG pill stays hidden.
+      //   small  — inline title with the state NAME only; values
+      //            dropped. SVG pill stays hidden.
+      const showInlineTitle = mode === "medium" || mode === "small";
+      const showInlineValues = mode === "medium";
+      // Toggle the SVG pill on for large mode so it actually paints
+      // in the live visual; medium / small modes keep it hidden
+      // (its DOM stays around for the SVG export — see
+      // buildExportSvg which strips display:none from the clone).
+      this.pillLayer.style.display = mode === "large" ? "" : "none";
+
+      if (showInlineTitle) {
+        const titleEl = document.createElement("span");
+        titleEl.className = "adm-drill-title";
+        const nameLine = document.createElement("span");
+        nameLine.className = "adm-drill-title-name";
+        nameLine.textContent = this.admin1NameFor(this.drilledStatePcode);
+        titleEl.appendChild(nameLine);
+        if (showInlineValues) {
+          const valueRows = this.drilledValueRowsForTopBar();
+          if (valueRows.length) {
+            const valuesEl = document.createElement("span");
+            valuesEl.className = "adm-drill-title-values";
+            for (const row of valueRows) {
+              const v = document.createElement("span");
+              v.className = "adm-drill-title-value";
+              v.style.color = row.color;
+              v.textContent = row.text;
+              valuesEl.appendChild(v);
+            }
+            titleEl.appendChild(valuesEl);
           }
-          titleEl.appendChild(valuesEl);
         }
+        bar.appendChild(titleEl);
       }
-      bar.appendChild(titleEl);
     } else {
       this.backButton = null;
+      // Not drilled — pill stays hidden (it's empty anyway).
+      this.pillLayer.style.display = "none";
     }
   }
 

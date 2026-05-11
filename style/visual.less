@@ -38,6 +38,28 @@
     align-items: center;
     gap: 6px;
     pointer-events: none;
+
+    // Three-mode responsive sizing. Large keeps the original
+    // button + label dimensions. Medium drops the back-button
+    // text but keeps default icon / nav sizes. Small shrinks
+    // everything for tiny visual instances.
+    .adm-back-text {
+      margin-left: 6px;
+      font-size: 12px;
+    }
+    &--small {
+      .adm-back-button,
+      .adm-nav-button {
+        padding: 3px 5px;
+        font-size: 10px;
+      }
+      .adm-back-button svg,
+      .adm-nav-button svg {
+        width: 11px;
+        height: 11px;
+      }
+      .adm-drill-title-name { font-size: 11px; }
+    }
   }
 
   .adm-controls {
