@@ -176,7 +176,13 @@ export class Visual implements IVisual {
     this.svg.appendChild(this.scaleBarLayer);
     this.svg.appendChild(this.legendLayer);
     // Pill last so it draws on top of legend / scale bar in z-order
-    // (it's rare for them to share screen space, but defensive).
+    // (it's rare for them to share screen space, but defensive). The
+    // pill is rendered for the SVG export only — in the live visual
+    // we hide it because the same name + values appear inline next
+    // to the drill back-bar's home button. buildExportSvg strips
+    // this display:none from the cloned pill so the export still
+    // shows the title.
+    this.pillLayer.style.display = "none";
     this.svg.appendChild(this.pillLayer);
 
     this.overlay = document.createElement("div");
@@ -1539,6 +1545,9 @@ export class Visual implements IVisual {
         headerColor: this.settings.legendContainer.headerColor?.value?.value || "#222222",
         headerBold: this.settings.legendContainer.headerBold?.value !== false,
         headerFontSize: this.settings.legendContainer.headerFontSize?.value || 0,
+        itemColor: this.settings.legendContainer.itemColor?.value?.value || "#1a1a1a",
+        itemFontSize: this.settings.legendContainer.itemFontSize?.value || 0,
+        itemSwatchSize: this.settings.legendContainer.itemSwatchSize?.value || 0,
         orientation: ((this.settings.legendContainer.containerOrientation?.value as any)?.value === "horizontal" ? "horizontal" : "vertical") as "horizontal" | "vertical"
       }
     }, sbFootprintByCorner);
@@ -1960,14 +1969,20 @@ export class Visual implements IVisual {
       while (bar.firstChild) bar.removeChild(bar.firstChild);
     }
 
-    // Drill-back button (left side, only when drilled). Label says
-    // "Country View" — i.e. zoom back out to all Admin1 areas.
+    // Drill-back button (left side, only when drilled). A home icon
+    // ("⌂") replaces the older "← Country View" text so the button
+    // scales cleanly to small visuals. Accessible name still says
+    // "Country View".
     if (view === "localities" && this.drilledStatePcode) {
       const back = document.createElement("button");
       back.className = "adm-back-button";
       back.type = "button";
       back.setAttribute("aria-label", "Country View");
-      back.innerHTML = "&#8592; Country View";
+      back.title = "Country View";
+      // Inline SVG home glyph — keeps weight + colour consistent with
+      // the prev/next arrows and avoids font-availability surprises
+      // across Power BI hosts.
+      back.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5 8 3l6 5.5"/><path d="M3.5 7.5V13h9V7.5"/></svg>';
       back.addEventListener("click", (e) => {
         e.stopPropagation();
         // Remember the user opted out so the same filter context doesn't
@@ -2020,10 +2035,74 @@ export class Visual implements IVisual {
       };
       bar.appendChild(mkNav("prev", prev, "&#8249;", `Previous Admin1${prev ? ` (${this.admin1NameFor(prev)})` : ""}`));
       bar.appendChild(mkNav("next", next, "&#8250;", `Next Admin1${next ? ` (${this.admin1NameFor(next)})` : ""}`));
+
+      // State name (and, when there's room, the value line(s)) inline
+      // with the nav buttons. Replaces the SVG title pill in the live
+      // visual — the SVG pill is still generated for the SVG export so
+      // exported maps continue to show the drilled state's name.
+      // At very small viewports the values are dropped so just the
+      // state name reads, freeing every pixel for the map itself.
+      const titleEl = document.createElement("span");
+      titleEl.className = "adm-drill-title";
+      const veryNarrow = this.viewportW < 320;
+      const nameLine = document.createElement("span");
+      nameLine.className = "adm-drill-title-name";
+      nameLine.textContent = this.admin1NameFor(this.drilledStatePcode);
+      titleEl.appendChild(nameLine);
+      if (!veryNarrow) {
+        const valueRows = this.drilledValueRowsForTopBar();
+        if (valueRows.length) {
+          const valuesEl = document.createElement("span");
+          valuesEl.className = "adm-drill-title-values";
+          for (const row of valueRows) {
+            const v = document.createElement("span");
+            v.className = "adm-drill-title-value";
+            v.style.color = row.color;
+            v.textContent = row.text;
+            valuesEl.appendChild(v);
+          }
+          titleEl.appendChild(valuesEl);
+        }
+      }
+      bar.appendChild(titleEl);
     } else {
       this.backButton = null;
     }
+  }
 
+  /**
+   * Build the value rows the drill top-bar shows next to the state
+   * name. Mirrors renderAdmin1Header's row-collection logic — same
+   * value source, same colours, prefixed with the measure name — so
+   * the on-screen pill and the exported SVG pill stay in sync.
+   */
+  private drilledValueRowsForTopBar(): { text: string; color: string }[] {
+    if (!this.drilledStatePcode || !this.cached) return [];
+    const country = this.cached.country;
+    const feature = (country.adm1.features as any[]).find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
+    if (!feature) return [];
+    let stateAreas = this.cached.prepared.areas;
+    const anyStateLevel = Array.from(this.cached.prepared.areas.values()).some((a) => a.level === 1);
+    if (!anyStateLevel) stateAreas = this.aggregateToStates(this.cached.prepared, country);
+    const datum = stateAreas.get(this.drilledStatePcode);
+    if (!datum) return [];
+    const card = this.settings.stateLabels;
+    const content: string = (card.content.value as any).value;
+    if (content === "name") return [];
+    const fmtCard = this.styleFromCard(card);
+    const source: string = (card.valueSource?.value as any)?.value || "choropleth";
+    const wants = {
+      choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
+      bubble: source === "bubble" || source === "both" || source === "bubble_custom" || source === "all",
+      custom: source === "custom" || source === "choropleth_custom" || source === "bubble_custom" || source === "all"
+    };
+    const prepared = this.cached.prepared;
+    const prefix = (n: string | undefined): string => (n && n.trim() ? `${n}: ` : "");
+    const rows: { text: string; color: string }[] = [];
+    if (wants.choropleth && datum.colorValue != null) rows.push({ text: `${prefix(prepared.colorValueColumn?.displayName)}${this.fmt(datum.colorValue, fmtCard)}`, color: card.valueColor.value.value });
+    if (wants.bubble && datum.bubbleSize != null) rows.push({ text: `${prefix(prepared.bubbleSizeColumn?.displayName)}${this.fmt(datum.bubbleSize, fmtCard)}`, color: card.bubbleValueColor.value.value });
+    if (wants.custom && datum.labelValue2 != null) rows.push({ text: `${prefix(prepared.labelValue2Column?.displayName)}${this.fmt(datum.labelValue2, fmtCard)}`, color: card.customValueColor.value.value });
+    return rows;
   }
 
   /**
@@ -2202,6 +2281,13 @@ export class Visual implements IVisual {
     // standalone file). The fix the user asked for: just remove it.
     const glow = clone.querySelector(".country-glow-layer");
     if (glow) glow.parentNode?.removeChild(glow);
+
+    // Pill is hidden in the live visual (its content shows inline in
+    // the top bar) but always wanted in the SVG export so the file
+    // is self-explanatory. Strip the inline display:none we set on
+    // the live layer.
+    const pill = clone.querySelector(".drill-pill-layer") as SVGElement | null;
+    if (pill) pill.removeAttribute("style");
 
     // Shrink label halos. On-screen the halo is sized for legibility
     // over busy choropleths (typically 2 px); in a static export at

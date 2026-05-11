@@ -10,7 +10,7 @@ import FormattingSettingsModel = formattingSettings.Model;
 
 export type ViewMode = "auto" | "states" | "localities";
 export type Position = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
-export type LegendSize = "small" | "medium" | "large";
+export type LegendSize = "minimal" | "small" | "medium" | "large";
 export type LabelContent = "name" | "value" | "name_value";
 export type LabelFormat = "auto" | "thousands" | "millions" | "percent";
 export type Classification = "quantile" | "equal" | "manual";
@@ -313,6 +313,7 @@ class GlyphLegendSettings extends FormattingSettingsCard {
     name: "size",
     displayName: "Size",
     items: [
+      { value: "minimal", displayName: "Minimal" },
       { value: "small", displayName: "Small" },
       { value: "medium", displayName: "Medium" },
       { value: "large", displayName: "Large" }
@@ -358,6 +359,7 @@ class ValuesLegendSettings extends FormattingSettingsCard {
     name: "size",
     displayName: "Size",
     items: [
+      { value: "minimal", displayName: "Minimal" },
       { value: "small", displayName: "Small" },
       { value: "medium", displayName: "Medium" },
       { value: "large", displayName: "Large" }
@@ -397,6 +399,7 @@ class ValueLegendSettings extends FormattingSettingsCard {
     name: "size",
     displayName: "Size",
     items: [
+      { value: "minimal", displayName: "Minimal" },
       { value: "small", displayName: "Small" },
       { value: "medium", displayName: "Medium" },
       { value: "large", displayName: "Large" }
@@ -438,6 +441,7 @@ class BubbleLegendSettings extends FormattingSettingsCard {
     name: "size",
     displayName: "Size",
     items: [
+      { value: "minimal", displayName: "Minimal" },
       { value: "small", displayName: "Small" },
       { value: "medium", displayName: "Medium" },
       { value: "large", displayName: "Large" }
@@ -480,6 +484,24 @@ class ScaleBarSettings extends FormattingSettingsCard {
   slices = [this.show, this.units, this.position, this.color, this.fontSize];
 }
 
+/**
+ * "16. About" — read-only text card surfacing the visual's name,
+ * version, author, and home URL at the end of the format pane. All
+ * fields are presented as disabled TextInputs so users can read
+ * them but can't edit. Acts as a single-source-of-truth link from
+ * inside Power BI back to the project's documentation.
+ */
+class AboutSettings extends FormattingSettingsCard {
+  visualName = new formattingSettings.ReadOnlyText({ name: "visualName", displayName: "Name", value: "AdminCartograph" });
+  visualVersion = new formattingSettings.ReadOnlyText({ name: "visualVersion", displayName: "Version", value: "1.0.0" });
+  visualAuthor = new formattingSettings.ReadOnlyText({ name: "visualAuthor", displayName: "Author", value: "Nabil ALJARMOZI · nabilmg@gmail.com" });
+  visualHome = new formattingSettings.ReadOnlyText({ name: "visualHome", displayName: "GitHub", value: "github.com/nabilaljarmozi/AdminCartograph" });
+
+  name = "about";
+  displayName = "16. About";
+  slices = [this.visualName, this.visualVersion, this.visualAuthor, this.visualHome];
+}
+
 class ControlsSettings extends FormattingSettingsCard {
   showZoom = new formattingSettings.ToggleSwitch({ name: "showZoom", displayName: "Show zoom buttons", value: false });
   showPan = new formattingSettings.ToggleSwitch({ name: "showPan", displayName: "Show pan buttons", value: false });
@@ -511,6 +533,9 @@ class LegendContainerSettings extends FormattingSettingsCard {
   headerColor = new formattingSettings.ColorPicker({ name: "headerColor", displayName: "Header color", value: { value: "#222222" } });
   headerBold = new formattingSettings.ToggleSwitch({ name: "headerBold", displayName: "Header bold", value: true });
   headerFontSize = new formattingSettings.NumUpDown({ name: "headerFontSize", displayName: "Header font size (px)", value: 0 });
+  itemColor = new formattingSettings.ColorPicker({ name: "itemColor", displayName: "Item label color", value: { value: "#1a1a1a" } });
+  itemFontSize = new formattingSettings.NumUpDown({ name: "itemFontSize", displayName: "Item font size (px)", value: 0 });
+  itemSwatchSize = new formattingSettings.NumUpDown({ name: "itemSwatchSize", displayName: "Pin / swatch size (px)", value: 0 });
   containerOrientation = new formattingSettings.ItemDropdown({
     name: "containerOrientation",
     displayName: "Container orientation",
@@ -523,7 +548,7 @@ class LegendContainerSettings extends FormattingSettingsCard {
 
   name = "legendContainer";
   displayName = "13. Legend container";
-  slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize, this.containerOrientation];
+  slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize, this.itemColor, this.itemFontSize, this.itemSwatchSize, this.containerOrientation];
 }
 
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
@@ -542,6 +567,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   controls = new ControlsSettings();
   legendContainer = new LegendContainerSettings();
   scaleBar = new ScaleBarSettings();
+  about = new AboutSettings();
 
   // Order matters: this is the order users see in the Power BI format pane.
   // Group from "what you see first" outward — map setup, then how the map is
@@ -571,6 +597,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.valuesLegend,
     this.legendContainer,
     this.scaleBar,
-    this.controls
+    this.controls,
+    this.about
   ];
 }
