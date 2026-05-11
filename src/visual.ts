@@ -1819,16 +1819,33 @@ export class Visual implements IVisual {
     // current dataView. Otherwise external slicers filtering down to
     // a subset of states (or one state) leave prev / next clicking
     // through to no-data polygons which then trigger the PCODE
-    // mismatch banner. Derive the in-scope state set from both
-    // prepared.filteredStatePcodes (when Admin1 PCODE is bound) and
-    // each Admin2 row's parent (when only Admin2 PCODE is bound).
+    // mismatch banner. The in-scope state set is built from three
+    // signals so it covers every binding combination:
+    //   1. prepared.filteredStatePcodes — populated when Admin1
+    //      PCODE is bound directly (any view mode).
+    //   2. Each prepared area's parent pcode — level-1 rows
+    //      contribute their own pcode, level-2 rows contribute
+    //      parentPcode when statePcode was bound in the same row.
+    //   3. Geometry-derived parent — when only Admin2 PCODE is
+    //      bound, parentPcode is undefined; falling back to the
+    //      child→parent map built from the country's Admin2
+    //      features fills the gap.
     const prepared = this.cached.prepared;
     const inData = new Set<string>();
     if (prepared.filteredStatePcodes) {
       prepared.filteredStatePcodes.forEach((p) => inData.add(p));
     }
+    const childToParent = new Map<string, string>();
+    const adm2 = this.cached.country.adm2;
+    if (adm2 && adm2.features) {
+      for (const f of adm2.features as any[]) {
+        const c = f.properties?.ADM2_PCODE;
+        const p = f.properties?.ADM1_PCODE;
+        if (c && p) childToParent.set(c, p);
+      }
+    }
     for (const a of prepared.areas.values()) {
-      const parent = a.level === 1 ? a.pcode : a.parentPcode;
+      const parent = a.level === 1 ? a.pcode : (a.parentPcode || childToParent.get(a.pcode));
       if (parent) inData.add(parent);
     }
     return feats
