@@ -73,6 +73,13 @@ export interface LegendInputs {
     headerColor: string;
     headerBold: boolean;
     headerFontSize: number;
+    /** Item-row styling (legend body, beneath the title). When
+     *  itemFontSize / itemSwatchSize are 0 each legend picks its own
+     *  size from the Size dropdown's SIZE_SCALE; positive values
+     *  pin them across every combined legend. */
+    itemColor: string;
+    itemFontSize: number;
+    itemSwatchSize: number;
     /** "vertical" stacks combined legends top-to-bottom (default).
      *  "horizontal" arranges them left-to-right so the container reads
      *  wide rather than tall — useful when many legends share a corner
@@ -82,7 +89,7 @@ export interface LegendInputs {
   };
 }
 
-const SIZE_SCALE: Record<LegendSize, number> = { small: 0.8, medium: 1.0, large: 1.2 };
+const SIZE_SCALE: Record<LegendSize, number> = { minimal: 0.6, small: 0.8, medium: 1.0, large: 1.2 };
 
 /** Outer footprint of the rendered legend container at a given corner,
  * including padding but excluding the corner margin. Returned so callers
@@ -142,6 +149,11 @@ export function renderLegends(
       bold: inputs.container.headerBold !== false,
       forceFontSize: inputs.container.headerFontSize > 0 ? inputs.container.headerFontSize : 0
     };
+    const itemStyle: ItemStyle = {
+      color: inputs.container.itemColor || "#1a1a1a",
+      forceFontSize: inputs.container.itemFontSize > 0 ? inputs.container.itemFontSize : 0,
+      forceSwatchSize: inputs.container.itemSwatchSize > 0 ? inputs.container.itemSwatchSize : 0
+    };
     // Values legend is the top of the stack — it explains the labels
     // (which sit on top of every other map layer), so it reads first.
     // Then glyph (charts on top of bubbles), bubble, and finally
@@ -150,22 +162,22 @@ export function renderLegends(
     const stack: SVGGElement[] = [];
     if (contents.values) {
       const sub = inner.append("g").attr("class", "legend-values-sub");
-      drawValuesLegend(sub, contents.values as any, 0, headerStyle);
+      drawValuesLegend(sub, contents.values as any, 0, headerStyle, itemStyle);
       stack.push(sub.node() as SVGGElement);
     }
     if (contents.glyph) {
       const sub = inner.append("g").attr("class", "legend-glyph-sub");
-      drawGlyphLegend(sub, contents.glyph as any, 0, headerStyle);
+      drawGlyphLegend(sub, contents.glyph as any, 0, headerStyle, itemStyle);
       stack.push(sub.node() as SVGGElement);
     }
     if (contents.bubble) {
       const sub = inner.append("g").attr("class", "legend-bubble-sub");
-      drawBubbleLegend(sub, contents.bubble as any, 0, headerStyle);
+      drawBubbleLegend(sub, contents.bubble as any, 0, headerStyle, itemStyle);
       stack.push(sub.node() as SVGGElement);
     }
     if (contents.value) {
       const sub = inner.append("g").attr("class", "legend-value-sub");
-      drawValueLegend(sub, contents.value as any, 0, headerStyle);
+      drawValueLegend(sub, contents.value as any, 0, headerStyle, itemStyle);
       stack.push(sub.node() as SVGGElement);
     }
     // Stack the sub-groups with an 8px gap. Vertical mode (default)
@@ -241,18 +253,25 @@ function approxTextWidth(text: string, fontSize: number): number {
  *  keeps the legacy auto-sized title; >0 pins every title to that
  *  pixel size. */
 interface HeaderStyle { color: string; bold: boolean; forceFontSize: number; }
+/** Body-row style for legend items. forceFontSize / forceSwatchSize
+ *  of 0 keep the legacy auto-sized values (each legend uses its own
+ *  Size dropdown's SIZE_SCALE); positive values pin them. */
+interface ItemStyle { color: string; forceFontSize: number; forceSwatchSize: number; }
+const DEFAULT_ITEM: ItemStyle = { color: "#1a1a1a", forceFontSize: 0, forceSwatchSize: 0 };
 
 /** Default header style — used when the renderer didn't pass one (older
  *  callers, tests). Matches the pre-feature look: dark text, bold,
  *  legend picks its own size. */
 const DEFAULT_HEADER: HeaderStyle = { color: "#222222", bold: true, forceFontSize: 0 };
 
-function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
+function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER, item: ItemStyle = DEFAULT_ITEM): number {
   const scaleFactor = SIZE_SCALE[glyph.size];
-  const fontSize = 11 * scaleFactor;
+  const autoFont = 11 * scaleFactor;
   const autoTitleSize = 12 * scaleFactor;
+  const autoSwatch = 12 * scaleFactor;
+  const fontSize = item.forceFontSize > 0 ? item.forceFontSize : autoFont;
   const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
-  const swatch = 12 * scaleFactor;
+  const swatch = item.forceSwatchSize > 0 ? item.forceSwatchSize : autoSwatch;
   const gap = 4;
 
   parent.append("text")
@@ -266,7 +285,7 @@ function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>,
     let x = 0;
     for (const it of glyph.items) {
       parent.append("rect").attr("x", x).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", it.color).attr("stroke", "#666").attr("stroke-width", 0.5);
-      parent.append("text").attr("x", x + swatch + 4).attr("y", y + swatch * 0.8).attr("font-size", fontSize).text(it.label);
+      parent.append("text").attr("x", x + swatch + 4).attr("y", y + swatch * 0.8).attr("font-size", fontSize).attr("fill", item.color).text(it.label);
       const colWidth = swatch + 4 + approxTextWidth(it.label, fontSize) + gap * 2;
       x += colWidth;
     }
@@ -274,17 +293,19 @@ function drawGlyphLegend(parent: any, glyph: NonNullable<LegendInputs["glyph"]>,
   }
   for (const it of glyph.items) {
     parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", it.color).attr("stroke", "#666").attr("stroke-width", 0.5);
-    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.8).attr("font-size", fontSize).text(it.label);
+    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.8).attr("font-size", fontSize).attr("fill", item.color).text(it.label);
     y += swatch + gap;
   }
   return y;
 }
 
-function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
+function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER, item: ItemStyle = DEFAULT_ITEM): number {
   const scale = SIZE_SCALE[value.size];
-  const swatch = 14 * scale;
-  const fontSize = 11 * scale;
+  const autoSwatch = 14 * scale;
+  const autoFont = 11 * scale;
   const autoTitleSize = 12 * scale;
+  const swatch = item.forceSwatchSize > 0 ? item.forceSwatchSize : autoSwatch;
+  const fontSize = item.forceFontSize > 0 ? item.forceFontSize : autoFont;
   const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
   const gap = 4;
 
@@ -295,6 +316,34 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     .text(value.title || "");
 
   let y = yStart + titleSize + 6;
+
+  // Minimal size — collapse to TWO swatches: first class with a "−"
+  // marker (lowest values) and last class with a "+" marker (highest).
+  // Skipped for categorical classes (label property is set) since
+  // there's no inherent "low / high" ordering.
+  const isMinimal = value.size === "minimal";
+  const hasNumericClasses = value.classes.length > 0 && value.classes.every((c) => c.label == null);
+  if (isMinimal && hasNumericClasses && value.classes.length >= 2) {
+    const first = value.classes[0];
+    const last = value.classes[value.classes.length - 1];
+    const markerFontWeight = "700";
+    if (value.orientation === "horizontal") {
+      let x = 0;
+      const colW = swatch + 6 + Math.ceil(fontSize * 0.9) + 10;
+      [{ c: first, mark: "−" }, { c: last, mark: "+" }].forEach(({ c, mark }) => {
+        parent.append("rect").attr("x", x).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+        parent.append("text").attr("x", x + swatch + 6).attr("y", y + swatch * 0.78).attr("font-size", fontSize).attr("font-weight", markerFontWeight).attr("fill", item.color).text(mark);
+        x += colW;
+      });
+      return y + swatch + 6;
+    }
+    [{ c: first, mark: "−" }, { c: last, mark: "+" }].forEach(({ c, mark }) => {
+      parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
+      parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.78).attr("font-size", fontSize).attr("font-weight", markerFontWeight).attr("fill", item.color).text(mark);
+      y += swatch + gap;
+    });
+    return y;
+  }
   // Class label resolution differs by layout. Horizontal shows ONE
   // value per swatch — for numeric modes that's the class's upper
   // bound only ('50' rather than '10 – 50'), since adjacent swatches
@@ -330,7 +379,7 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
         .attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
       parent.append("text")
         .attr("x", x + colWidth / 2).attr("y", y + swatch + fontSize + 2)
-        .attr("font-size", fontSize).attr("text-anchor", "middle")
+        .attr("font-size", fontSize).attr("text-anchor", "middle").attr("fill", item.color)
         .text(labels[i]);
       x += colWidth;
     }
@@ -338,7 +387,7 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
   }
   for (const c of value.classes) {
     parent.append("rect").attr("x", 0).attr("y", y).attr("width", swatch).attr("height", swatch).attr("fill", c.color).attr("stroke", "#666").attr("stroke-width", 0.5);
-    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize)
+    parent.append("text").attr("x", swatch + gap).attr("y", y + swatch * 0.75).attr("font-size", fontSize).attr("fill", item.color)
       .text(verticalLabelFor(c));
     y += swatch + gap;
   }
@@ -351,10 +400,11 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
  * value colour. Same layout family as the glyph legend (vertical or
  * horizontal). Empty rows (no measure name) are skipped.
  */
-function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
+function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER, item: ItemStyle = DEFAULT_ITEM): number {
   const scale = SIZE_SCALE[values.size];
-  const fontSize = 11 * scale;
+  const autoFont = 11 * scale;
   const autoTitleSize = 12 * scale;
+  const fontSize = item.forceFontSize > 0 ? item.forceFontSize : autoFont;
   const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
   const gap = 6;
 
@@ -383,7 +433,7 @@ function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"
         .text("#");
       parent.append("text")
         .attr("x", x + fontSize * 0.8 + 4).attr("y", y + fontSize)
-        .attr("font-size", fontSize)
+        .attr("font-size", fontSize).attr("fill", item.color)
         .text(it.label);
       // Approximate: # plus name width plus padding.
       x += fontSize * 0.8 + 4 + Math.max(40, (it.label.length * fontSize * 0.55)) + 14;
@@ -400,17 +450,18 @@ function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"
       .text("#");
     parent.append("text")
       .attr("x", fontSize * 0.8 + 4).attr("y", y + fontSize)
-      .attr("font-size", fontSize)
+      .attr("font-size", fontSize).attr("fill", item.color)
       .text(it.label);
     y += fontSize + gap;
   }
   return y;
 }
 
-function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER): number {
+function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER, item: ItemStyle = DEFAULT_ITEM): number {
   const scaleFactor = SIZE_SCALE[bubble.size];
-  const fontSize = 11 * scaleFactor;
+  const autoFont = 11 * scaleFactor;
   const autoTitleSize = 12 * scaleFactor;
+  const fontSize = item.forceFontSize > 0 ? item.forceFontSize : autoFont;
   const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
 
   parent.append("text")
@@ -419,10 +470,14 @@ function drawBubbleLegend(parent: any, bubble: NonNullable<LegendInputs["bubble"
     .attr("fill", header.color)
     .text(bubble.title || "");
 
-  if (bubble.orientation === "compact") {
+  // Minimal size forces the compact layout — just smallest and largest
+  // bubbles with their values, no intermediate. Matches the cramped
+  // canvas the user picks 'minimal' for.
+  const effectiveOrientation = bubble.size === "minimal" ? "compact" : bubble.orientation;
+  if (effectiveOrientation === "compact") {
     return drawBubbleLegendCompact(parent, bubble, yStart + titleSize + 8, fontSize);
   }
-  if (bubble.orientation === "horizontal") {
+  if (effectiveOrientation === "horizontal") {
     return drawBubbleLegendHorizontal(parent, bubble, yStart + titleSize + 8, fontSize);
   }
   return drawBubbleLegendVertical(parent, bubble, yStart + titleSize + 8, fontSize);
