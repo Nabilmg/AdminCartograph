@@ -228,12 +228,29 @@ export function renderLegends(
     // vertical edges.
     const sbHeight = scaleBarFootprints?.[position as Position]?.height || 0;
     const sbOffset = sbHeight ? sbHeight + 8 : 0;
+    // Helper anchors: left / centre / right for x, and top / middle /
+    // bottom for y. Centre positions land the legend's centre on the
+    // viewport centre, with bbox-correction so the visible content
+    // (not just the layout origin) lines up.
+    const xLeft = margin - bbox.x + pad;
+    const xRight = inputs.width - margin - totalW - bbox.x + pad;
+    const xCentre = (inputs.width - totalW) / 2 - bbox.x + pad;
+    const yTop = margin - bbox.y + pad + sbOffset;
+    const yBottom = inputs.height - margin - totalH - bbox.y + pad - sbOffset;
+    const yMiddle = (inputs.height - totalH) / 2 - bbox.y + pad;
     let dx = 0;
     let dy = 0;
-    if (position === "topLeft") { dx = margin - bbox.x + pad; dy = margin - bbox.y + pad + sbOffset; }
-    else if (position === "topRight") { dx = inputs.width - margin - totalW - bbox.x + pad; dy = margin - bbox.y + pad + sbOffset; }
-    else if (position === "bottomLeft") { dx = margin - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad - sbOffset; }
-    else { dx = inputs.width - margin - totalW - bbox.x + pad; dy = inputs.height - margin - totalH - bbox.y + pad - sbOffset; }
+    switch (position) {
+      case "topLeft":      dx = xLeft;   dy = yTop;    break;
+      case "topRight":     dx = xRight;  dy = yTop;    break;
+      case "bottomLeft":   dx = xLeft;   dy = yBottom; break;
+      case "bottomRight":  dx = xRight;  dy = yBottom; break;
+      case "topCenter":    dx = xCentre; dy = yTop;    break;
+      case "bottomCenter": dx = xCentre; dy = yBottom; break;
+      case "leftCenter":   dx = xLeft;   dy = yMiddle; break;
+      case "rightCenter":  dx = xRight;  dy = yMiddle; break;
+      default:             dx = xRight;  dy = yBottom; break;
+    }
     group.attr("transform", `translate(${dx},${dy})`);
     footprints[position as Position] = { width: totalW, height: totalH };
   }

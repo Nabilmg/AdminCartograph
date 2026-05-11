@@ -9,7 +9,7 @@ import FormattingSettingsCard = formattingSettings.SimpleCard;
 import FormattingSettingsModel = formattingSettings.Model;
 
 export type ViewMode = "auto" | "states" | "localities";
-export type Position = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+export type Position = "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "topCenter" | "bottomCenter" | "leftCenter" | "rightCenter";
 export type LegendSize = "minimal" | "small" | "medium" | "large";
 export type LabelContent = "name" | "value" | "name_value";
 export type LabelFormat = "auto" | "thousands" | "millions" | "percent";
@@ -303,8 +303,12 @@ class GlyphLegendSettings extends FormattingSettingsCard {
     displayName: "Position",
     items: [
       { value: "topLeft", displayName: "Top left" },
+      { value: "topCenter", displayName: "Top centre" },
       { value: "topRight", displayName: "Top right" },
+      { value: "leftCenter", displayName: "Left centre" },
+      { value: "rightCenter", displayName: "Right centre" },
       { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomCenter", displayName: "Bottom centre" },
       { value: "bottomRight", displayName: "Bottom right" }
     ],
     value: { value: "topRight", displayName: "Top right" }
@@ -349,8 +353,12 @@ class ValuesLegendSettings extends FormattingSettingsCard {
     displayName: "Position",
     items: [
       { value: "topLeft", displayName: "Top left" },
+      { value: "topCenter", displayName: "Top centre" },
       { value: "topRight", displayName: "Top right" },
+      { value: "leftCenter", displayName: "Left centre" },
+      { value: "rightCenter", displayName: "Right centre" },
       { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomCenter", displayName: "Bottom centre" },
       { value: "bottomRight", displayName: "Bottom right" }
     ],
     value: { value: "topLeft", displayName: "Top left" }
@@ -389,8 +397,12 @@ class ValueLegendSettings extends FormattingSettingsCard {
     displayName: "Position",
     items: [
       { value: "topLeft", displayName: "Top left" },
+      { value: "topCenter", displayName: "Top centre" },
       { value: "topRight", displayName: "Top right" },
+      { value: "leftCenter", displayName: "Left centre" },
+      { value: "rightCenter", displayName: "Right centre" },
       { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomCenter", displayName: "Bottom centre" },
       { value: "bottomRight", displayName: "Bottom right" }
     ],
     value: { value: "bottomRight", displayName: "Bottom right" }
@@ -431,8 +443,12 @@ class BubbleLegendSettings extends FormattingSettingsCard {
     displayName: "Position",
     items: [
       { value: "topLeft", displayName: "Top left" },
+      { value: "topCenter", displayName: "Top centre" },
       { value: "topRight", displayName: "Top right" },
+      { value: "leftCenter", displayName: "Left centre" },
+      { value: "rightCenter", displayName: "Right centre" },
       { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomCenter", displayName: "Bottom centre" },
       { value: "bottomRight", displayName: "Bottom right" }
     ],
     value: { value: "bottomLeft", displayName: "Bottom left" }
