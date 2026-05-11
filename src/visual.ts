@@ -872,7 +872,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; labelText: string | null; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -881,16 +881,22 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), labelText: null, sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
       if (a.labelValue2 != null) acc.label2 = (acc.label2 ?? 0) + a.labelValue2;
+      // First non-empty Label Text 1 value across this state's child
+      // rows wins. In typical datasets the Admin1 alias is duplicated
+      // across every Admin2 row of a state, so 'first wins' is stable
+      // and predictable. If a state has multiple distinct overrides,
+      // the user can bind Admin1 PCODE directly to disambiguate.
+      if (!acc.labelText && a.labelText1) acc.labelText = a.labelText1;
       // For categorical mode: tally each child's raw category value so
       // the rolled-up Admin1 can adopt the mode (most-common category).
       if (a.colorValueRaw != null && a.colorValueRaw !== "") {
-        const key = String(a.colorValueRaw);
-        acc.rawTally.set(key, (acc.rawTally.get(key) || 0) + 1);
+        const k = String(a.colorValueRaw);
+        acc.rawTally.set(k, (acc.rawTally.get(k) || 0) + 1);
       }
       // Sum glyph categories index-wise so the rolled-up Admin1 carries the
       // same number of segments as the source Admin2 areas.
@@ -923,7 +929,7 @@ export class Visual implements IVisual {
         bubbleSize: acc.bubble,
         glyphValues: acc.glyph,
         labelValue2: acc.label2,
-        labelText1: null,
+        labelText1: acc.labelText,
         tooltips: [],
         selectionId: acc.sample.selectionId,
         highlighted: acc.sample.highlighted
@@ -1309,7 +1315,7 @@ export class Visual implements IVisual {
           return {
             feature: f,
             pcode: f.properties.ADM1_PCODE,
-            name: (datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            name: (f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
             nameOverride: datum?.labelText1 ?? null,
             value: datum?.colorValue ?? null,
             value2: datum?.labelValue2 ?? null,
@@ -1363,7 +1369,7 @@ export class Visual implements IVisual {
           return {
             feature: f,
             pcode: f.properties.ADM1_PCODE,
-            name: (datum?.name || f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
+            name: (f.properties.ADM1_EN || f.properties.ADM1_PCODE) as string,
             nameOverride: datum?.labelText1 ?? null,
             value: datum?.colorValue ?? null,
             value2: datum?.labelValue2 ?? null,
@@ -1406,7 +1412,7 @@ export class Visual implements IVisual {
         return {
           feature: f,
           pcode: f.properties.ADM2_PCODE,
-          name: (datum?.name || f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
+          name: (f.properties.ADM2_EN || f.properties.ADM2_PCODE) as string,
           nameOverride: datum?.labelText1 ?? null,
           value: datum?.colorValue ?? null,
           value2: datum?.labelValue2 ?? null,
@@ -1624,7 +1630,7 @@ export class Visual implements IVisual {
     const name = (
       nameSource === "labelText1" && datum?.labelText1
         ? datum.labelText1
-        : (datum?.name || feature.properties.ADM1_EN || feature.properties.ADM1_PCODE)
+        : (feature.properties.ADM1_EN || feature.properties.ADM1_PCODE)
     ) as string;
 
     // Decode value source the same way as on-polygon labels: each source
