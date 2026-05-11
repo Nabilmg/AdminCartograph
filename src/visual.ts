@@ -1328,13 +1328,15 @@ export class Visual implements IVisual {
         const neighborStyle = isDrill
           ? { ...baseStyle, allowOverrun: false, hideOnOverflow: true, content: "name" as const }
           : baseStyle;
-        // In drill view, also bias neighbour anchors toward the focused
-        // state so their labels sit near the shared border instead of
-        // at each neighbour's interior centroid (which is often off-canvas).
-        let neighborOverrides = view === "states" ? labelOverrides : undefined;
-        if (isDrill) {
-          neighborOverrides = this.buildNeighborLabelOverrides(adm1Visible, this.drilledStatePcode!, projection);
-        }
+        // Drill view: leave neighbour anchors at each polygon's own
+        // centroid (computed by pickAnchor / the centroid-with-
+        // polylabel-fallback strategy). The earlier 70%-toward-the-
+        // focused-state bias pushed labels too close to the focused
+        // polygon — visually crowding it and making it hard to tell
+        // which neighbour owned which label. Centroid placement
+        // reads cleaner even when some labels fall outside the
+        // visible viewport for narrow / off-canvas neighbours.
+        const neighborOverrides = view === "states" ? labelOverrides : undefined;
         // Projected outer ring of the focused state (largest part for
         // multi-polygon features). renderLabels drops a neighbour
         // label only when its anchor lies *inside* this polygon —
