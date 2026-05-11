@@ -1629,7 +1629,11 @@ export class Visual implements IVisual {
 
     // Decode value source the same way as on-polygon labels: each source
     // contributes its own line in display order (choropleth → bubble →
-    // custom). Custom only renders when Label Value 2 is bound.
+    // custom). Custom only renders when Label Value 2 is bound. Each
+    // value line is prefixed with the bound measure's display name —
+    // 'Cases: 1.2M' rather than a bare '1.2M' — since the pill is the
+    // user's primary readout for the drilled state and needs to be
+    // self-explanatory without a separate legend.
     const valueColor = card.valueColor.value.value;
     const bubbleValueColor = card.bubbleValueColor?.value?.value || "#e6550d";
     const customValueColor = card.customValueColor?.value?.value || "#0f766e";
@@ -1639,11 +1643,13 @@ export class Visual implements IVisual {
       bubble: source === "bubble" || source === "both" || source === "bubble_custom" || source === "all",
       custom: source === "custom" || source === "choropleth_custom" || source === "bubble_custom" || source === "all"
     };
+    const prepared = this.currentDataView;
+    const prefix = (n: string | undefined): string => (n && n.trim() ? `${n}: ` : "");
     type NumericPair = { text: string; color: string };
     const numericRows: NumericPair[] = [];
-    if (wants.choropleth && datum?.colorValue != null) numericRows.push({ text: this.fmt(datum.colorValue, fmtCard), color: valueColor });
-    if (wants.bubble && datum?.bubbleSize != null) numericRows.push({ text: this.fmt(datum.bubbleSize, fmtCard), color: bubbleValueColor });
-    if (wants.custom && datum?.labelValue2 != null) numericRows.push({ text: this.fmt(datum.labelValue2, fmtCard), color: customValueColor });
+    if (wants.choropleth && datum?.colorValue != null) numericRows.push({ text: `${prefix(prepared?.colorValueColumn?.displayName)}${this.fmt(datum.colorValue, fmtCard)}`, color: valueColor });
+    if (wants.bubble && datum?.bubbleSize != null) numericRows.push({ text: `${prefix(prepared?.bubbleSizeColumn?.displayName)}${this.fmt(datum.bubbleSize, fmtCard)}`, color: bubbleValueColor });
+    if (wants.custom && datum?.labelValue2 != null) numericRows.push({ text: `${prefix(prepared?.labelValue2Column?.displayName)}${this.fmt(datum.labelValue2, fmtCard)}`, color: customValueColor });
 
     type HeaderLine = { text: string; kind: "name" | "value"; color: string };
     const headerLines: HeaderLine[] = [];
@@ -1665,12 +1671,16 @@ export class Visual implements IVisual {
     const lineColors = headerLines.map((hl) => hl.color);
     (lines as any).__colors = lineColors;
 
-    // Drill pill should read like a screen title: clearly larger than the
-    // surrounding labels even when the user's Admin1 label font size is
-    // small. Floor at 20 px for the name; values render at 0.85x to keep
-    // the hierarchy clear.
-    const titleFontSize = Math.max(card.fontSize.value + 6, 20);
-    const valueFontSize = Math.round(titleFontSize * 0.85);
+    // Drill pill scales with the visual's viewport — ~4% of the
+    // smaller dimension, floored at 14 px and capped at 36 px. The
+    // user's Admin1 label font size + 4 is treated as the minimum so
+    // a deliberately large card setting still wins. Value font is
+    // half the title so the hierarchy reads at a glance even on
+    // small visuals (200 px wide → ~14 px title, 7 px value).
+    const minSide = Math.min(this.viewportW || width, this.viewportH || 600);
+    const baseTitle = Math.max(card.fontSize.value + 4, minSide * 0.04);
+    const titleFontSize = Math.round(Math.max(14, Math.min(36, baseTitle)));
+    const valueFontSize = Math.max(8, Math.round(titleFontSize / 2));
 
     const baseX = 8;
     const baseY = 44;
@@ -2517,6 +2527,12 @@ export class Visual implements IVisual {
     const labelCard = view === "localities"
       ? (drilled ? this.settings.drillLocalityLabels : this.settings.localityLabels)
       : this.settings.stateLabels;
+    // Skip the legend entirely when the active label card hides its
+    // value lines — content === 'name' means no value text is drawn
+    // anywhere on the map, so listing # swatches for measures the
+    // user can't see would just confuse the reader.
+    const content: string = (labelCard.content?.value as any)?.value || "name_value";
+    if (content === "name") return undefined;
     const source: string = (labelCard.valueSource?.value as any)?.value || "choropleth";
     const want = {
       choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
