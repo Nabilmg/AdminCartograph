@@ -378,17 +378,20 @@ function drawValueLegend(parent: any, value: NonNullable<LegendInputs["value"]>,
     return c.from === c.to ? fromTxt : `${fromTxt} – ${toTxt}`;
   };
   if (value.orientation === "horizontal") {
-    // Width each column to fit the longest label so adjacent labels don't
-    // overlap. Numeric class labels (e.g. "5.4M") are wider than the 14 px
-    // swatch, so the previous fixed swatch+gap stride was wrong.
+    // Per-item column width based on each label's actual width.
+    // Earlier we used max(swatch, longestLabel) for every column,
+    // which padded every entry to the widest one — fine when all
+    // labels were similar numeric strings ('5.4M', '8.1M'), but
+    // a disaster for categorical labels of varying lengths
+    // ('Good Coverage', 'No Coverage', 'Moderate Coverage'…)
+    // where the legend bled past the visual edge and clipped both
+    // ends. Each column now fits its own label only.
     const labels = value.classes.map((c) => horizontalLabelFor(c));
-    const maxLabelWidth = labels.reduce((m, t) => Math.max(m, approxTextWidth(t, fontSize)), 0);
-    const colWidth = Math.max(swatch, maxLabelWidth) + gap * 2;
+    const colWidths = labels.map((t) => Math.max(swatch, approxTextWidth(t, fontSize)) + gap * 2);
     let x = 0;
     for (let i = 0; i < value.classes.length; i++) {
       const c = value.classes[i];
-      // Centre the swatch inside its column so swatches align with their
-      // labels even when the column is wider than the swatch.
+      const colWidth = colWidths[i];
       const swatchX = x + (colWidth - swatch) / 2;
       parent.append("rect")
         .attr("x", swatchX).attr("y", y)
