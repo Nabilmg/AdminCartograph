@@ -393,6 +393,11 @@ export class Visual implements IVisual {
       }
     }
 
+    // Override the canonical ADM1_PCODE / ADM2_PCODE on each feature
+    // with the user-chosen join property before any rendering reads
+    // them. Originals are stashed under __orig*_PCODE so toggling the
+    // chosen field stays reversible across renders.
+    this.applyJoinKeys(country);
     this.cached = { country, prepared, width, height };
     // Filter-driven drill is an Auto-mode behaviour. When the user has
     // explicitly picked "Admin1" or "Admin2" from the View Mode dropdown,
@@ -867,6 +872,47 @@ export class Visual implements IVisual {
    * geometry's ADM1_PCODE property so we don't rely on PCODE-prefix
    * heuristics that vary by country.
    */
+  /**
+   * Apply the user-chosen geometry-join fields. Default is the
+   * canonical ADM1_PCODE / ADM2_PCODE; users can flip to ADM1_EN /
+   * ADM2_EN, or any custom property on a custom-uploaded topojson,
+   * via the Admin1 link field / Admin2 link field text inputs on
+   * the Map setup card. Once applied, every renderer downstream
+   * keeps reading f.properties.ADM*_PCODE — the property value now
+   * holds whatever field the user picked, so the lookup goes
+   * through that key transparently.
+   *
+   * Originals are stashed under __origADM1_PCODE / __origADM2_PCODE
+   * on first apply so subsequent renders can recover them when the
+   * user changes their mind. Parent-of-Admin2 stays consistent with
+   * the Admin1 link choice via __origParentAdm1.
+   */
+  private applyJoinKeys(country: CountryGeometry): void {
+    const k1 = (this.settings?.general?.admin1LinkField?.value || "").trim() || "ADM1_PCODE";
+    const k2 = (this.settings?.general?.admin2LinkField?.value || "").trim() || "ADM2_PCODE";
+    if (country.adm1?.features) {
+      for (const f of country.adm1.features as any[]) {
+        const p = f.properties;
+        if (!p) continue;
+        if (p.__origADM1_PCODE === undefined) p.__origADM1_PCODE = p.ADM1_PCODE;
+        const src = k1 in p ? p[k1] : p.__origADM1_PCODE;
+        p.ADM1_PCODE = src;
+      }
+    }
+    if (country.adm2?.features) {
+      for (const f of country.adm2.features as any[]) {
+        const p = f.properties;
+        if (!p) continue;
+        if (p.__origADM2_PCODE === undefined) p.__origADM2_PCODE = p.ADM2_PCODE;
+        if (p.__origParentAdm1 === undefined) p.__origParentAdm1 = p.ADM1_PCODE;
+        const src2 = k2 in p ? p[k2] : p.__origADM2_PCODE;
+        p.ADM2_PCODE = src2;
+        const srcParent = k1 in p ? p[k1] : p.__origParentAdm1;
+        p.ADM1_PCODE = srcParent;
+      }
+    }
+  }
+
   private aggregateToStates(prepared: PreparedDataView, country: CountryGeometry): Map<string, AreaDatum> {
     // Build adm2 -> adm1 lookup from the country's geometry once.
     const childToParent = new Map<string, string>();
