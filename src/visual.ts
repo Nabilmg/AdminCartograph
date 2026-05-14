@@ -393,10 +393,14 @@ export class Visual implements IVisual {
       }
     }
 
-    // Override the canonical ADM1_PCODE / ADM2_PCODE on each feature
-    // with the user-chosen join property before any rendering reads
-    // them. Originals are stashed under __orig*_PCODE so toggling the
-    // chosen field stays reversible across renders.
+    // Refresh the Admin1 / Admin2 link-field dropdown items based
+    // on the actual property names found on the loaded country's
+    // features, then apply the user-chosen join field. Order
+    // matters: dropdown items first so the format-pane reflects
+    // the geometry, then applyJoinKeys uses whatever the user has
+    // selected (the new options become available next time they
+    // open the format pane).
+    this.refreshLinkFieldOptions(country);
     this.applyJoinKeys(country);
     this.cached = { country, prepared, width, height };
     // Filter-driven drill is an Auto-mode behaviour. When the user has
@@ -887,9 +891,73 @@ export class Visual implements IVisual {
    * user changes their mind. Parent-of-Admin2 stays consistent with
    * the Admin1 link choice via __origParentAdm1.
    */
+  /**
+   * Populate the Admin1 / Admin2 link-field dropdowns with property
+   * names actually present on the loaded country's features. The
+   * canonical OCHA fields (ADM1_PCODE / ADM2_PCODE, ADM1_EN /
+   * ADM2_EN) always come first so the dropdown reads in a stable
+   * order even when the geometry has dozens of properties; anything
+   * else discovered on the features comes after, alphabetically.
+   *
+   * Run before applyJoinKeys() — by which point the user's persisted
+   * value is already populated on the slice, so the dropdown's
+   * current value stays correct as long as the chosen field still
+   * exists in the new geometry. If the geometry changed and the
+   * previously selected field is gone, the slice's value is left
+   * as-is (the format pane will simply show no selected item until
+   * the user re-picks).
+   */
+  private refreshLinkFieldOptions(country: CountryGeometry): void {
+    const collect = (features: any[] | undefined): string[] => {
+      if (!features) return [];
+      const set = new Set<string>();
+      for (const f of features as any[]) {
+        const p = f && f.properties;
+        if (!p) continue;
+        for (const key of Object.keys(p)) {
+          if (key.startsWith("__")) continue; // skip our backup props
+          set.add(key);
+        }
+      }
+      return Array.from(set);
+    };
+    const orderItems = (canonical: string[], discovered: string[]): { value: string; displayName: string }[] => {
+      const seen = new Set<string>();
+      const out: { value: string; displayName: string }[] = [];
+      const labelFor = (key: string): string => {
+        if (key === "ADM1_PCODE" || key === "ADM2_PCODE") return `${key} (default)`;
+        if (key === "ADM1_EN" || key === "ADM2_EN") return `${key} (name)`;
+        return key;
+      };
+      for (const k of canonical) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push({ value: k, displayName: labelFor(k) });
+      }
+      const rest = discovered.filter((k) => !seen.has(k)).sort((a, b) => a.localeCompare(b));
+      for (const k of rest) {
+        out.push({ value: k, displayName: labelFor(k) });
+      }
+      return out;
+    };
+
+    const adm1Items = orderItems(["ADM1_PCODE", "ADM1_EN"], collect(country.adm1?.features));
+    const adm2Items = orderItems(["ADM2_PCODE", "ADM2_EN"], collect(country.adm2?.features));
+    // formattingSettings.ItemDropdown's items field is mutated in
+    // place — getFormattingModel() reads it directly when the user
+    // opens the format pane, so the new options show up without a
+    // model rebuild.
+    if (this.settings?.general?.admin1LinkField) {
+      (this.settings.general.admin1LinkField as any).items = adm1Items;
+    }
+    if (this.settings?.general?.admin2LinkField) {
+      (this.settings.general.admin2LinkField as any).items = adm2Items;
+    }
+  }
+
   private applyJoinKeys(country: CountryGeometry): void {
-    const k1 = (this.settings?.general?.admin1LinkField?.value || "").trim() || "ADM1_PCODE";
-    const k2 = (this.settings?.general?.admin2LinkField?.value || "").trim() || "ADM2_PCODE";
+    const k1 = ((this.settings?.general?.admin1LinkField?.value as any)?.value || "").toString().trim() || "ADM1_PCODE";
+    const k2 = ((this.settings?.general?.admin2LinkField?.value as any)?.value || "").toString().trim() || "ADM2_PCODE";
     if (country.adm1?.features) {
       for (const f of country.adm1.features as any[]) {
         const p = f.properties;
