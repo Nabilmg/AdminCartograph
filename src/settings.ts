@@ -55,29 +55,6 @@ class GeneralSettings extends FormattingSettingsCard {
   hideMapChrome = new formattingSettings.ToggleSwitch({ name: "hideMapChrome", displayName: "Hide map chrome", value: false });
   admin1Alias = new formattingSettings.TextInput({ name: "admin1Alias", displayName: "Admin1 alias", placeholder: "Admin 1 / Governorate / State…", value: "" });
   admin2Alias = new formattingSettings.TextInput({ name: "admin2Alias", displayName: "Admin2 alias", placeholder: "Admin 2 / District / Locality…", value: "" });
-  admin1LinkField = new formattingSettings.ItemDropdown({
-    name: "admin1LinkField",
-    displayName: "Admin1 link field",
-    // Items are populated dynamically in update() once the country
-    // geometry is loaded — see Visual.refreshLinkFieldOptions. The
-    // initial fallback list covers the canonical OCHA properties so
-    // the dropdown still shows something useful before any country
-    // is picked.
-    items: [
-      { value: "ADM1_PCODE", displayName: "ADM1_PCODE (default)" },
-      { value: "ADM1_EN", displayName: "ADM1_EN (name)" }
-    ],
-    value: { value: "ADM1_PCODE", displayName: "ADM1_PCODE (default)" }
-  });
-  admin2LinkField = new formattingSettings.ItemDropdown({
-    name: "admin2LinkField",
-    displayName: "Admin2 link field",
-    items: [
-      { value: "ADM2_PCODE", displayName: "ADM2_PCODE (default)" },
-      { value: "ADM2_EN", displayName: "ADM2_EN (name)" }
-    ],
-    value: { value: "ADM2_PCODE", displayName: "ADM2_PCODE (default)" }
-  });
   background = new formattingSettings.ColorPicker({ name: "background", displayName: "Background color", value: { value: "#ffffff" } });
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
@@ -85,7 +62,7 @@ class GeneralSettings extends FormattingSettingsCard {
   displayName = "1. Map setup";
   // Hidden custom* slices live alongside the visible ones so the
   // formatting service round-trips them through host.persistProperties.
-  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.admin1LinkField, this.admin2LinkField, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
+  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
 }
 
 class ChoroplethSettings extends FormattingSettingsCard {
