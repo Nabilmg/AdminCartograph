@@ -136,6 +136,16 @@
           "description": "Override the 'Admin2' label in tooltips with your own term — e.g. District, Locality, County, Municipality. Empty = use 'Admin2'.",
           "type": { "text": true }
         },
+        "admin1LinkField": {
+          "displayName": "Admin1 link field",
+          "description": "Geometry property used to join your Admin1 PCODE data column to polygons. Default 'ADM1_PCODE'. Type any property name available on your topojson features — e.g. 'ADM1_EN' to join on state names instead of codes, or a custom field like 'STATE_ID' from a custom-uploaded geometry.",
+          "type": { "text": true }
+        },
+        "admin2LinkField": {
+          "displayName": "Admin2 link field",
+          "description": "Geometry property used to join your Admin2 PCODE data column to polygons. Default 'ADM2_PCODE'. Same idea as Admin1 link field — switch to 'ADM2_EN' to join on locality names, or any custom property in your geometry.",
+          "type": { "text": true }
+        },
         "background": {
           "displayName": "Background color",
           "type": { "fill": { "solid": { "color": true } } }
