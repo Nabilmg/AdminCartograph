@@ -45,7 +45,7 @@
     {
       "displayName": "Tooltips",
       "name": "tooltips",
-      "kind": "Measure",
+      "kind": "GroupingOrMeasure",
       "description": "Extra fields shown in the tooltip."
     }
   ],
@@ -69,7 +69,7 @@
             { "bind": { "to": "bubbleSize" } },
             { "bind": { "to": "labelValue2" } },
             { "for": { "in": "glyphValues" } },
-            { "bind": { "to": "tooltips" } }
+            { "for": { "in": "tooltips" } }
           ]
         }
       }
