@@ -3,6 +3,10 @@
 Five minutes from "I have a `.pbiviz` file" to "my map is rendering
 in Power BI Desktop with my data".
 
+> Looking for the longer step-by-step including Power BI Service,
+> permission-errors, and the troubleshooting checklist? See
+> [Install and Use](Install-and-Use.md).
+
 ## What you need
 
 | Thing | Why |

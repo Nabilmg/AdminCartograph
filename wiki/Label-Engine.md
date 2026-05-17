@@ -338,19 +338,38 @@ same routine.
 In Admin2 drill view, the focused state's label is promoted to a
 header pill anchored top-left (using the `Admin1 labels` card's
 formatting). The other Admin1 areas around it still get on-polygon
-labels, but with two adjustments:
+labels, with these adjustments:
 
-1. Anchored 70% of the way from the polygon's centroid toward the
-   boundary closest to the focused state — so the label sits near
-   the shared border instead of the polygon's centre (which is
-   often off-canvas).
-2. Rendered with `hideOnOverflow: true` and `allowOverrun: false`,
-   so a label that can't fit at any size disappears entirely
-   rather than spilling onto the focused state.
+1. **Anchored at the polygon's own centroid** (same as country view).
+   An earlier build biased the anchor 70 % toward the focused
+   state's shared border, but users found that labels landed
+   uncomfortably close to the focused state, making the focused /
+   neighbour split hard to read. The bias was reverted — neighbour
+   labels now sit at their natural centre.
+2. **Name-only** content. Even if the Admin1 labels card has
+   *Content* set to *Name + Value*, value lines are stripped from
+   neighbour labels in drill view (per-neighbour values are noise
+   when there's a single focused state — its values show in the
+   pill).
+3. **Forbidden polygon = the focused state.** A neighbour label
+   whose anchor would land inside the focused polygon is dropped
+   entirely rather than spilling onto it. Labels at the shared
+   border with anchors in their own polygon stay visible.
+4. Rendered with `hideOnOverflow: true` and `allowOverrun: false`,
+   so a label that can't fit at any size disappears rather than
+   overrunning a neighbour boundary.
 
 Plus the neighbour-labels group as a whole renders at 55% opacity
 (neighbour Admin1 borders dim to 35%), so the focused state reads
 as the foreground.
+
+### Name source is honored everywhere
+
+The **Name source** dropdown (Geometry name / Label Text 1 override)
+applies in *every* view — country, all-Admin2, and drill. An earlier
+build silently used Label Text 1 when bound, regardless of the
+dropdown; now the dropdown's choice wins, and binding Label Text 1
+without picking it from the dropdown is an explicit no-op.
 
 ## Title pill (drill view, top-left)
 

@@ -12,6 +12,8 @@ manual.
 
 ## Start here
 
+- [**Install and Use**](Install-and-Use.md) — start-to-finish: download
+  the `.pbiviz`, import into Desktop / Service, bind data, render
 - [**Getting Started**](Getting-Started.md) — install, import, render
   your first map in 5 minutes
 - [**Quick-Start Tutorial**](Quick-Start-Tutorial.md) — step-by-step
@@ -51,6 +53,8 @@ manual.
   Bubble, Pie/Column, **Values**, Container
 - [**14. Scale Bar**](Scale-Bar.md)
 - [**15. Map Controls**](Map-Controls-and-Navigation.md)
+- **16. About** — visual version + author info (read-only card at the
+  bottom of the format pane)
 
 ## Behaviours
 
