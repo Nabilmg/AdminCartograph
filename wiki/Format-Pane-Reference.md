@@ -1,7 +1,7 @@
 # Format Pane Reference
 
 Master index of every formatting card in AdminCartograph. The cards
-are numbered 1–14 in the format pane so you can walk top-down.
+are numbered 1–16 in the format pane so you can walk top-down.
 
 This page summarises each card and links to detailed pages where they
 deserve their own deep dive.
@@ -23,11 +23,12 @@ deserve their own deep dive.
 | 13 | Legend container | Shared frame styling, header style, vertical / horizontal stacking | [Legend System](Legend-System.md#legend-container-13) |
 | 14 | Scale bar | Distance bar in km / miles | [Scale Bar](Scale-Bar.md) |
 | 15 | Map controls | Zoom / pan / SVG export buttons | [Map Controls and Navigation](Map-Controls-and-Navigation.md) |
+| 16 | About | Visual version + author (read-only) | — |
 
 ## Format pane mechanics
 
 Power BI's format pane is the right-hand panel that appears when a
-visual is selected. AdminCartograph contributes its 14 cards under
+visual is selected. AdminCartograph contributes its 16 cards under
 the **Format your visual** tab (paint roller icon).
 
 Each card has a header that toggles open/closed. Inside, **slices**
@@ -83,6 +84,15 @@ and `capabilities.json`. To rebrand:
 Internal property names (the keys of the `objects` block in
 `capabilities.json`) should stay stable so existing reports retain
 their persisted formatting after an upgrade.
+
+## About card (#16)
+
+The bottom-most card is **About**, a read-only set of text slices
+listing the visual's version, the author's name and contact, the
+GitHub repository, and a brief description. It has no editable
+settings — it's a footer for "what visual am I looking at?" The
+card has no #16 prefix on the heading itself (only in the
+in-pane order).
 
 ## See also
 

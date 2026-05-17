@@ -81,15 +81,34 @@ copy it manually, you know it worked.
 The cloned SVG captures **every child of the visual's root `<svg>`** —
 so the exported file contains:
 
-- Country outer glow + choropleth fills (`map-group → glow-layer / adm2-layer / adm1-layer`)
+- Choropleth fills (`map-group → adm2-layer / adm1-layer`)
 - Bubbles, glyph charts, labels (`bubble-layer / glyph-layer / adm[12]-label-layer`)
 - Scale bar (`scale-bar-layer`)
 - All legends — choropleth, bubble, pie / column, **values** (`legend-layer`)
 - Drill title pill in drill view (`drill-pill-layer`)
 
-The HTML overlay items — *Country View* back-bar, +/- controls
-panel, mismatch banner, custom-upload card — live outside the
-SVG and are intentionally excluded since they're interactive
+### Export-only adjustments
+
+A few things in the live visual are altered or stripped when
+building the export clone (the live SVG itself is not touched):
+
+- **Country outer glow layer removed.** The soft outer glow around
+  the country outline looks great on-screen but bloats SVGs with
+  Gaussian-blur filters that some editors choke on. The cloned
+  `.country-glow-layer` is deleted before serialisation.
+- **Label halos thinned.** Label halo `stroke-width` is pinned to
+  `0.3 px` in the clone. The on-screen halo can be much thicker for
+  legibility, but a thick halo in a vector editor often hides the
+  glyph it's protecting. Hair-thin halos read better at print
+  resolution.
+- **Drill title pill made visible.** The pill carries
+  `display:none` in the live SVG when the host viewport hides it
+  (small mode), but the inlined CSS is removed in the clone so the
+  pill always exports if it has content.
+
+The HTML overlay items — top bar with home / prev / next, +/-
+controls panel, mismatch banner, custom-upload card — live outside
+the SVG and are intentionally excluded since they're interactive
 chrome rather than data.
 
 ## Saving the SVG to a file

@@ -199,9 +199,23 @@ where `step = (max - min) / N`.
 For the Automatic ramp, the visual blends linearly between white
 and the base colour at `t = (i + 1) / N` for each class.
 
+## Horizontal legend spacing
+
+When the choropleth legend's orientation is **Horizontal**, swatches
+sit in a row with their values labelled beneath. The visual sizes
+each column to its **own** label width rather than to the longest
+label of all classes — a short class like `< 10` no longer occupies
+the same width as a long one like `5,000,000+`. This keeps the
+legend compact and avoids the wide-spaced look in legends that mix
+short and long ranges.
+
+In numeric modes (Quantile / Equal interval / Manual breaks), the
+horizontal layout labels each tick with its **upper bound only**.
+Categorical mode keeps one label per category.
+
 ## See also
 
-- [Choropleth Legend](Legend-System.md#choropleth-legend) — how
+- [Choropleth Legend](Legend-System.md#choropleth-legend-9) — how
   these classes are presented as a legend
 - [Pie / Donut / Column Settings](Pie-Donut-Column-Settings.md) —
   the overlay that sits on top of the choropleth

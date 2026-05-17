@@ -34,11 +34,12 @@ render in full — coloured by data, labelled, optionally bubbled or
 glyphed. Other Admin1s dim to 35% opacity (or hide entirely if you
 turned on **Hide unfiltered Admin1 in Admin2 mode**).
 
-The drilled Admin1's name + value floats as a pill in the top-left
-of the canvas. Two arrow buttons next to the back button let you
-prev / next through Admin1 areas alphabetically without leaving
-drill mode. Labels: Admin2 labels — drill view card; the focused
-state itself uses Admin1 labels formatting in pill form.
+The drilled Admin1's name + value appears in a top bar that adapts
+to the viewport — see [Drill UI bits](#drill-ui-bits) below. Two
+arrow buttons next to the home icon let you prev / next through
+Admin1 areas alphabetically without leaving drill mode. Labels:
+Admin2 labels — drill view card; the focused state itself uses
+Admin1 labels formatting in pill form.
 
 ## Auto mode (default)
 
@@ -106,21 +107,22 @@ Three ways to exit drill view:
 
 | Action | What it does |
 |---|---|
-| Click **← Country View** in the top-left | Returns to Admin1 view; clears the manual drill flag; clears the host selection so other visuals stop cross-filtering. |
+| Click the **home icon** in the top-left | Returns to Admin1 view; clears the manual drill flag; clears the host selection so other visuals stop cross-filtering. |
+| Click on map background (empty space) | Clears the selection / drill — same effect as the home icon. |
 | Clear the external slicer that triggered the drill | Returns automatically (drill was filter-driven). |
 | Switch View mode to Admin1 | Forces Admin1 view immediately. |
 
-If you hit **Country View** while in a filter-driven drill, the
+If you hit the **home icon** while in a filter-driven drill, the
 visual remembers your "exit" intent — it won't immediately
 re-drill back to the same Admin1 even though the slicer is still
 active. The remembrance clears the moment the slicer changes.
 
 ## Prev / next navigation
 
-In drill view, two small arrow buttons sit beside the back button:
+In drill view, two small arrow buttons sit beside the home icon:
 
 ```
-[← Country View]  [‹]  [›]
+[🏠]  [‹]  [›]   Focused State — 1.2M
 ```
 
 - **‹** drills into the alphabetically previous Admin1.
@@ -130,16 +132,42 @@ Both **also** submit a selection through `selectionManager.select`,
 so flipping between states updates the rest of the report —
 matching the click-to-drill behaviour.
 
+### Navigation respects filters
+
+When an external slicer narrows the data to a subset of states, the
+prev / next buttons only walk through that subset. The visual builds
+the nav order from the *in-data* Admin1 PCODEs (via the prepared
+data view's filtered state list) rather than the geometry's full
+country list — so you'll never get an *"No PCODE matches"* error
+when stepping through a 5-state subset.
+
+This works whether you've bound Admin1 PCODE, Admin2 PCODE, or
+both. When only Admin2 is bound, the visual derives each Admin2's
+parent Admin1 from the geometry and dedups to the in-filter
+Admin1s.
+
 ## Drill UI bits
 
-The drill view adds a few non-data overlays around the map:
+The drill view adds a few non-data overlays around the map. The top
+bar itself has **three responsive layouts** keyed off the viewport
+width:
 
-- **Title pill** — a small rounded badge in the top-left, just
-  below the **← Country View** button, showing the focused state's
-  name (and value, depending on the Admin1 labels card's *Content*
-  setting). The pill lives in a screen-space SVG layer outside
-  `mapGroup`, so it stays glued to its top-left position regardless
-  of zoom / pan.
+### Top bar — three modes
+
+| Mode | When | Layout |
+|---|---|---|
+| **Large** | `viewportW ≥ 500 px` | Home icon, prev / next arrows, an inline "Country View" hint, and a separate **title pill** below the bar showing the focused state's name + value. |
+| **Medium** | `320 ≤ viewportW < 500 px` | Home icon + prev / next arrows; the focused state's name + value is inlined to the right of the buttons (no separate pill, no "Country View" hint). |
+| **Small** | `viewportW < 320 px` | Just the home icon + arrows in a compact row. No inline name. Useful in the tiny "card" tile sizes Power BI dashboards often use. |
+
+The pill / inline name uses the Admin1 labels card's *Content*
+setting to decide whether to show name only or name + value. In
+*Name + value* mode the value comes from the Choropleth fill / Bubble
+size / Label Value 2 measures (whichever are bound), coloured to
+match the label card's value-colour pickers.
+
+The pill is a screen-space SVG element outside `mapGroup`, so it
+stays glued to its position regardless of zoom / pan.
 - **Reset zoom-and-pan button** — appears on the on-canvas controls
   panel any time `zoomLevel > 1` or `panX/Y != 0`, regardless of
   whether **Show zoom buttons** is on. Wheel / drag users can still

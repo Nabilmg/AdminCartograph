@@ -80,7 +80,11 @@ calculated to fit the longest label, so "5.4M" never overlaps "10K".
 |---|---|
 | Type | Dropdown |
 | Default | Bottom right |
-| Options | Top left, Top right, Bottom left, Bottom right |
+| Options | Top left, **Top centre**, Top right, **Left centre**, **Right centre**, Bottom left, **Bottom centre**, Bottom right |
+
+The four centred variants snap the legend to the midpoint of an edge
+(or the middle of a side, for left / right). Useful when a corner is
+busy with overlapping labels or controls.
 
 ### Size
 
@@ -88,9 +92,20 @@ calculated to fit the longest label, so "5.4M" never overlaps "10K".
 |---|---|
 | Type | Dropdown |
 | Default | Medium |
-| Options | Small, Medium, Large |
+| Options | **Minimal**, Small, Medium, Large |
 
-Scales font / swatch sizes (×0.8 / ×1.0 / ×1.2).
+Scales font / swatch sizes (×0.6 / ×0.8 / ×1.0 / ×1.2).
+
+**Minimal** is more than just a smaller scale — it also collapses
+the legend's content:
+
+- *Choropleth (numeric modes)*: only the **first and last** breakpoints
+  are shown, marked with `−` (low end) and `+` (high end). Categorical
+  mode still shows every category.
+- *Bubble*: forces the **Compact (min / max)** orientation regardless
+  of the orientation dropdown.
+- *Other legends*: rendered at the ×0.6 size with no content
+  collapse.
 
 ### Decimals
 
@@ -263,6 +278,22 @@ Style for every legend's title text inside this container.
 Header font size of **0** keeps the legacy auto-sized titles
 (legend's body fontSize × 1.2). Any positive value pins every
 combined legend's header to that exact pixel size.
+
+### Item color / Item font size / Item swatch size
+
+Style for each legend's individual rows inside this container.
+
+| Setting | Default |
+|---|---|
+| Item color | `#222222` (range labels, measure names, # text) |
+| Item font size (px) | `0` (auto — each legend's body size) |
+| Item swatch size (px) | `0` (auto — each legend's body-relative swatch) |
+
+These overrides flow into every sub-legend (choropleth ranges,
+bubble values, glyph categories, values `#`). A positive value pins
+the size — `0` keeps the legend's own scale (driven by the legend's
+own **Size** dropdown). Use these to harmonise mixed legends in a
+single container.
 
 ### Container orientation
 
