@@ -509,7 +509,7 @@ class ScaleBarSettings extends FormattingSettingsCard {
  */
 class AboutSettings extends FormattingSettingsCard {
   visualName = new formattingSettings.ReadOnlyText({ name: "visualName", displayName: "Name", value: "AdminCartograph" });
-  visualVersion = new formattingSettings.ReadOnlyText({ name: "visualVersion", displayName: "Version", value: "1.0.0" });
+  visualVersion = new formattingSettings.ReadOnlyText({ name: "visualVersion", displayName: "Version", value: "1.1.0" });
   visualAuthor = new formattingSettings.ReadOnlyText({ name: "visualAuthor", displayName: "Author", value: "Nabil ALJARMOZI · nabilmg@gmail.com" });
   visualHome = new formattingSettings.ReadOnlyText({ name: "visualHome", displayName: "GitHub", value: "github.com/nabilaljarmozi/AdminCartograph" });
 
