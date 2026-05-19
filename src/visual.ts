@@ -7,6 +7,7 @@ import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-vis
 
 import { VisualFormattingSettingsModel, ViewMode } from "./settings";
 import { GeometryLoader } from "./geo/geometryLoader";
+import { rewindCountryGeometry } from "./geo/winding";
 import { prepareDataView } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
@@ -557,6 +558,7 @@ export class Visual implements IVisual {
         adm1,
         adm2: adm2 && adm2.features?.length ? adm2 : null
       };
+      rewindCountryGeometry(country);
       this.customGeometryCache = { key, country };
       return country;
     } catch (e) {
@@ -750,6 +752,7 @@ export class Visual implements IVisual {
           adm1,
           adm2: adm2 && adm2.features?.length ? adm2 : null
         };
+        rewindCountryGeometry(country);
         const key = `${mappingStr}::${draft.adm1Raw.length}-${draft.adm1Raw.slice(0, 64)}::${(draft.adm2Raw || "").length}-${(draft.adm2Raw || "").slice(0, 64)}`;
         this.customGeometryCache = { key, country };
       }
