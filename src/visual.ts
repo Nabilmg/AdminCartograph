@@ -1485,9 +1485,19 @@ export class Visual implements IVisual {
     // Legend classes: categorical mode emits one entry per unique
     // category with a `label`; numeric modes use the from/to range
     // formatter via makeLegendClasses.
-    const valueClasses = classification === "categorical"
+    let valueClasses: { color: string; from: number; to: number; label?: string }[] = classification === "categorical"
       ? (categoricalClasses || []).map((c) => ({ color: c.color, from: 0, to: 0, label: c.label }))
       : (breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : []);
+    // Append a 'No data' swatch when any visible polygon was rendered
+    // with the blank fill — so the legend honestly mirrors what's on
+    // the map. Skipped in 'Transparent for no-data' mode since the
+    // user has explicitly chosen for blanks to be invisible (showing
+    // an opaque grey row in that case would be misleading).
+    const noDataColor = cs.blankColor.value.value;
+    const hasBlankPolygons = !cs.blankTransparent.value && valueClasses.length > 0 && rows.some((r) => r.fill === noDataColor);
+    if (hasBlankPolygons) {
+      valueClasses = valueClasses.concat([{ color: noDataColor, from: 0, to: 0, label: "No data" }]);
+    }
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
     renderLegends(this.legendLayer, {
