@@ -150,15 +150,12 @@
   }
 
   // Drill state-title inline with the back / nav buttons. Reads as:
-  // [⌂] [‹] [›]  StateName · value1 · value2
-  // Values drop entirely at very small viewports (see renderTopBar's
-  // veryNarrow check).
+  // [⌂] [‹] [›]  StateName.  Values are only shown in large mode's
+  // SVG pill; the compact inline arrangement is name-only.
   .adm-drill-title {
     pointer-events: none;
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 8px;
     margin-left: 8px;
     font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     color: #222;
@@ -169,17 +166,6 @@
     .adm-drill-title-name {
       font-size: 14px;
       font-weight: 600;
-      white-space: nowrap;
-    }
-    .adm-drill-title-values {
-      display: inline-flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 11px;
-      opacity: 0.9;
-    }
-    .adm-drill-title-value {
       white-space: nowrap;
     }
   }

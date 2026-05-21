@@ -1485,9 +1485,19 @@ export class Visual implements IVisual {
     // Legend classes: categorical mode emits one entry per unique
     // category with a `label`; numeric modes use the from/to range
     // formatter via makeLegendClasses.
-    const valueClasses = classification === "categorical"
+    let valueClasses: { color: string; from: number; to: number; label?: string }[] = classification === "categorical"
       ? (categoricalClasses || []).map((c) => ({ color: c.color, from: 0, to: 0, label: c.label }))
       : (breaks.classCount > 0 ? makeLegendClasses(breaks, colors) : []);
+    // Append a 'No data' swatch when any visible polygon was rendered
+    // with the blank fill — so the legend honestly mirrors what's on
+    // the map. Skipped in 'Transparent for no-data' mode since the
+    // user has explicitly chosen for blanks to be invisible (showing
+    // an opaque grey row in that case would be misleading).
+    const noDataColor = cs.blankColor.value.value;
+    const hasBlankPolygons = !cs.blankTransparent.value && valueClasses.length > 0 && rows.some((r) => r.fill === noDataColor);
+    if (hasBlankPolygons) {
+      valueClasses = valueClasses.concat([{ color: noDataColor, from: 0, to: 0, label: "No data" }]);
+    }
     const valueTitle = valueLegend.title.value || prepared.colorValueColumn?.displayName || "";
     const bubbleTitle = bubbleLegend.title.value || prepared.bubbleSizeColumn?.displayName || "";
     renderLegends(this.legendLayer, {
@@ -1690,15 +1700,15 @@ export class Visual implements IVisual {
     const lineColors = headerLines.map((hl) => hl.color);
     (lines as any).__colors = lineColors;
 
-    // Drill pill scales with the visual's viewport — ~4% of the
-    // smaller dimension, floored at 14 px and capped at 36 px. The
-    // user's Admin1 label font size + 4 is treated as the minimum so
-    // a deliberately large card setting still wins. Value font is
-    // half the title so the hierarchy reads at a glance even on
-    // small visuals (200 px wide → ~14 px title, 7 px value).
+    // Drill pill scales with the visual's viewport — ~3% of the
+    // smaller dimension, floored at 11 px and capped at 22 px so the
+    // pill stays a compact header rather than a banner. The user's
+    // Admin1 label font size is still respected as a minimum so a
+    // deliberately large card setting wins. Value font is half the
+    // title (with an 8 px floor) so the hierarchy reads at a glance.
     const minSide = Math.min(this.viewportW || width, this.viewportH || 600);
-    const baseTitle = Math.max(card.fontSize.value + 4, minSide * 0.04);
-    const titleFontSize = Math.round(Math.max(14, Math.min(36, baseTitle)));
+    const baseTitle = Math.max(card.fontSize.value, minSide * 0.03);
+    const titleFontSize = Math.round(Math.max(11, Math.min(22, baseTitle)));
     const valueFontSize = Math.max(8, Math.round(titleFontSize / 2));
 
     const baseX = 8;
@@ -1712,8 +1722,8 @@ export class Visual implements IVisual {
     sel.setAttribute("class", "adm-drilled-pill");
     this.pillLayer.appendChild(sel);
 
-    const padX = 14;
-    const padY = 10;
+    const padX = 8;
+    const padY = 5;
     let widest = 0;
     let totalH = padY * 2;
     const lineMetrics = lines.map((l) => {
@@ -2098,42 +2108,24 @@ export class Visual implements IVisual {
 
       // State title placement varies by mode:
       //   large  — SVG pill below the button row (the original
-      //            layout). Inline title in the HTML bar stays
-      //            hidden; the SVG pill is un-hidden so it renders.
-      //   medium — inline title next to the nav buttons (name +
-      //            value rows) and the SVG pill stays hidden.
-      //   small  — inline title with the state NAME only; values
-      //            dropped. SVG pill stays hidden.
-      const showInlineTitle = mode === "medium" || mode === "small";
-      const showInlineValues = mode === "medium";
-      // Toggle the SVG pill on for large mode so it actually paints
-      // in the live visual; medium / small modes keep it hidden
-      // (its DOM stays around for the SVG export — see
-      // buildExportSvg which strips display:none from the clone).
+      //            layout). The pill carries name + values; the
+      //            inline title is hidden.
+      //   medium — inline title with the state NAME only next to
+      //            the nav buttons. SVG pill stays hidden.
+      //   small  — same inline NAME-only layout as medium, at the
+      //            smaller button sizes from .adm-top-bar--small.
+      // Values are only shown in large mode (in the SVG pill); the
+      // compact home/back/next/name arrangement drops them so the
+      // bar reads at a glance on tight viewports.
       this.pillLayer.style.display = mode === "large" ? "" : "none";
 
-      if (showInlineTitle) {
+      if (mode === "medium" || mode === "small") {
         const titleEl = document.createElement("span");
         titleEl.className = "adm-drill-title";
         const nameLine = document.createElement("span");
         nameLine.className = "adm-drill-title-name";
         nameLine.textContent = this.admin1NameFor(this.drilledStatePcode);
         titleEl.appendChild(nameLine);
-        if (showInlineValues) {
-          const valueRows = this.drilledValueRowsForTopBar();
-          if (valueRows.length) {
-            const valuesEl = document.createElement("span");
-            valuesEl.className = "adm-drill-title-values";
-            for (const row of valueRows) {
-              const v = document.createElement("span");
-              v.className = "adm-drill-title-value";
-              v.style.color = row.color;
-              v.textContent = row.text;
-              valuesEl.appendChild(v);
-            }
-            titleEl.appendChild(valuesEl);
-          }
-        }
         bar.appendChild(titleEl);
       }
     } else {
@@ -2141,41 +2133,6 @@ export class Visual implements IVisual {
       // Not drilled — pill stays hidden (it's empty anyway).
       this.pillLayer.style.display = "none";
     }
-  }
-
-  /**
-   * Build the value rows the drill top-bar shows next to the state
-   * name. Mirrors renderAdmin1Header's row-collection logic — same
-   * value source, same colours, prefixed with the measure name — so
-   * the on-screen pill and the exported SVG pill stay in sync.
-   */
-  private drilledValueRowsForTopBar(): { text: string; color: string }[] {
-    if (!this.drilledStatePcode || !this.cached) return [];
-    const country = this.cached.country;
-    const feature = (country.adm1.features as any[]).find((f) => f.properties.ADM1_PCODE === this.drilledStatePcode);
-    if (!feature) return [];
-    let stateAreas = this.cached.prepared.areas;
-    const anyStateLevel = Array.from(this.cached.prepared.areas.values()).some((a) => a.level === 1);
-    if (!anyStateLevel) stateAreas = this.aggregateToStates(this.cached.prepared, country);
-    const datum = stateAreas.get(this.drilledStatePcode);
-    if (!datum) return [];
-    const card = this.settings.stateLabels;
-    const content: string = (card.content.value as any).value;
-    if (content === "name") return [];
-    const fmtCard = this.styleFromCard(card);
-    const source: string = (card.valueSource?.value as any)?.value || "choropleth";
-    const wants = {
-      choropleth: source === "choropleth" || source === "both" || source === "choropleth_custom" || source === "all",
-      bubble: source === "bubble" || source === "both" || source === "bubble_custom" || source === "all",
-      custom: source === "custom" || source === "choropleth_custom" || source === "bubble_custom" || source === "all"
-    };
-    const prepared = this.cached.prepared;
-    const prefix = (n: string | undefined): string => (n && n.trim() ? `${n}: ` : "");
-    const rows: { text: string; color: string }[] = [];
-    if (wants.choropleth && datum.colorValue != null) rows.push({ text: `${prefix(prepared.colorValueColumn?.displayName)}${this.fmt(datum.colorValue, fmtCard)}`, color: card.valueColor.value.value });
-    if (wants.bubble && datum.bubbleSize != null) rows.push({ text: `${prefix(prepared.bubbleSizeColumn?.displayName)}${this.fmt(datum.bubbleSize, fmtCard)}`, color: card.bubbleValueColor.value.value });
-    if (wants.custom && datum.labelValue2 != null) rows.push({ text: `${prefix(prepared.labelValue2Column?.displayName)}${this.fmt(datum.labelValue2, fmtCard)}`, color: card.customValueColor.value.value });
-    return rows;
   }
 
   /**

@@ -140,6 +140,34 @@ function drawPie(parent: any, cx: number, cy: number, radius: number, values: nu
     ? Math.max(0, Math.min(0.85, style.donutInnerRatio || 0.5))
     : 0;
   const innerRadius = radius * innerRatio;
+
+  // When only one measure has a positive value, that slice covers the
+  // whole circle. An SVG arc from a point back to the same point
+  // renders nothing, so the pie disappears entirely. Detect this and
+  // draw a full circle (or annulus for donut) instead.
+  const positiveIndices = values.map((v, i) => ({ v: Math.max(0, v), i })).filter((p) => p.v > 0);
+  if (positiveIndices.length === 1) {
+    const { i } = positiveIndices[0];
+    const fill = style.colors[i % style.colors.length] || "#888";
+    if (innerRadius > 0) {
+      parent.append("path")
+        .attr("d", annulusPath(cx, cy, innerRadius, radius))
+        .attr("fill-rule", "evenodd")
+        .attr("fill", fill)
+        .attr("fill-opacity", style.opacity)
+        .attr("stroke", style.stroke)
+        .attr("stroke-width", style.strokeWidth);
+    } else {
+      parent.append("circle")
+        .attr("cx", cx).attr("cy", cy).attr("r", radius)
+        .attr("fill", fill)
+        .attr("fill-opacity", style.opacity)
+        .attr("stroke", style.stroke)
+        .attr("stroke-width", style.strokeWidth);
+    }
+    return;
+  }
+
   let startAngle = -Math.PI / 2; // 12 o'clock
   for (let i = 0; i < values.length; i++) {
     const v = Math.max(0, values[i]);
@@ -155,6 +183,16 @@ function drawPie(parent: any, cx: number, cy: number, radius: number, values: nu
       .attr("stroke-width", style.strokeWidth);
     startAngle = endAngle;
   }
+}
+
+/** Outer-circle minus inner-circle via even-odd fill — used when one
+ *  donut measure covers the full circle and a single arc segment
+ *  would degenerate (start point === end point renders nothing). */
+function annulusPath(cx: number, cy: number, rInner: number, rOuter: number): string {
+  return (
+    `M ${cx - rOuter},${cy} A ${rOuter},${rOuter} 0 1 0 ${cx + rOuter},${cy} A ${rOuter},${rOuter} 0 1 0 ${cx - rOuter},${cy} Z ` +
+    `M ${cx - rInner},${cy} A ${rInner},${rInner} 0 1 1 ${cx + rInner},${cy} A ${rInner},${rInner} 0 1 1 ${cx - rInner},${cy} Z`
+  );
 }
 
 /**
