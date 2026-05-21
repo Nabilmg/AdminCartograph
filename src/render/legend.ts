@@ -59,6 +59,16 @@ export interface LegendInputs {
     size: LegendSize;
     orientation: "vertical" | "horizontal";
   };
+  /** Admin levels legend — small stroke samples for Admin1 / Admin2
+   *  border styles, labelled with the user's level aliases. Renders
+   *  whichever entries the user has toggled on. */
+  levels?: {
+    title: string;
+    items: { label: string; color: string; width: number }[];
+    position: Position;
+    size: LegendSize;
+    orientation: "vertical" | "horizontal";
+  };
   container: {
     borderColor: string;
     borderWidth: number;
@@ -117,6 +127,7 @@ export function renderLegends(
     bubble?: LegendInputs["bubble"];
     glyph?: LegendInputs["glyph"];
     values?: LegendInputs["values"];
+    levels?: LegendInputs["levels"];
   }> = {};
   if (inputs.value) {
     groups[inputs.value.position] = groups[inputs.value.position] || {};
@@ -133,6 +144,10 @@ export function renderLegends(
   if (inputs.glyph) {
     groups[inputs.glyph.position] = groups[inputs.glyph.position] || {};
     groups[inputs.glyph.position].glyph = inputs.glyph;
+  }
+  if (inputs.levels) {
+    groups[inputs.levels.position] = groups[inputs.levels.position] || {};
+    groups[inputs.levels.position].levels = inputs.levels;
   }
 
   for (const [position, contents] of Object.entries(groups)) {
@@ -178,6 +193,11 @@ export function renderLegends(
     if (contents.value) {
       const sub = inner.append("g").attr("class", "legend-value-sub");
       drawValueLegend(sub, contents.value as any, 0, headerStyle, itemStyle);
+      stack.push(sub.node() as SVGGElement);
+    }
+    if (contents.levels) {
+      const sub = inner.append("g").attr("class", "legend-levels-sub");
+      drawAdminLevelsLegend(sub, contents.levels as any, 0, headerStyle, itemStyle);
       stack.push(sub.node() as SVGGElement);
     }
     // Stack the sub-groups with an 8px gap. Vertical mode (default)
@@ -470,6 +490,70 @@ function drawValuesLegend(parent: any, values: NonNullable<LegendInputs["values"
       .text("#");
     parent.append("text")
       .attr("x", fontSize * 0.8 + 4).attr("y", y + fontSize)
+      .attr("font-size", fontSize).attr("fill", item.color)
+      .text(it.label);
+    y += fontSize + gap;
+  }
+  return y;
+}
+
+/**
+ * Admin levels legend — one row per administrative level. Each row is
+ * a short stroke sample (using the level's border colour + width) plus
+ * the level alias label. Stroke samples mirror what's actually drawn
+ * on the map so users can decode the boundary thicknesses.
+ */
+function drawAdminLevelsLegend(parent: any, levels: NonNullable<LegendInputs["levels"]>, yStart: number, header: HeaderStyle = DEFAULT_HEADER, item: ItemStyle = DEFAULT_ITEM): number {
+  const scale = SIZE_SCALE[levels.size];
+  const autoFont = 11 * scale;
+  const autoTitleSize = 12 * scale;
+  const autoSampleLen = 22 * scale;
+  const fontSize = item.forceFontSize > 0 ? item.forceFontSize : autoFont;
+  const titleSize = header.forceFontSize > 0 ? header.forceFontSize : autoTitleSize;
+  const sampleLen = item.forceSwatchSize > 0 ? item.forceSwatchSize : autoSampleLen;
+  const gap = 6;
+
+  if (levels.title) {
+    parent.append("text")
+      .attr("x", 0).attr("y", yStart + titleSize)
+      .attr("font-size", titleSize).attr("font-weight", header.bold ? 600 : 400)
+      .attr("fill", header.color)
+      .text(levels.title);
+  }
+  let y = yStart + (levels.title ? titleSize + 6 : 0);
+  const rows = levels.items.filter((it) => it && (it.label || "").trim());
+  if (!rows.length) return y;
+
+  if (levels.orientation === "horizontal") {
+    let x = 0;
+    for (const it of rows) {
+      const sampleY = y + fontSize * 0.6;
+      parent.append("line")
+        .attr("x1", x).attr("y1", sampleY)
+        .attr("x2", x + sampleLen).attr("y2", sampleY)
+        .attr("stroke", it.color)
+        .attr("stroke-width", Math.max(1, it.width))
+        .attr("stroke-linecap", "round");
+      parent.append("text")
+        .attr("x", x + sampleLen + 4).attr("y", y + fontSize)
+        .attr("font-size", fontSize).attr("fill", item.color)
+        .text(it.label);
+      x += sampleLen + 4 + Math.max(40, it.label.length * fontSize * 0.55) + 12;
+    }
+    return y + fontSize + gap;
+  }
+
+  // Vertical
+  for (const it of rows) {
+    const sampleY = y + fontSize * 0.6;
+    parent.append("line")
+      .attr("x1", 0).attr("y1", sampleY)
+      .attr("x2", sampleLen).attr("y2", sampleY)
+      .attr("stroke", it.color)
+      .attr("stroke-width", Math.max(1, it.width))
+      .attr("stroke-linecap", "round");
+    parent.append("text")
+      .attr("x", sampleLen + 4).attr("y", y + fontSize)
       .attr("font-size", fontSize).attr("fill", item.color)
       .text(it.label);
     y += fontSize + gap;

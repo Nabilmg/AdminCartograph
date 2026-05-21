@@ -415,10 +415,22 @@ function composeLines(label: LabelDatum, style: LabelStyle): ComposedLine[] {
   const bubbleTxt = label.bubbleValue != null ? formatNumber(label.bubbleValue, style.decimals, style.format) : "";
   const customTxt = label.value2 != null ? formatNumber(label.value2, style.decimals, style.format) : "";
 
-  const valueLines: ComposedLine[] = [];
+  let valueLines: ComposedLine[] = [];
   if (sources.choropleth && colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
   if (sources.bubble && bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
   if (sources.custom && customTxt) valueLines.push({ text: customTxt, kind: "custom_value" });
+
+  // Fallback: the chosen value source produced no lines because the
+  // requested measure isn't bound (e.g. valueSource = 'Choropleth value'
+  // but the user only bound Label Value 2). Pick up whatever IS bound
+  // so the label still renders — otherwise content === 'value' labels
+  // silently disappear when the user's value-source pick doesn't match
+  // the bindings. Priority: choropleth → bubble → custom.
+  if (!valueLines.length) {
+    if (colorTxt) valueLines.push({ text: colorTxt, kind: "value" });
+    if (bubbleTxt) valueLines.push({ text: bubbleTxt, kind: "bubble_value" });
+    if (customTxt) valueLines.push({ text: customTxt, kind: "custom_value" });
+  }
 
   // Pick the area name. Falls back to the geometry name if "labelText1"
   // is requested but no override is bound.

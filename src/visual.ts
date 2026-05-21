@@ -1549,6 +1549,7 @@ export class Visual implements IVisual {
         scale: bubbleResult.scale
       } : undefined,
       values: this.buildValuesLegendInput(prepared, view, !!this.drilledStatePcode),
+      levels: this.buildAdminLevelsLegendInput(),
       container: {
         borderColor: this.settings.legendContainer.borderColor.value.value,
         borderWidth: this.settings.legendContainer.borderWidth.value,
@@ -2690,6 +2691,41 @@ export class Visual implements IVisual {
     if (want.custom) {
       const name = prepared.labelValue2Column?.displayName || "";
       if (name) items.push({ label: name, color: labelCard.customValueColor.value.value });
+    }
+    if (!items.length) return undefined;
+    return {
+      title: card.title.value || "",
+      items,
+      position: (card.position.value as any).value,
+      size: (card.size.value as any).value,
+      orientation: ((card.orientation.value as any).value as "vertical" | "horizontal")
+    };
+  }
+
+  /**
+   * Admin levels legend payload — stroke samples for Admin1 / Admin2
+   * borders. Labels come from the user's level aliases on the General
+   * card (default "Admin1" / "Admin2"). Returns undefined when the
+   * card is off or both level toggles are off.
+   */
+  private buildAdminLevelsLegendInput(): {
+    title: string;
+    items: { label: string; color: string; width: number }[];
+    position: any;
+    size: any;
+    orientation: "vertical" | "horizontal";
+  } | undefined {
+    const card = this.settings.adminLevelsLegend;
+    if (!card.show.value) return undefined;
+    const adm1Label = (this.settings.general.admin1Alias?.value || "").trim() || "Admin1";
+    const adm2Label = (this.settings.general.admin2Alias?.value || "").trim() || "Admin2";
+    const borders = this.settings.borders;
+    const items: { label: string; color: string; width: number }[] = [];
+    if (card.showAdmin1.value) {
+      items.push({ label: adm1Label, color: borders.stateColor.value.value, width: borders.stateWidth.value });
+    }
+    if (card.showAdmin2.value) {
+      items.push({ label: adm2Label, color: borders.localityColor.value.value, width: borders.localityWidth.value });
     }
     if (!items.length) return undefined;
     return {
