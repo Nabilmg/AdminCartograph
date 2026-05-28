@@ -55,6 +55,14 @@ class GeneralSettings extends FormattingSettingsCard {
   hideMapChrome = new formattingSettings.ToggleSwitch({ name: "hideMapChrome", displayName: "Hide map chrome", value: false });
   admin1Alias = new formattingSettings.TextInput({ name: "admin1Alias", displayName: "Admin1 alias", placeholder: "Admin 1 / Governorate / State…", value: "" });
   admin2Alias = new formattingSettings.TextInput({ name: "admin2Alias", displayName: "Admin2 alias", placeholder: "Admin 2 / District / Locality…", value: "" });
+  // Optional link-field overrides. Default (empty) joins the bound
+  // Admin1 / Admin2 PCODE column against the geometry's canonical
+  // ADM1_PCODE / ADM2_PCODE. Setting a value here lets the user bind
+  // a non-PCODE column (e.g. ADM1_EN, ADM2_EN, ISO3, a custom field)
+  // and have the visual join through that field instead — useful for
+  // reports whose data has names but no PCODEs.
+  admin1LinkField = new formattingSettings.TextInput({ name: "admin1LinkField", displayName: "Admin1 link field", placeholder: "ADM1_PCODE (default)", value: "" });
+  admin2LinkField = new formattingSettings.TextInput({ name: "admin2LinkField", displayName: "Admin2 link field", placeholder: "ADM2_PCODE (default)", value: "" });
   background = new formattingSettings.ColorPicker({ name: "background", displayName: "Background color", value: { value: "#ffffff" } });
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
@@ -62,7 +70,7 @@ class GeneralSettings extends FormattingSettingsCard {
   displayName = "1. Map setup";
   // Hidden custom* slices live alongside the visible ones so the
   // formatting service round-trips them through host.persistProperties.
-  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
+  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.admin1LinkField, this.admin2LinkField, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
 }
 
 class ChoroplethSettings extends FormattingSettingsCard {

@@ -8,7 +8,7 @@ import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-vis
 import { VisualFormattingSettingsModel, ViewMode } from "./settings";
 import { GeometryLoader } from "./geo/geometryLoader";
 import { rewindCountryGeometry } from "./geo/winding";
-import { prepareDataView } from "./data/dataConverter";
+import { prepareDataView, LinkMaps } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles, updateBubbleTransforms } from "./render/bubbles";
@@ -358,7 +358,7 @@ export class Visual implements IVisual {
       return;
     }
 
-    const prepared = prepareDataView(dv, this.host);
+    let prepared = prepareDataView(dv, this.host);
     this.currentDataView = prepared;
 
     const iso3 = this.resolveCountry(prepared);
@@ -392,6 +392,18 @@ export class Visual implements IVisual {
         this.renderLandingPage(`Country '${iso3}' is not in the bundle. Add its zip to country-geojson/ and rebuild, or pick "Custom" to upload a TopoJSON.`);
         return;
       }
+    }
+
+    // Optional name-based join. When the user typed a non-PCODE link
+    // field on card #1 (Admin1 link field / Admin2 link field), build
+    // a value→canonical-PCODE map from the loaded country's geometry
+    // and re-run prepareDataView so bound name columns key correctly
+    // into prepared.areas. The map is normalised (uppercase, no
+    // separators) so minor case / formatting differences match.
+    const linkMaps = this.buildLinkMaps(country);
+    if (linkMaps && (linkMaps.admin1?.size || linkMaps.admin2?.size)) {
+      prepared = prepareDataView(dv, this.host, linkMaps);
+      this.currentDataView = prepared;
     }
 
     this.cached = { country, prepared, width, height };
@@ -2708,6 +2720,45 @@ export class Visual implements IVisual {
    * card (default "Admin1" / "Admin2"). Returns undefined when the
    * card is off or both level toggles are off.
    */
+  /**
+   * Build alias→canonical-PCODE maps for the optional name-based join.
+   * The user types a property name on card #1 (e.g. ADM1_EN); for each
+   * feature in the loaded geometry we read that property's value and
+   * map it (normalised) to the feature's canonical ADM1_PCODE /
+   * ADM2_PCODE. Returns undefined when neither link field is set, so
+   * the default PCODE path stays a no-op.
+   */
+  private buildLinkMaps(country: CountryGeometry): LinkMaps | undefined {
+    const adm1Field = (this.settings.general.admin1LinkField?.value || "").trim();
+    const adm2Field = (this.settings.general.admin2LinkField?.value || "").trim();
+    if (!adm1Field && !adm2Field) return undefined;
+    const normLinkKey = (s: any): string => (s == null ? "" : String(s).toUpperCase().replace(/[\s_\-]+/g, ""));
+    const maps: LinkMaps = {};
+    if (adm1Field && country.adm1?.features) {
+      const m = new Map<string, string>();
+      for (const f of country.adm1.features as any[]) {
+        const linkVal = f.properties?.[adm1Field];
+        const pcode = f.properties?.ADM1_PCODE;
+        if (!pcode) continue;
+        const key = normLinkKey(linkVal);
+        if (key && !m.has(key)) m.set(key, pcode);
+      }
+      if (m.size) maps.admin1 = m;
+    }
+    if (adm2Field && country.adm2?.features) {
+      const m = new Map<string, string>();
+      for (const f of country.adm2.features as any[]) {
+        const linkVal = f.properties?.[adm2Field];
+        const pcode = f.properties?.ADM2_PCODE;
+        if (!pcode) continue;
+        const key = normLinkKey(linkVal);
+        if (key && !m.has(key)) m.set(key, pcode);
+      }
+      if (m.size) maps.admin2 = m;
+    }
+    return maps;
+  }
+
   private buildAdminLevelsLegendInput(): {
     title: string;
     items: { label: string; color: string; width: number }[];

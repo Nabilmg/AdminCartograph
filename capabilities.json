@@ -136,6 +136,16 @@
           "description": "Override the 'Admin2' label in tooltips with your own term — e.g. District, Locality, County, Municipality. Empty = use 'Admin2'.",
           "type": { "text": true }
         },
+        "admin1LinkField": {
+          "displayName": "Admin1 link field",
+          "description": "Optional. Property name in the geometry to join data against (e.g. ADM1_EN, ADM1_NAME). Empty = use canonical ADM1_PCODE. Useful when your data only has names — bind the name column to Admin1 PCODE and set this to the matching property.",
+          "type": { "text": true }
+        },
+        "admin2LinkField": {
+          "displayName": "Admin2 link field",
+          "description": "Optional. Property name in the geometry to join data against (e.g. ADM2_EN, ADM2_NAME). Empty = use canonical ADM2_PCODE.",
+          "type": { "text": true }
+        },
         "background": {
           "displayName": "Background color",
           "type": { "fill": { "solid": { "color": true } } }
