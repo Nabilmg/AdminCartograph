@@ -8,7 +8,7 @@ import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-vis
 import { VisualFormattingSettingsModel, ViewMode } from "./settings";
 import { GeometryLoader } from "./geo/geometryLoader";
 import { rewindCountryGeometry } from "./geo/winding";
-import { prepareDataView } from "./data/dataConverter";
+import { prepareDataView, LinkMaps } from "./data/dataConverter";
 import { buildBreaks, classIndex, rampColors } from "./render/classification";
 import { renderChoropleth, applyBorders } from "./render/choropleth";
 import { renderBubbles, updateBubbleTransforms } from "./render/bubbles";
@@ -358,7 +358,7 @@ export class Visual implements IVisual {
       return;
     }
 
-    const prepared = prepareDataView(dv, this.host);
+    let prepared = prepareDataView(dv, this.host);
     this.currentDataView = prepared;
 
     const iso3 = this.resolveCountry(prepared);
@@ -392,6 +392,18 @@ export class Visual implements IVisual {
         this.renderLandingPage(`Country '${iso3}' is not in the bundle. Add its zip to country-geojson/ and rebuild, or pick "Custom" to upload a TopoJSON.`);
         return;
       }
+    }
+
+    // Optional name-based join. When the user typed a non-PCODE link
+    // field on card #1 (Admin1 link field / Admin2 link field), build
+    // a value→canonical-PCODE map from the loaded country's geometry
+    // and re-run prepareDataView so bound name columns key correctly
+    // into prepared.areas. The map is normalised (uppercase, no
+    // separators) so minor case / formatting differences match.
+    const linkMaps = this.buildLinkMaps(country);
+    if (linkMaps && (linkMaps.admin1?.size || linkMaps.admin2?.size)) {
+      prepared = prepareDataView(dv, this.host, linkMaps);
+      this.currentDataView = prepared;
     }
 
     this.cached = { country, prepared, width, height };
@@ -882,7 +894,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; labelText: string | null; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; labelText: string | null; tooltips: Map<string, { numericSum: number | null; firstText: string | null }>; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -891,7 +903,7 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), labelText: null, sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), labelText: null, tooltips: new Map(), sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
@@ -913,6 +925,29 @@ export class Visual implements IVisual {
       for (let i = 0; i < (a.glyphValues?.length || 0); i++) {
         acc.glyph[i] = (acc.glyph[i] || 0) + (a.glyphValues[i] || 0);
       }
+      // Tooltip extras: when the user has dropped fields into the
+      // Tooltips well, each child carries its own list. Aggregate by
+      // display name so the Admin1 tooltip still surfaces them.
+      // Numeric values are summed (matches how colorValue / bubble /
+      // labelValue2 roll up). Non-numeric values fall back to first
+      // non-empty — appropriate for text status columns ("High" /
+      // "Low") that tend to share a value across child districts.
+      if (a.tooltips && a.tooltips.length) {
+        for (const t of a.tooltips) {
+          const key2 = t.displayName;
+          const entry = acc.tooltips.get(key2) || { numericSum: null, firstText: null };
+          const raw = t.value == null ? "" : String(t.value);
+          // Strip thousands separators before parsing so formatted
+          // numerics like "1,234.5" still sum.
+          const n = raw.trim() === "" ? NaN : Number(raw.replace(/,/g, ""));
+          if (Number.isFinite(n)) {
+            entry.numericSum = (entry.numericSum ?? 0) + n;
+          } else if (!entry.firstText && raw) {
+            entry.firstText = raw;
+          }
+          acc.tooltips.set(key2, entry);
+        }
+      }
     }
 
     const modeOf = (m: Map<string, number>): string | null => {
@@ -924,6 +959,14 @@ export class Visual implements IVisual {
 
     const out = new Map<string, AreaDatum>();
     for (const [pcode, acc] of sums) {
+      const tooltips: powerbi.extensibility.VisualTooltipDataItem[] = [];
+      acc.tooltips.forEach((entry, displayName) => {
+        if (entry.numericSum != null) {
+          tooltips.push({ displayName, value: entry.numericSum.toLocaleString(undefined, { maximumFractionDigits: 2 }) });
+        } else if (entry.firstText) {
+          tooltips.push({ displayName, value: entry.firstText });
+        }
+      });
       out.set(pcode, {
         pcode,
         name: undefined,
@@ -940,7 +983,7 @@ export class Visual implements IVisual {
         glyphValues: acc.glyph,
         labelValue2: acc.label2,
         labelText1: acc.labelText,
-        tooltips: [],
+        tooltips,
         selectionId: acc.sample.selectionId,
         highlighted: acc.sample.highlighted
       });
@@ -990,9 +1033,21 @@ export class Visual implements IVisual {
       stateAreas = this.aggregateToStates(prepared, country);
     }
 
+    // Projection fit set: zoom into whatever slice the user is
+    // currently focused on. In locality view that's adm2Visible (already
+    // narrowed by drill / slicer above). In Admin1 view we leave every
+    // state's polygon on the map (so the reader keeps geographical
+    // context) but tighten the projection to just the filtered states
+    // when a slicer is narrowing the data — matches the auto-zoom
+    // behaviour users see in Admin2 view.
+    let adm1FitFeatures = adm1Visible;
+    if (view === "states" && prepared.filteredStatePcodes && prepared.filteredStatePcodes.size && prepared.filteredStatePcodes.size < adm1Features.length) {
+      const narrowed = adm1Features.filter((f) => prepared.filteredStatePcodes!.has(f.properties.ADM1_PCODE));
+      if (narrowed.length) adm1FitFeatures = narrowed;
+    }
     const fitFC = view === "localities" && adm2Visible.length
       ? { type: "FeatureCollection", features: adm2Visible }
-      : { type: "FeatureCollection", features: adm1Visible };
+      : { type: "FeatureCollection", features: adm1FitFeatures };
     const { path, projection } = buildProjection(fitFC, width, height, 12);
 
     // Compute classification breaks from whichever features carry data.
@@ -1549,6 +1604,7 @@ export class Visual implements IVisual {
         scale: bubbleResult.scale
       } : undefined,
       values: this.buildValuesLegendInput(prepared, view, !!this.drilledStatePcode),
+      levels: this.buildAdminLevelsLegendInput(),
       container: {
         borderColor: this.settings.legendContainer.borderColor.value.value,
         borderWidth: this.settings.legendContainer.borderWidth.value,
@@ -2690,6 +2746,80 @@ export class Visual implements IVisual {
     if (want.custom) {
       const name = prepared.labelValue2Column?.displayName || "";
       if (name) items.push({ label: name, color: labelCard.customValueColor.value.value });
+    }
+    if (!items.length) return undefined;
+    return {
+      title: card.title.value || "",
+      items,
+      position: (card.position.value as any).value,
+      size: (card.size.value as any).value,
+      orientation: ((card.orientation.value as any).value as "vertical" | "horizontal")
+    };
+  }
+
+  /**
+   * Admin levels legend payload — stroke samples for Admin1 / Admin2
+   * borders. Labels come from the user's level aliases on the General
+   * card (default "Admin1" / "Admin2"). Returns undefined when the
+   * card is off or both level toggles are off.
+   */
+  /**
+   * Build alias→canonical-PCODE maps for the optional name-based join.
+   * The user types a property name on card #1 (e.g. ADM1_EN); for each
+   * feature in the loaded geometry we read that property's value and
+   * map it (normalised) to the feature's canonical ADM1_PCODE /
+   * ADM2_PCODE. Returns undefined when neither link field is set, so
+   * the default PCODE path stays a no-op.
+   */
+  private buildLinkMaps(country: CountryGeometry): LinkMaps | undefined {
+    const adm1Field = (this.settings.general.admin1LinkField?.value || "").trim();
+    const adm2Field = (this.settings.general.admin2LinkField?.value || "").trim();
+    if (!adm1Field && !adm2Field) return undefined;
+    const normLinkKey = (s: any): string => (s == null ? "" : String(s).toUpperCase().replace(/[\s_\-]+/g, ""));
+    const maps: LinkMaps = {};
+    if (adm1Field && country.adm1?.features) {
+      const m = new Map<string, string>();
+      for (const f of country.adm1.features as any[]) {
+        const linkVal = f.properties?.[adm1Field];
+        const pcode = f.properties?.ADM1_PCODE;
+        if (!pcode) continue;
+        const key = normLinkKey(linkVal);
+        if (key && !m.has(key)) m.set(key, pcode);
+      }
+      if (m.size) maps.admin1 = m;
+    }
+    if (adm2Field && country.adm2?.features) {
+      const m = new Map<string, string>();
+      for (const f of country.adm2.features as any[]) {
+        const linkVal = f.properties?.[adm2Field];
+        const pcode = f.properties?.ADM2_PCODE;
+        if (!pcode) continue;
+        const key = normLinkKey(linkVal);
+        if (key && !m.has(key)) m.set(key, pcode);
+      }
+      if (m.size) maps.admin2 = m;
+    }
+    return maps;
+  }
+
+  private buildAdminLevelsLegendInput(): {
+    title: string;
+    items: { label: string; color: string; width: number }[];
+    position: any;
+    size: any;
+    orientation: "vertical" | "horizontal";
+  } | undefined {
+    const card = this.settings.adminLevelsLegend;
+    if (!card.show.value) return undefined;
+    const adm1Label = (this.settings.general.admin1Alias?.value || "").trim() || "Admin1";
+    const adm2Label = (this.settings.general.admin2Alias?.value || "").trim() || "Admin2";
+    const borders = this.settings.borders;
+    const items: { label: string; color: string; width: number }[] = [];
+    if (card.showAdmin1.value) {
+      items.push({ label: adm1Label, color: borders.stateColor.value.value, width: borders.stateWidth.value });
+    }
+    if (card.showAdmin2.value) {
+      items.push({ label: adm2Label, color: borders.localityColor.value.value, width: borders.localityWidth.value });
     }
     if (!items.length) return undefined;
     return {

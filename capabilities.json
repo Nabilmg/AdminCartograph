@@ -136,6 +136,16 @@
           "description": "Override the 'Admin2' label in tooltips with your own term — e.g. District, Locality, County, Municipality. Empty = use 'Admin2'.",
           "type": { "text": true }
         },
+        "admin1LinkField": {
+          "displayName": "Admin1 link field",
+          "description": "Optional. Property name in the geometry to join data against (e.g. ADM1_EN, ADM1_NAME). Empty = use canonical ADM1_PCODE. Useful when your data only has names — bind the name column to Admin1 PCODE and set this to the matching property.",
+          "type": { "text": true }
+        },
+        "admin2LinkField": {
+          "displayName": "Admin2 link field",
+          "description": "Optional. Property name in the geometry to join data against (e.g. ADM2_EN, ADM2_NAME). Empty = use canonical ADM2_PCODE.",
+          "type": { "text": true }
+        },
         "background": {
           "displayName": "Background color",
           "type": { "fill": { "solid": { "color": true } } }
@@ -594,9 +604,54 @@
     },
 
     "valuesLegend": {
-      "displayName": "12. Values legend",
+      "displayName": "13. Values legend",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
+        "title": { "displayName": "Title", "type": { "text": true } },
+        "orientation": {
+          "displayName": "Orientation",
+          "type": {
+            "enumeration": [
+              { "value": "vertical", "displayName": "Vertical" },
+              { "value": "horizontal", "displayName": "Horizontal" }
+            ]
+          }
+        },
+        "position": {
+          "displayName": "Position",
+          "type": {
+            "enumeration": [
+              { "value": "topLeft", "displayName": "Top left" },
+              { "value": "topCenter", "displayName": "Top centre" },
+              { "value": "topRight", "displayName": "Top right" },
+              { "value": "leftCenter", "displayName": "Left centre" },
+              { "value": "rightCenter", "displayName": "Right centre" },
+              { "value": "bottomLeft", "displayName": "Bottom left" },
+              { "value": "bottomCenter", "displayName": "Bottom centre" },
+              { "value": "bottomRight", "displayName": "Bottom right" }
+            ]
+          }
+        },
+        "size": {
+          "displayName": "Size",
+          "type": {
+            "enumeration": [
+              { "value": "minimal", "displayName": "Minimal" },
+              { "value": "small", "displayName": "Small" },
+              { "value": "medium", "displayName": "Medium" },
+              { "value": "large", "displayName": "Large" }
+            ]
+          }
+        }
+      }
+    },
+
+    "adminLevelsLegend": {
+      "displayName": "12. Admin levels legend",
+      "properties": {
+        "show": { "displayName": "Show", "type": { "bool": true } },
+        "showAdmin1": { "displayName": "Show Admin1", "type": { "bool": true } },
+        "showAdmin2": { "displayName": "Show Admin2", "type": { "bool": true } },
         "title": { "displayName": "Title", "type": { "text": true } },
         "orientation": {
           "displayName": "Orientation",
@@ -725,7 +780,7 @@
     },
 
     "scaleBar": {
-      "displayName": "14. Scale bar",
+      "displayName": "15. Scale bar",
       "properties": {
         "show": { "displayName": "Show", "type": { "bool": true } },
         "units": {
@@ -754,7 +809,7 @@
     },
 
     "controls": {
-      "displayName": "15. Map controls (zoom / pan / copy)",
+      "displayName": "16. Map controls (zoom / pan / copy)",
       "properties": {
         "showZoom": { "displayName": "Show zoom buttons", "type": { "bool": true } },
         "showPan": { "displayName": "Show pan buttons (up / down / left / right)", "type": { "bool": true } },
@@ -774,7 +829,7 @@
     },
 
     "legendContainer": {
-      "displayName": "13. Legend container",
+      "displayName": "14. Legend container",
       "properties": {
         "borderWidth": { "displayName": "Border width", "type": { "numeric": true } },
         "borderColor": { "displayName": "Border color", "type": { "fill": { "solid": { "color": true } } } },
@@ -802,7 +857,7 @@
     },
 
     "about": {
-      "displayName": "16. About",
+      "displayName": "17. About",
       "properties": {
         "visualName": { "displayName": "Name", "type": { "text": true } },
         "visualVersion": { "displayName": "Version", "type": { "text": true } },

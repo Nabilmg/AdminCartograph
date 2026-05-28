@@ -55,6 +55,14 @@ class GeneralSettings extends FormattingSettingsCard {
   hideMapChrome = new formattingSettings.ToggleSwitch({ name: "hideMapChrome", displayName: "Hide map chrome", value: false });
   admin1Alias = new formattingSettings.TextInput({ name: "admin1Alias", displayName: "Admin1 alias", placeholder: "Admin 1 / Governorate / State…", value: "" });
   admin2Alias = new formattingSettings.TextInput({ name: "admin2Alias", displayName: "Admin2 alias", placeholder: "Admin 2 / District / Locality…", value: "" });
+  // Optional link-field overrides. Default (empty) joins the bound
+  // Admin1 / Admin2 PCODE column against the geometry's canonical
+  // ADM1_PCODE / ADM2_PCODE. Setting a value here lets the user bind
+  // a non-PCODE column (e.g. ADM1_EN, ADM2_EN, ISO3, a custom field)
+  // and have the visual join through that field instead — useful for
+  // reports whose data has names but no PCODEs.
+  admin1LinkField = new formattingSettings.TextInput({ name: "admin1LinkField", displayName: "Admin1 link field", placeholder: "ADM1_PCODE (default)", value: "" });
+  admin2LinkField = new formattingSettings.TextInput({ name: "admin2LinkField", displayName: "Admin2 link field", placeholder: "ADM2_PCODE (default)", value: "" });
   background = new formattingSettings.ColorPicker({ name: "background", displayName: "Background color", value: { value: "#ffffff" } });
   transparentBackground = new formattingSettings.ToggleSwitch({ name: "transparentBackground", displayName: "Transparent background", value: false });
 
@@ -62,7 +70,7 @@ class GeneralSettings extends FormattingSettingsCard {
   displayName = "1. Map setup";
   // Hidden custom* slices live alongside the visible ones so the
   // formatting service round-trips them through host.persistProperties.
-  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
+  slices = [this.selectedCountry, this.viewMode, this.interactionEnabled, this.hideUnfilteredStates, this.hideMapChrome, this.admin1Alias, this.admin2Alias, this.admin1LinkField, this.admin2LinkField, this.background, this.transparentBackground, this.customAdm1Json, this.customAdm2Json, this.customFieldMapping, this.customTopoName];
 }
 
 class ChoroplethSettings extends FormattingSettingsCard {
@@ -376,8 +384,64 @@ class ValuesLegendSettings extends FormattingSettingsCard {
   });
 
   name = "valuesLegend";
-  displayName = "12. Values legend";
+  displayName = "13. Values legend";
   slices = [this.show, this.title, this.orientation, this.position, this.size];
+}
+
+/**
+ * Admin levels legend — small stroke samples showing the border style
+ * used for Admin1 / Admin2 boundaries. Each entry's label comes from
+ * the corresponding alias on the General card (default "Admin1" /
+ * "Admin2", but renamed e.g. to "Governorate" / "District" when the
+ * user has set aliases).
+ *
+ * Reads stroke colour + width from the Borders card (#5) so changing
+ * borders updates this legend automatically.
+ */
+class AdminLevelsLegendSettings extends FormattingSettingsCard {
+  show = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Show", value: false });
+  showAdmin1 = new formattingSettings.ToggleSwitch({ name: "showAdmin1", displayName: "Show Admin1", value: true });
+  showAdmin2 = new formattingSettings.ToggleSwitch({ name: "showAdmin2", displayName: "Show Admin2", value: true });
+  title = new formattingSettings.TextInput({ name: "title", displayName: "Title", placeholder: "Admin levels", value: "" });
+  orientation = new formattingSettings.ItemDropdown({
+    name: "orientation",
+    displayName: "Orientation",
+    items: [
+      { value: "vertical", displayName: "Vertical" },
+      { value: "horizontal", displayName: "Horizontal" }
+    ],
+    value: { value: "vertical", displayName: "Vertical" }
+  });
+  position = new formattingSettings.ItemDropdown({
+    name: "position",
+    displayName: "Position",
+    items: [
+      { value: "topLeft", displayName: "Top left" },
+      { value: "topCenter", displayName: "Top centre" },
+      { value: "topRight", displayName: "Top right" },
+      { value: "leftCenter", displayName: "Left centre" },
+      { value: "rightCenter", displayName: "Right centre" },
+      { value: "bottomLeft", displayName: "Bottom left" },
+      { value: "bottomCenter", displayName: "Bottom centre" },
+      { value: "bottomRight", displayName: "Bottom right" }
+    ],
+    value: { value: "bottomLeft", displayName: "Bottom left" }
+  });
+  size = new formattingSettings.ItemDropdown({
+    name: "size",
+    displayName: "Size",
+    items: [
+      { value: "minimal", displayName: "Minimal" },
+      { value: "small", displayName: "Small" },
+      { value: "medium", displayName: "Medium" },
+      { value: "large", displayName: "Large" }
+    ],
+    value: { value: "medium", displayName: "Medium" }
+  });
+
+  name = "adminLevelsLegend";
+  displayName = "12. Admin levels legend";
+  slices = [this.show, this.showAdmin1, this.showAdmin2, this.title, this.orientation, this.position, this.size];
 }
 
 class ValueLegendSettings extends FormattingSettingsCard {
@@ -496,7 +560,7 @@ class ScaleBarSettings extends FormattingSettingsCard {
   fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font size", value: 11 });
 
   name = "scaleBar";
-  displayName = "14. Scale bar";
+  displayName = "15. Scale bar";
   slices = [this.show, this.units, this.position, this.color, this.fontSize];
 }
 
@@ -514,7 +578,7 @@ class AboutSettings extends FormattingSettingsCard {
   visualHome = new formattingSettings.ReadOnlyText({ name: "visualHome", displayName: "GitHub", value: "github.com/nabilaljarmozi/AdminCartograph" });
 
   name = "about";
-  displayName = "16. About";
+  displayName = "17. About";
   slices = [this.visualName, this.visualVersion, this.visualAuthor, this.visualHome];
 }
 
@@ -535,7 +599,7 @@ class ControlsSettings extends FormattingSettingsCard {
   });
 
   name = "controls";
-  displayName = "15. Map controls (zoom / pan / copy)";
+  displayName = "16. Map controls (zoom / pan / copy)";
   slices = [this.showZoom, this.showPan, this.showExport, this.position];
 }
 
@@ -563,7 +627,7 @@ class LegendContainerSettings extends FormattingSettingsCard {
   });
 
   name = "legendContainer";
-  displayName = "13. Legend container";
+  displayName = "14. Legend container";
   slices = [this.borderWidth, this.borderColor, this.cornerRadius, this.padding, this.background, this.backgroundOpacity, this.headerColor, this.headerBold, this.headerFontSize, this.itemColor, this.itemFontSize, this.itemSwatchSize, this.containerOrientation];
 }
 
@@ -580,6 +644,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
   valueLegend = new ValueLegendSettings();
   bubbleLegend = new BubbleLegendSettings();
   valuesLegend = new ValuesLegendSettings();
+  adminLevelsLegend = new AdminLevelsLegendSettings();
   controls = new ControlsSettings();
   legendContainer = new LegendContainerSettings();
   scaleBar = new ScaleBarSettings();
@@ -611,6 +676,7 @@ export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     this.bubbleLegend,
     this.glyphLegend,
     this.valuesLegend,
+    this.adminLevelsLegend,
     this.legendContainer,
     this.scaleBar,
     this.controls,

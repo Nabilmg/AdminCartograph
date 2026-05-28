@@ -64,7 +64,23 @@ function readRuleObjectsAt(cat: powerbi.DataViewCategoryColumn | null, i: number
   return out.size ? out : null;
 }
 
-export function prepareDataView(dv: powerbi.DataView | undefined, host: any): PreparedDataView {
+/**
+ * Optional aliasing maps from a bound (non-PCODE) value to the canonical
+ * ADM1_PCODE / ADM2_PCODE that the rest of the visual keys on. Built by
+ * the visual after country geometry is loaded, using the user's chosen
+ * link field on each level (Admin1 link field / Admin2 link field on
+ * card #1). Keys are normalised (uppercase, strip whitespace + `-` / `_`)
+ * so minor formatting differences in the bound column still match.
+ *
+ * When undefined the converter falls through to the existing PCODE-direct
+ * behaviour (the bound value is the canonical key).
+ */
+export interface LinkMaps {
+  admin1?: Map<string, string>;
+  admin2?: Map<string, string>;
+}
+
+export function prepareDataView(dv: powerbi.DataView | undefined, host: any, links?: LinkMaps): PreparedDataView {
   const empty: PreparedDataView = {
     areas: new Map(),
     hasStateBinding: false,
@@ -110,9 +126,25 @@ export function prepareDataView(dv: powerbi.DataView | undefined, host: any): Pr
   const areas = new Map<string, AreaDatum>();
   const ruleColorsByPcode: RuleColorMap = new Map();
 
+  // Translate a bound (name / alias) value to its canonical PCODE via the
+  // user's link field. Falls through to the bound value as-is whenever
+  // there's no map (default PCODE binding) or the value isn't in the map
+  // (lets the PCODE-tolerant fallback in visual.ts handle unrecognised
+  // strings without dropping them silently here).
+  const normLinkKey = (s: string): string => s.toUpperCase().replace(/[\s_\-]+/g, "");
+  const adm1Link = links?.admin1;
+  const adm2Link = links?.admin2;
+  const toCanonical = (raw: string | null, map: Map<string, string> | undefined): string | null => {
+    if (!raw) return raw;
+    if (!map || !map.size) return raw;
+    return map.get(normLinkKey(raw)) || raw;
+  };
+
   for (let i = 0; i < rowCount; i++) {
-    const statePcode = stateCat ? stringOrNull(stateCat.values[i]) : null;
-    const locPcode = locCat ? stringOrNull(locCat.values[i]) : null;
+    const rawState = stateCat ? stringOrNull(stateCat.values[i]) : null;
+    const rawLoc = locCat ? stringOrNull(locCat.values[i]) : null;
+    const statePcode = toCanonical(rawState, adm1Link);
+    const locPcode = toCanonical(rawLoc, adm2Link);
     const labelText = labelTextCat ? stringOrNull(labelTextCat.values[i]) : null;
 
     const colorValue = numericAt(colorCol, i);
