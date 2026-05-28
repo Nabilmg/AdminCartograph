@@ -1033,9 +1033,21 @@ export class Visual implements IVisual {
       stateAreas = this.aggregateToStates(prepared, country);
     }
 
+    // Projection fit set: zoom into whatever slice the user is
+    // currently focused on. In locality view that's adm2Visible (already
+    // narrowed by drill / slicer above). In Admin1 view we leave every
+    // state's polygon on the map (so the reader keeps geographical
+    // context) but tighten the projection to just the filtered states
+    // when a slicer is narrowing the data — matches the auto-zoom
+    // behaviour users see in Admin2 view.
+    let adm1FitFeatures = adm1Visible;
+    if (view === "states" && prepared.filteredStatePcodes && prepared.filteredStatePcodes.size && prepared.filteredStatePcodes.size < adm1Features.length) {
+      const narrowed = adm1Features.filter((f) => prepared.filteredStatePcodes!.has(f.properties.ADM1_PCODE));
+      if (narrowed.length) adm1FitFeatures = narrowed;
+    }
     const fitFC = view === "localities" && adm2Visible.length
       ? { type: "FeatureCollection", features: adm2Visible }
-      : { type: "FeatureCollection", features: adm1Visible };
+      : { type: "FeatureCollection", features: adm1FitFeatures };
     const { path, projection } = buildProjection(fitFC, width, height, 12);
 
     // Compute classification breaks from whichever features carry data.
