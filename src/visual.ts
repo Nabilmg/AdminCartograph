@@ -894,7 +894,7 @@ export class Visual implements IVisual {
       }
     }
 
-    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; labelText: string | null; sample: AreaDatum }>();
+    const sums = new Map<string, { color: number | null; bubble: number | null; label2: number | null; glyph: number[]; rawTally: Map<string, number>; labelText: string | null; tooltips: Map<string, { numericSum: number | null; firstText: string | null }>; sample: AreaDatum }>();
     for (const a of prepared.areas.values()) {
       let key: string | null;
       if (a.level === 1) {
@@ -903,7 +903,7 @@ export class Visual implements IVisual {
         key = a.parentPcode || childToParent.get(a.pcode) || null;
       }
       if (!key) continue;
-      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), labelText: null, sample: a });
+      if (!sums.has(key)) sums.set(key, { color: null, bubble: null, label2: null, glyph: [], rawTally: new Map(), labelText: null, tooltips: new Map(), sample: a });
       const acc = sums.get(key)!;
       if (a.colorValue != null) acc.color = (acc.color ?? 0) + a.colorValue;
       if (a.bubbleSize != null) acc.bubble = (acc.bubble ?? 0) + a.bubbleSize;
@@ -925,6 +925,29 @@ export class Visual implements IVisual {
       for (let i = 0; i < (a.glyphValues?.length || 0); i++) {
         acc.glyph[i] = (acc.glyph[i] || 0) + (a.glyphValues[i] || 0);
       }
+      // Tooltip extras: when the user has dropped fields into the
+      // Tooltips well, each child carries its own list. Aggregate by
+      // display name so the Admin1 tooltip still surfaces them.
+      // Numeric values are summed (matches how colorValue / bubble /
+      // labelValue2 roll up). Non-numeric values fall back to first
+      // non-empty — appropriate for text status columns ("High" /
+      // "Low") that tend to share a value across child districts.
+      if (a.tooltips && a.tooltips.length) {
+        for (const t of a.tooltips) {
+          const key2 = t.displayName;
+          const entry = acc.tooltips.get(key2) || { numericSum: null, firstText: null };
+          const raw = t.value == null ? "" : String(t.value);
+          // Strip thousands separators before parsing so formatted
+          // numerics like "1,234.5" still sum.
+          const n = raw.trim() === "" ? NaN : Number(raw.replace(/,/g, ""));
+          if (Number.isFinite(n)) {
+            entry.numericSum = (entry.numericSum ?? 0) + n;
+          } else if (!entry.firstText && raw) {
+            entry.firstText = raw;
+          }
+          acc.tooltips.set(key2, entry);
+        }
+      }
     }
 
     const modeOf = (m: Map<string, number>): string | null => {
@@ -936,6 +959,14 @@ export class Visual implements IVisual {
 
     const out = new Map<string, AreaDatum>();
     for (const [pcode, acc] of sums) {
+      const tooltips: powerbi.extensibility.VisualTooltipDataItem[] = [];
+      acc.tooltips.forEach((entry, displayName) => {
+        if (entry.numericSum != null) {
+          tooltips.push({ displayName, value: entry.numericSum.toLocaleString(undefined, { maximumFractionDigits: 2 }) });
+        } else if (entry.firstText) {
+          tooltips.push({ displayName, value: entry.firstText });
+        }
+      });
       out.set(pcode, {
         pcode,
         name: undefined,
@@ -952,7 +983,7 @@ export class Visual implements IVisual {
         glyphValues: acc.glyph,
         labelValue2: acc.label2,
         labelText1: acc.labelText,
-        tooltips: [],
+        tooltips,
         selectionId: acc.sample.selectionId,
         highlighted: acc.sample.highlighted
       });
