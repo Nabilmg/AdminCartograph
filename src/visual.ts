@@ -41,6 +41,12 @@ import IVisualHost = powerbi.extensibility.visual.IVisualHost;
 
 export class Visual implements IVisual {
   private host: IVisualHost;
+  /** Rendering events service. Tells the Power BI export pipeline
+   *  (PDF / PPT / page-thumbnail snapshots) when the visual has
+   *  finished drawing — without this, custom visuals are replaced
+   *  with a placeholder in exports because the host can't tell
+   *  they're done. Used in update(): started → render → finished. */
+  private events: powerbi.extensibility.IVisualEventService;
   private root: HTMLElement;
   private svg: SVGSVGElement;
   private mapGroup: SVGGElement;
@@ -135,6 +141,7 @@ export class Visual implements IVisual {
 
     this.settingsService = new FormattingSettingsService(options.host.createLocalizationManager());
     this.tooltipService = createTooltipServiceWrapper(this.host.tooltipService, this.root);
+    this.events = options.host.eventService;
     this.selectionManager = this.host.createSelectionManager();
     this.selectionManager.registerOnSelectCallback(() => this.refreshSelectionStyles());
 
@@ -344,6 +351,21 @@ export class Visual implements IVisual {
 
   public update(options: VisualUpdateOptions): void {
     if (!options || !options.viewport) return;
+    // Signal the start of the render so the Power BI export pipeline
+    // (PDF / PPT / page-thumbnail snapshots) can pin a "rendering in
+    // flight" timeout. Without the matching renderingFinished call
+    // below, the visual is replaced with a placeholder in exports.
+    try { this.events.renderingStarted(options); } catch { /* host may not support */ }
+    try {
+      this.renderInternal(options);
+      try { this.events.renderingFinished(options); } catch { /* ignore */ }
+    } catch (e) {
+      try { this.events.renderingFailed(options, (e as any)?.message || String(e)); } catch { /* ignore */ }
+      throw e;
+    }
+  }
+
+  private renderInternal(options: VisualUpdateOptions): void {
     this.lastUpdateOptions = options;
     const dv = options.dataViews && options.dataViews[0];
     this.settings = this.settingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, dv);
