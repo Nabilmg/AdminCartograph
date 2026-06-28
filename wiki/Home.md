@@ -26,9 +26,7 @@ manual.
   recommended path: upload any GeoJSON / TopoJSON, confirm the field
   mapping, render
 - [**Bundled Countries**](Bundled-Countries.md) — what ships in the
-  `.pbiviz` and how the dropdown auto-detects from your PCODE
-- [**Adding a Country to the Bundle**](Adding-Your-Own-Country-to-the-Bundle.md)
-  — bake a country into the visual at build time
+  `.pbiviz` (closed set) and how auto-detect picks one from your PCODE
 - [**PCODE Matching**](PCODE-Matching.md) — how the visual joins your
   data to geometry, and what to do when codes don't line up
 

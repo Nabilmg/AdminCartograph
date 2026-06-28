@@ -38,10 +38,11 @@ In the format pane → **1. Map setup** → **Country**, you'll see:
 ○ Custom (upload TopoJSON)
 ```
 
-The eight country options are auto-generated at build time from the
-zips in `country-geojson/`. See [Adding a Country to the
-Bundle](Adding-Your-Own-Country-to-the-Bundle.md) to extend or
-shrink this list.
+The eight country options are baked into the shipped `.pbiviz` —
+the bundled country set is closed. To use the visual with any
+other country, pick **Custom (upload TopoJSON)** and load the
+geometry at design time. See [Custom Geometry
+Upload](Custom-Geometry-Upload.md).
 
 ## Auto-detect
 
@@ -116,24 +117,9 @@ the visual's render code doesn't have to branch.
 For *uploaded* geometry, the field-mapping dropdowns do the same
 normalisation at runtime. See [Custom Geometry Upload](Custom-Geometry-Upload.md).
 
-## Removing a country from your build
+## Need a country that isn't in the bundle?
 
-The bundle is determined by what's in `country-geojson/`. To shrink
-it:
-
-```bash
-# Drop a country
-rm country-geojson/HTI.geojson.zip
-
-# Rebuild
-npm run release
-```
-
-The next `releases/AdminCartograph.pbiviz` will reflect the smaller
-bundle, and the country dropdown in the format pane will list only
-the remaining countries (the dropdown is auto-generated from
-`src/generated/countries.ts`, which the build writes).
-
-## Adding a country
-
-See [Adding a Country to the Bundle](Adding-Your-Own-Country-to-the-Bundle.md).
+Use **Custom (upload TopoJSON)** at design time. The bundled set
+shown above is closed; everything else is a per-report upload that
+persists with the `.pbix`. See [Custom Geometry
+Upload](Custom-Geometry-Upload.md).
