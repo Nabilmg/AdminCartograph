@@ -1,4 +1,35 @@
-# SVG Export
+# Exporting the visual
+
+Two distinct flows depending on what you need:
+
+| Goal | Path |
+|---|---|
+| Save / print the report **page** (and have the map render in it) | Power BI's built-in **File → Export → PDF / PowerPoint / Image** |
+| Grab the map by itself as editable vector source | The visual's own **SVG** button (below) |
+
+## Power BI Export to PDF / PowerPoint / Page Image
+
+AdminCartograph signals `renderingFinished` via the Power BI host's
+event service after each render, so the host's export pipeline (PDF,
+PPT, page-image snapshots, dashboard tile thumbnails) waits for the
+map to finish drawing and then captures it. The exported PDF / PPT
+slide contains the actual map — not the "Visual not supported"
+placeholder that custom visuals fall back to when they don't wire
+the event service.
+
+What you get out the other end:
+
+- Static raster of the map at its rendered size — no interactivity
+  (the host snapshots a frame; clicks, hover tooltips, zoom buttons
+  are gone in the export by design).
+- Choropleth, bubbles, glyphs, labels, legends, scale bar, and the
+  drill title pill if you were drilled when you triggered the
+  export — everything you see on the canvas.
+- The current view mode / drill state at the moment the export
+  fired. Drill into a state, then export, and that single state
+  fills the export.
+
+## SVG Export (vector source)
 
 A single export button in the controls panel lets you grab the
 visual as a self-contained SVG. No PNG button, no clipboard write,
@@ -42,11 +73,11 @@ copy it manually, you know it worked.
 ## The copy modal
 
 ```
-┌─ Copy SVG manually ─────────────────────────────────── × ─┐
+┌─ Copy SVG manually ─────────────────────────────── × ─┐
 │ The SVG includes every visible map element — choropleth,  │
 │ bubbles, charts, labels, legends, scale bar, drill pill.  │
 │                                                            │
-│ ┌──────────────────────────────────────────────────────┐  │
+│ ┌───────────────────────────────────────────────────────┐  │
 │ │ <svg xmlns="http://www.w3.org/2000/svg" …           │  │
 │ │   <style>…inlined CSS…</style>                      │  │
 │ │   <rect …/>                                         │  │
@@ -55,10 +86,10 @@ copy it manually, you know it worked.
 │ │   <g class="scale-bar-layer">…</g>                  │  │
 │ │   <g class="drill-pill-layer">…</g>                 │  │
 │ │ </svg>                                              │  │
-│ └──────────────────────────────────────────────────────┘  │
+│ └───────────────────────────────────────────────────────┘  │
 │                                                            │
 │ [Download .svg] [Select all] [Try copy]         [Close]   │
-└────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────┘
 ```
 
 - **Download .svg** is the primary action — saves the file

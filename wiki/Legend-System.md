@@ -1,27 +1,28 @@
 # Legend System
 
-AdminCartograph has three independent legends (one per data layer)
-plus a shared container that wraps any legends sharing the same
-canvas corner.
+AdminCartograph has four independent legends (one per data layer, plus
+the admin-levels legend) and a shared container that wraps any legends
+sharing the same canvas corner.
 
-## Four legends, one container
+## Five legends, one container
 
 | Legend | Card | Drives |
 |---|---|---|
 | Choropleth legend | #9 | Colour ramp + class breaks (or category swatches in Categorical mode) |
 | Bubble legend | #10 | Bubble size scale |
 | Pie / Column legend | #11 | Glyph categories (one per measure) |
-| Values legend | #12 | One `#` swatch per active label value source (Choropleth / Bubble / Label Value 2) |
-| Legend container | #13 | Frame styling, header style, orientation toggle |
+| Admin levels legend | #12 | Stroke samples for Admin1 / Admin2 borders, labelled with the level aliases |
+| Values legend | #13 | One `#` swatch per active label value source (Choropleth / Bubble / Label Value 2) |
+| Legend container | #14 | Frame styling, header style, orientation toggle |
 
 When two or more legends share a position (e.g. all set to
 "Bottom right"), they stack inside one rounded container in
-**map z-order**: Values legend → Glyph legend → Bubble legend →
-Choropleth legend (top to bottom). The container itself can be
-oriented vertical (default — top-to-bottom) or horizontal
-(side-by-side) via the container card's **Container orientation**
-dropdown. Otherwise
-each legend gets its own container in its own corner.
+**map z-order**: Values legend → Glyph legend → Admin levels →
+Bubble legend → Choropleth legend (top to bottom). The container
+itself can be oriented vertical (default — top-to-bottom) or
+horizontal (side-by-side) via the container card's
+**Container orientation** dropdown. Otherwise each legend gets its
+own container in its own corner.
 
 ## Choropleth legend (#9)
 
@@ -184,7 +185,38 @@ Categories
 The colours come from Pie / Column overlay → Category 1-8 colour
 pickers in input order.
 
-## Values legend (#12)
+## Admin levels legend (#12)
+
+A short stroke sample per administrative level with the level's
+alias as the label — explains the line styles drawn by the
+[Borders card (#5)](Borders-Settings.md).
+
+```
+Admin levels
+━━━ Governorate
+━━━ District
+```
+
+Stroke colour + width come from the Borders card (no separate
+swatch settings here), so changing borders updates the legend
+automatically. Labels come from the General card's
+**Admin1 alias** / **Admin2 alias** — defaults are `Admin1` /
+`Admin2`, but renames like `Governorate` / `District` flow through.
+
+| Setting | Default |
+|---|---|
+| Show | Off |
+| Show Admin1 | On |
+| Show Admin2 | On |
+| Title | empty (no header) |
+| Orientation | Vertical |
+| Position | Bottom left |
+| Size | Medium |
+
+The two per-level toggles let you draw just one row instead of
+both — useful for reports that only bind one level.
+
+## Values legend (#13)
 
 Explains the numbers shown on the map's labels by listing each
 bound measure with a `#` swatch in the matching label-value
@@ -216,7 +248,7 @@ Empty entries (a measure isn't bound, or its display name is
 blank) are skipped, so a single-source label setup produces a
 single-line legend.
 
-## Legend container (#13)
+## Legend container (#14)
 
 Frame styling shared by all three legends.
 
