@@ -143,6 +143,14 @@ Class 1 is the lightest / lowest, Class 5 the deepest / highest.
 Used for any polygon whose `Color Value` is null, missing, or — if
 *Treat 0 as no-data* is on — equal to zero.
 
+### "No data" in the legend
+
+When at least one visible polygon is rendered with this colour, the
+choropleth legend automatically appends a **No data** swatch row
+using the same colour. Skipped in **Transparent for no-data** mode
+(an opaque grey row in the legend would misrepresent invisible
+no-data polygons).
+
 ## Transparent for no-data
 
 | | |
