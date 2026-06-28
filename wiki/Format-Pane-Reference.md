@@ -1,14 +1,14 @@
 # Format Pane Reference
 
 Master index of every formatting card in AdminCartograph. The cards
-are numbered 1–16 in the format pane so you can walk top-down.
+are numbered 1–17 in the format pane so you can walk top-down.
 
 This page summarises each card and links to detailed pages where they
 deserve their own deep dive.
 
 | # | Card | What it controls | Detail page |
 |---|---|---|---|
-| 1 | Map setup | Country, view mode, background, interaction | [Map Setup Settings](Map-Setup-Settings.md) |
+| 1 | Map setup | Country, view mode, background, interaction, link fields | [Map Setup Settings](Map-Setup-Settings.md) |
 | 2 | Choropleth fill | Polygon colour, classification, breaks, no-data | [Choropleth Settings](Choropleth-Settings.md) |
 | 3 | Bubble overlay | Proportional bubble layer | [Bubble Settings](Bubble-Settings.md) |
 | 4 | Pie / Column overlay | Multi-measure glyph layer (Pie / Donut / Column / Concentric circles) | [Pie / Donut / Column Settings](Pie-Donut-Column-Settings.md) |
@@ -16,19 +16,20 @@ deserve their own deep dive.
 | 6 | Admin1 labels | Labels on Admin1 polygons | [Label Engine](Label-Engine.md) |
 | 7 | Admin2 labels — default view | Labels in the all-Admin2 view | [Label Engine](Label-Engine.md) |
 | 8 | Admin2 labels — drill view | Labels when drilled into one Admin1 | [Label Engine](Label-Engine.md) |
-| 9 | Choropleth legend | Colour-class legend | [Legend System](Legend-System.md) |
+| 9 | Choropleth legend | Colour-class legend (+ optional "No data" row) | [Legend System](Legend-System.md) |
 | 10 | Bubble legend | Bubble size legend | [Legend System](Legend-System.md) |
 | 11 | Pie / Column legend | Glyph categories legend | [Legend System](Legend-System.md) |
-| 12 | Values legend | One `#` swatch per active label measure (Choropleth / Bubble / Label Value 2) | [Legend System](Legend-System.md#values-legend-12) |
-| 13 | Legend container | Shared frame styling, header style, vertical / horizontal stacking | [Legend System](Legend-System.md#legend-container-13) |
-| 14 | Scale bar | Distance bar in km / miles | [Scale Bar](Scale-Bar.md) |
-| 15 | Map controls | Zoom / pan / SVG export buttons | [Map Controls and Navigation](Map-Controls-and-Navigation.md) |
-| 16 | About | Visual version + author (read-only) | — |
+| 12 | Admin levels legend | Stroke samples for Admin1 / Admin2 borders | [Legend System](Legend-System.md#admin-levels-legend-12) |
+| 13 | Values legend | One `#` swatch per active label measure (Choropleth / Bubble / Label Value 2) | [Legend System](Legend-System.md#values-legend-13) |
+| 14 | Legend container | Shared frame styling, header style, vertical / horizontal stacking | [Legend System](Legend-System.md#legend-container-14) |
+| 15 | Scale bar | Distance bar in km / miles | [Scale Bar](Scale-Bar.md) |
+| 16 | Map controls | Zoom / pan / SVG export buttons | [Map Controls and Navigation](Map-Controls-and-Navigation.md) |
+| 17 | About | Visual version + author (read-only) | — |
 
 ## Format pane mechanics
 
 Power BI's format pane is the right-hand panel that appears when a
-visual is selected. AdminCartograph contributes its 16 cards under
+visual is selected. AdminCartograph contributes its 17 cards under
 the **Format your visual** tab (paint roller icon).
 
 Each card has a header that toggles open/closed. Inside, **slices**
@@ -85,14 +86,12 @@ Internal property names (the keys of the `objects` block in
 `capabilities.json`) should stay stable so existing reports retain
 their persisted formatting after an upgrade.
 
-## About card (#16)
+## About card (#17)
 
 The bottom-most card is **About**, a read-only set of text slices
 listing the visual's version, the author's name and contact, the
 GitHub repository, and a brief description. It has no editable
-settings — it's a footer for "what visual am I looking at?" The
-card has no #16 prefix on the heading itself (only in the
-in-pane order).
+settings — it's a footer for "what visual am I looking at?"
 
 ## See also
 

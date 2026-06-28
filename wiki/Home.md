@@ -49,11 +49,14 @@ manual.
 - [**5. Borders**](Borders-Settings.md)
 - [**6 / 7 / 8. Label Cards**](Label-Engine.md) — Admin1, Admin2 default,
   Admin2 drill
-- [**9 / 10 / 11 / 12 / 13. Legends**](Legend-System.md) — Choropleth,
-  Bubble, Pie/Column, **Values**, Container
-- [**14. Scale Bar**](Scale-Bar.md)
-- [**15. Map Controls**](Map-Controls-and-Navigation.md)
-- **16. About** — visual version + author info (read-only card at the
+- [**9 / 10 / 11. Layer Legends**](Legend-System.md) — Choropleth,
+  Bubble, Pie / Column
+- [**12. Admin Levels Legend**](Legend-System.md#admin-levels-legend-12)
+- [**13. Values Legend**](Legend-System.md#values-legend-13)
+- [**14. Legend Container**](Legend-System.md#legend-container-14)
+- [**15. Scale Bar**](Scale-Bar.md)
+- [**16. Map Controls**](Map-Controls-and-Navigation.md)
+- **17. About** — visual version + author info (read-only card at the
   bottom of the format pane)
 
 ## Behaviours

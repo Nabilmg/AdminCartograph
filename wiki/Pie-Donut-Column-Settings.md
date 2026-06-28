@@ -200,6 +200,19 @@ Glyphs use `pointer-events: none`. Clicks fall through to the
 polygon below — so clicking a slice drills / filters the underlying
 Admin area instead of activating slice-level interaction.
 
+## Single-measure pies (one positive value)
+
+When multiple measures are bound but only one of them has a positive
+value for a given polygon (the others are 0 or null), that single
+slice covers the full 360°. The renderer detects this special case
+and draws a `<circle>` (or an even-odd annulus for **Donut**)
+instead of an SVG arc — an arc spanning a full circle starts and
+ends at the same point, which SVG treats as zero-length, so the
+naïve arc would render nothing.
+
+Pies with two or more positive slices use the standard arc path.
+Polygons with all-zero values render no glyph at all.
+
 ## Pie / Column legend
 
 A category legend lists each measure as a swatch + name. See
