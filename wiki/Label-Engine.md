@@ -80,6 +80,16 @@ without binding and you get an explicit no-op.
 > combination explicitly to keep showing it. Same for `Label Text 1`
 > (now requires *Name source = Label Text 1*).
 
+#### Fallback when nothing is bound for the chosen source
+
+If you pick a value source whose measure isn't bound (e.g. *Value
+source = Choropleth value* but only `Label Value 2` is bound), the
+label engine no longer silently drops the label — it falls back to
+whichever value IS bound, in priority order *choropleth → bubble →
+custom*. So `content = "Value only"` always shows something as
+long as ANY label measure is bound. Explicit picks still win
+whenever they produce output.
+
 ### Font family
 
 | | |

@@ -84,8 +84,17 @@ focused on the map".
 
 The visual stays in Admin1 view regardless of clicks or filters.
 Use this when you want a stable subnational choropleth that other
-visuals cross-filter against, but you don't want the map itself to
-zoom around.
+visuals cross-filter against.
+
+### Auto-zoom on slicer narrowing
+
+The Admin1 view still auto-zooms when a slicer narrows the data to
+a subset of states — the projection's fit set tightens to those
+states so the camera frames them at the largest readable size. Out-
+of-filter state polygons still render in the background with the
+existing dimmed-borders treatment (set **5. Borders → Filter
+dimming**); only the camera tightens. Matches the auto-zoom the
+Admin2 view has always had.
 
 ## Admin2 mode (locked)
 
