@@ -39,10 +39,12 @@ Upload](Custom-Geometry-Upload.md).
 
 ## Can I add my country to the bundle so my colleagues don't have to upload?
 
-Yes. Drop `<ISO3>.geojson.zip` (the OCHA COD geojson zip from
-fieldmaps.io) into `country-geojson/`, run `npm run release`,
-share the new `.pbiviz`. See [Adding a Country to the
-Bundle](Adding-Your-Own-Country-to-the-Bundle.md).
+No — the bundled set (AFG, COD, HTI, IRN, LBN, SDN, SYR, YEM) is
+closed. For any other country, use **Custom (upload TopoJSON)** at
+design time. The uploaded geometry persists with the `.pbix`, so
+once you save the report, anyone you share it with gets the
+geometry automatically — no upload step on their side. See
+[Custom Geometry Upload](Custom-Geometry-Upload.md).
 
 ## What format do I upload?
 

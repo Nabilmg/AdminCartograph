@@ -178,18 +178,13 @@ npm run release              # builds releases/AdminCartograph.pbiviz
 Imports into Power BI Desktop / Service via **Visualizations → ⋯ →
 Import a visual file**.
 
-## Roll your own bundled country (optional)
+## Bundled countries are a closed set
 
-The Custom upload flow is the recommended path. If you'd rather bake
-a country directly into the visual:
-
-```bash
-cp ~/Downloads/KEN.geojson.zip country-geojson/
-npm run release
-```
-
-Power BI's ~50 MB visual cap fits 50+ countries at default
-simplification.
+The shipped `.pbiviz` includes AFG, COD, HTI, IRN, LBN, SDN, SYR,
+YEM. That set is closed — additions aren't accepted. For any other
+country, end users go through the visual's design-time **Custom
+(upload TopoJSON)** flow; the uploaded geometry persists with the
+`.pbix` so anyone opening the saved report sees the right map.
 
 ## Project layout
 

@@ -52,12 +52,10 @@ visual reads the leading two characters of your PCODE values
 country.
 
 If your data isn't from one of the eight bundled countries, you have
-two options:
-
-- **(Recommended)** Upload your country's GeoJSON or TopoJSON. See
-  [Custom Geometry Upload](Custom-Geometry-Upload.md).
-- Or build a fresh `.pbiviz` with your country baked in. See
-  [Adding a Country to the Bundle](Adding-Your-Own-Country-to-the-Bundle.md).
+upload your country's GeoJSON or TopoJSON at design time via the
+**Custom (upload TopoJSON)** flow. The bundled set is closed; every
+other country comes in as a Custom upload. See [Custom Geometry
+Upload](Custom-Geometry-Upload.md).
 
 ## Step 5 — Format the map
 
