@@ -148,6 +148,45 @@ Empty input falls back to the default label. Internal role names
 in the field well are unchanged — these aliases only affect the
 display text on tooltips and the landing-page binding prompt.
 
+## Admin1 link field / Admin2 link field
+
+| | |
+|---|---|
+| Type | Text input |
+| Default | empty (= use canonical `ADM1_PCODE` / `ADM2_PCODE`) |
+| Placeholder | *ADM1_PCODE (default)* / *ADM2_PCODE (default)* |
+
+Optional. Names a property in the geometry to join against instead
+of the canonical PCODE. Useful when your data has **state names**
+(or any non-PCODE identifier) but no PCODE column:
+
+1. Drop your name column into the **Admin1 PCODE** data well (yes,
+   the PCODE well — the role just defines the join slot).
+2. Type the matching geometry property into **Admin1 link field**.
+   For the bundled fieldmaps.io data that's typically `ADM1_EN`. For
+   a custom-uploaded TopoJSON, use whatever property holds the
+   matching values in your file.
+3. Pick the country explicitly from the **Country** dropdown
+   (auto-detect needs an ISO3 prefix and can't sniff one from name
+   values).
+
+Same flow at Admin2 (`Admin2 link field`, e.g. `ADM2_EN`).
+
+### Matching is tolerant
+
+Comparison normalises both sides — uppercases, strips whitespace /
+`-` / `_` — so minor formatting differences ("Khartoum" vs
+"khartoum" vs "Khar-toum") still join.
+
+### Cross-filter still works
+
+The visual never mutates the geometry's canonical `ADM1_PCODE`.
+Polygons still carry the canonical PCODE in their `data-pcode`
+attribute, and the selection-ID chain still pins to your bound
+column — so external slicers in other visuals filter the map
+correctly, and clicking the map cross-filters back. The link
+field is a pure aliasing layer inside the data converter.
+
 ## Background color
 
 | | |
