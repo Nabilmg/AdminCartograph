@@ -36,6 +36,15 @@ export interface GlyphStyle {
    *  scale(1/zoom) so it keeps its authored on-screen size as the
    *  user zooms. Default true to match the bubble layer. */
   constantSize: boolean;
+  /** When true, values equal to 0 are treated as no-data — no slice /
+   *  column / ring is drawn for that measure, and the polygon's
+   *  whole glyph is skipped when every measure is 0. Mirrors the
+   *  choropleth's Treat 0 as no-data toggle. Zero slices were
+   *  already dropped by every draw path historically, so the
+   *  visible effect is limited to per-polygon skipping when the
+   *  user opts in.
+   */
+  zeroAsBlank: boolean;
 }
 
 export interface GlyphAnchor {

@@ -510,7 +510,8 @@
             ]
           }
         },
-        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, bubbles keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect bubbles to be a screen-space cue.", "type": { "bool": true } }
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, bubbles keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect bubbles to be a screen-space cue.", "type": { "bool": true } },
+        "zeroAsBlank": { "displayName": "Treat 0 as no-data", "description": "When on, a Bubble Size of exactly 0 is skipped instead of drawing a min-radius bubble.", "type": { "bool": true } }
       }
     },
 
@@ -556,7 +557,8 @@
             ]
           }
         },
-        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, glyphs (pie / donut / column / concentric) keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect glyphs to be a screen-space cue.", "type": { "bool": true } }
+        "constantSize": { "displayName": "Constant size on zoom", "description": "When on, glyphs (pie / donut / column / concentric) keep their on-screen size as the user zooms in. Default on — most cartographic visuals expect glyphs to be a screen-space cue.", "type": { "bool": true } },
+        "zeroAsBlank": { "displayName": "Treat 0 as no-data", "description": "When on, any bound measure whose value is exactly 0 is treated as missing on that polygon — its slice / column / ring is skipped. If every bound measure is 0 on a polygon, the whole glyph is skipped.", "type": { "bool": true } }
       }
     },
 

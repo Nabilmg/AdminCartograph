@@ -20,6 +20,10 @@ export interface BubbleStyle {
    *  scale(1/zoom) transform so it keeps its original on-screen size
    *  as the user zooms. Default true. */
   constantSize: boolean;
+  /** When true, a bubbleSize of exactly 0 is treated as no-data and
+   *  skipped entirely (no min-radius dot rendered). Mirrors the
+   *  choropleth's Treat 0 as no-data toggle. */
+  zeroAsBlank: boolean;
 }
 
 export interface BubbleAnchor {
@@ -65,6 +69,9 @@ export function renderBubbles(
       if (!code) return null;
       const datum = areaByPcode.get(code);
       if (!datum || datum.bubbleSize == null) return null;
+      // Treat 0 as no-data: skip the whole bubble instead of drawing
+      // a min-radius dot when the toggle is on.
+      if (style.zeroAsBlank && datum.bubbleSize === 0) return null;
       const anchorGeo = pickAnchor(f.geometry, { largestPartOnly: true, avoidHoles: false });
       if (!anchorGeo) return null;
       const projected = projection(anchorGeo as [number, number]);

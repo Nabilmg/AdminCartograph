@@ -241,10 +241,15 @@ class BubblesSettings extends FormattingSettingsCard {
     value: { value: "above", displayName: "Above bubble" }
   });
   constantSize = new formattingSettings.ToggleSwitch({ name: "constantSize", displayName: "Constant size on zoom", value: true });
+  // Same idea as choropleth's Treat 0 as no-data — when on, a
+  // Bubble Size of exactly 0 is skipped entirely instead of drawing
+  // a min-radius bubble. Useful when 0 means "no incidents / not
+  // reported" rather than "smallest observed value".
+  zeroAsBlank = new formattingSettings.ToggleSwitch({ name: "zeroAsBlank", displayName: "Treat 0 as no-data", value: false });
 
   name = "bubbles";
   displayName = "3. Bubble overlay";
-  slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement, this.constantSize];
+  slices = [this.show, this.fillColor, this.strokeColor, this.strokeWidth, this.opacity, this.minRadius, this.maxRadius, this.labelPlacement, this.constantSize, this.zeroAsBlank];
 }
 
 class GlyphChartSettings extends FormattingSettingsCard {
@@ -288,10 +293,16 @@ class GlyphChartSettings extends FormattingSettingsCard {
     value: { value: "above", displayName: "Above glyph" }
   });
   constantSize = new formattingSettings.ToggleSwitch({ name: "constantSize", displayName: "Constant size on zoom", value: true });
+  // When on, any single measure whose value is exactly 0 for a
+  // polygon is treated as missing — its slice / column / ring is
+  // skipped. If EVERY bound measure is 0 on that polygon, the whole
+  // glyph is skipped (matching how the choropleth's no-data setting
+  // treats 0 as absence rather than the smallest observed value).
+  zeroAsBlank = new formattingSettings.ToggleSwitch({ name: "zeroAsBlank", displayName: "Treat 0 as no-data", value: false });
 
   name = "glyphChart";
   displayName = "4. Pie / Column overlay";
-  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement, this.constantSize];
+  slices = [this.show, this.type, this.minSize, this.maxSize, this.scaleByTotal, this.stroke, this.strokeWidth, this.opacity, this.donutInnerRatio, this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.labelPlacement, this.constantSize, this.zeroAsBlank];
 }
 
 class GlyphLegendSettings extends FormattingSettingsCard {

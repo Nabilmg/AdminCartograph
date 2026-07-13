@@ -1310,7 +1310,8 @@ export class Visual implements IVisual {
           glyphStyle.color7.value.value,
           glyphStyle.color8.value.value
         ],
-        constantSize: glyphStyle.constantSize?.value ?? true
+        constantSize: glyphStyle.constantSize?.value ?? true,
+        zeroAsBlank: glyphStyle.zeroAsBlank?.value ?? false
       },
       this.zoomLevel
     );
@@ -1331,7 +1332,8 @@ export class Visual implements IVisual {
         opacity: bubbleStyle.opacity.value,
         minRadius: bubbleStyle.minRadius.value,
         maxRadius: bubbleStyle.maxRadius.value,
-        constantSize: bubbleStyle.constantSize?.value ?? true
+        constantSize: bubbleStyle.constantSize?.value ?? true,
+        zeroAsBlank: bubbleStyle.zeroAsBlank?.value ?? false
       },
       prepared.ruleColorsByPcode,
       this.zoomLevel
